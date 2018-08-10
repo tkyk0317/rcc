@@ -1,5 +1,6 @@
 mod lexer;
 mod token;
+mod ast;
 
 /**
  * メイン関数.
@@ -11,5 +12,8 @@ fn main() {
     let mut p = lexer::LexicalAnalysis::new(&s);
     p.next_token();
 
-    println!("{:?}", p.get_tokens());
+    // 抽象構文木作成.
+    let mut l = ast::Ast::new(p.get_tokens());
+    let ast = l.parse();
+    println!("{:?}", ast);
 }

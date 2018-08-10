@@ -44,6 +44,8 @@ impl<'a> LexicalAnalysis<'a> {
                         '=' => { token = TokenInfo::new(Token::Equal, v.to_string()); }
                         '+' => { token = TokenInfo::new(Token::Plus, v.to_string()); }
                         '-' => { token = TokenInfo::new(Token::Minus, v.to_string()); }
+                        '(' => { token = TokenInfo::new(Token::LeftBracket, v.to_string()); }
+                        ')' => { token = TokenInfo::new(Token::RightBracket, v.to_string()); }
                         _ => { token = TokenInfo::new(Token::Unknown, v.to_string()); }
                     }
                     self.tokens.push(token);
