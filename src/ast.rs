@@ -6,7 +6,7 @@ use token::Token;
  *
  * 以下の文法を元に抽象構文木を作成する.
  *
- * expr ::= term "+" term
+ * expr ::= term ("+" | "-") term
  * term ::= factor
  * factor ::= NUMBER
  */
@@ -75,7 +75,8 @@ impl<'a> Ast<'a> {
         let left = self.term(left_token);
         let ope_token = self.next();
 
-        if Token::Plus != ope_token.get_token_type() {
+        if Token::Plus != ope_token.get_token_type() &&
+           Token::Minus != ope_token.get_token_type(){
             // トークンを巻き戻す.
             self.recover(1);
             return Box::new(Node::new(TokenInfo::new(Token::Unknown, "".to_string())))
@@ -111,3 +112,4 @@ impl Node {
         Node { token: token, left: None, right: None }
     }
 }
+
