@@ -22,21 +22,26 @@ fn main() {
     p.read_token();
 
     let tokens = p.get_tokens();
-    println!("  push ${}", tokens[0].get_token_value());
-    println!("  mov ${}, %edx", tokens[2].get_token_value());
-    println!("  pop %rax");
+    println!("  sub $4, %rsp");
+    println!("  movl ${}, 0(%rsp)", tokens[0].get_token_value());
+    println!("  movl ${}, %edx", tokens[2].get_token_value());
+    println!("  movl 0(%rsp), %eax");
+    println!("  add $4, %rsp");
 
     // トークン種別に対応した命令を発行.
     if Token::Minus == tokens[1].get_token_type() {
-        println!("  sub %edx, %eax");
+        println!("  subl %edx, %eax");
     }
     else {
-        println!("  add %edx, %eax");
+        println!("  addl %edx, %eax");
     }
-    println!("  push %rax");
-    println!("  pop %rax");
-    println!("  pop %rbp");
 
+    println!("  sub $4, %rsp");
+    println!("  movl %eax, 0(%rsp)");
+    println!("  movl 0(%rsp), %eax");
+    println!("  add $4, %rsp");
+
+    println!("  pop %rbp");
     println!("  ret");
 
 /* 別の作成方法で実施するので一旦、コメントアウト
