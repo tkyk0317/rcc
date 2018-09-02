@@ -15,8 +15,11 @@ test() {
     rm ${exe}.s ${exe}
 }
 
-test 29 29
-test 128 128
-test 255 255
+test 1+2 3
+test 10+20 30
+test 100+101 201
+test 20-1 19
+test 20-10 10
+test 20-19 1
 #test 256 256 # 255までしか数値を扱うことができない
 

@@ -33,5 +33,10 @@ impl TokenInfo {
     pub fn get_token_type(&self) -> Token {
         self.token.clone()
     }
+
+    // トークン値取得.
+    pub fn get_token_value(&self) -> String{
+        self.val.clone()
+    }
 }
 

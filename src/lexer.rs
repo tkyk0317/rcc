@@ -22,7 +22,7 @@ impl<'a> LexicalAnalysis<'a> {
     }
 
     // トークン読み込み.
-    pub fn next_token (&mut self) {
+    pub fn read_token(&mut self) {
         // 終了まで読み込み、字句解析を行う.
         while false == self.is_eof() {
             // 空白部分は読み飛ばし.
