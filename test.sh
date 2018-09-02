@@ -15,6 +15,9 @@ test() {
     rm ${exe}.s ${exe}
 }
 
+# ビルドを実行してからテスト
+cargo b
+
 test 1+2 3
 test 10+20 30
 test 100+101 201

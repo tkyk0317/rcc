@@ -23,12 +23,12 @@ fn main() {
     p.read_token();
 
     // 加減算実施.
-    let mut operation_token = Token::Unknown;
+    let mut ope_token = Token::Unknown;
     for t in p.get_tokens() {
         match t.get_token_type() {
             // 数値.
             Token::Number => {
-                if operation_token == Token::Unknown {
+                if ope_token == Token::Unknown {
                     println!("  sub $4, %rsp");
                     println!("  movl ${}, 0(%rsp)", t.get_token_value());
                 }
@@ -38,7 +38,7 @@ fn main() {
                     println!("  add $4, %rsp");
 
                     // 演算子を評価.
-                    if Token::Plus == operation_token {
+                    if Token::Plus == ope_token {
                         println!("  addl %edx, %eax");
                     }
                     else {
@@ -50,7 +50,7 @@ fn main() {
             }
             // 加算/減算演算子.
             Token::Plus | Token::Minus => {
-                operation_token = t.get_token_type();
+                ope_token = t.get_token_type();
             }
             _ => {
                 process::abort();
