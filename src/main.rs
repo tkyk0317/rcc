@@ -4,6 +4,7 @@ mod token;
 mod ast;
 */
 
+use std::process;
 use token::Token;
 
 /**
@@ -21,23 +22,45 @@ fn main() {
     let mut p = lexer::LexicalAnalysis::new(&s);
     p.read_token();
 
+    // 加減算実施.
+    let mut first_flag = true;
+    let mut operation_token = Token::Unknown;
     let tokens = p.get_tokens();
-    println!("  sub $4, %rsp");
-    println!("  movl ${}, 0(%rsp)", tokens[0].get_token_value());
-    println!("  movl ${}, %edx", tokens[2].get_token_value());
-    println!("  movl 0(%rsp), %eax");
-    println!("  add $4, %rsp");
+    for t in tokens {
+        match t.get_token_type() {
+            // 数値.
+            Token::Number => {
+                if first_flag {
+                    println!("  sub $4, %rsp");
+                    println!("  movl ${}, 0(%rsp)", t.get_token_value());
+                }
+                else {
+                    println!("  movl ${}, %edx", t.get_token_value());
+                    println!("  movl 0(%rsp), %eax");
+                    println!("  add $4, %rsp");
 
-    // トークン種別に対応した命令を発行.
-    if Token::Minus == tokens[1].get_token_type() {
-        println!("  subl %edx, %eax");
-    }
-    else {
-        println!("  addl %edx, %eax");
+                    // 演算子を評価.
+                    if Token::Plus == operation_token {
+                        println!("  addl %edx, %eax");
+                    }
+                    else {
+                        println!("  subl %edx, %eax");
+                    }
+                    println!("  sub $4, %rsp");
+                    println!("  movl %eax, 0(%rsp)");
+                }
+            }
+            // 加算/減算演算子.
+            Token::Plus | Token::Minus => {
+                operation_token = t.get_token_type();
+            }
+            _ => {
+                process::abort();
+            }
+        }
+        first_flag = false;
     }
 
-    println!("  sub $4, %rsp");
-    println!("  movl %eax, 0(%rsp)");
     println!("  movl 0(%rsp), %eax");
     println!("  add $4, %rsp");
 
