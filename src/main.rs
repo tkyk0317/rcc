@@ -23,14 +23,12 @@ fn main() {
     p.read_token();
 
     // 加減算実施.
-    let mut first_flag = true;
     let mut operation_token = Token::Unknown;
-    let tokens = p.get_tokens();
-    for t in tokens {
+    for t in p.get_tokens() {
         match t.get_token_type() {
             // 数値.
             Token::Number => {
-                if first_flag {
+                if operation_token == Token::Unknown {
                     println!("  sub $4, %rsp");
                     println!("  movl ${}, 0(%rsp)", t.get_token_value());
                 }
@@ -58,7 +56,6 @@ fn main() {
                 process::abort();
             }
         }
-        first_flag = false;
     }
 
     println!("  movl 0(%rsp), %eax");
