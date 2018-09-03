@@ -10,6 +10,7 @@ pub enum Token {
     Equal,            // イコール演算子.
     Plus,             // プラス演算子.
     Minus,            // マイナス演算子.
+    Multi,            // 乗算演算子.
     LeftBracket,      // 左括弧.
     RightBracket,     // 右括弧.
     Unknown,          // 不明.
