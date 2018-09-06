@@ -1,115 +1,183 @@
 use token::TokenInfo;
 use token::Token;
 
-/**
- * 抽象構文木.
- *
- * 以下の文法を元に抽象構文木を作成する.
- *
- * expr ::= term ("+" | "-") term
- * term ::= factor
- * factor ::= NUMBER
- */
-
-type AstNode = Box<Node>;
-
-// 抽象構文木ノード.
-#[derive(Debug,Clone)]
-pub struct Node {
-    token: TokenInfo,        // トークン情報.
-    left: Option<AstNode>,   // 左ノード.
-    right: Option<AstNode>,  // 右ノード.
-}
-
 #[derive(Debug,Clone)]
 pub struct Ast<'a> {
     tokens: &'a Vec<TokenInfo>,     // トークン配列.
     current_pos: usize,             // 現在読み取り位置.
-    current_node: Option<AstNode>,  // 現在ノード.
+    ast: Vec<TokenInfo>,            // 抽象構文木.
 }
 
 // AST実装.
+//
+// 文法.
+//   Expr ::= Term '+' | Term - | Expr
+//   Term ::= Fact
+//   Fact ::= NUMBER
 impl<'a> Ast<'a> {
     // コンストラクタ.
     pub fn new (tokens: &Vec<TokenInfo>) -> Ast {
-        Ast {
-            current_node: None,
-            current_pos: 0,
-            tokens: tokens
-        }
+        Ast { current_pos: 0, tokens: tokens, ast: Vec::new(), }
     }
 
     // トークン列を受け取り、抽象構文木を返す.
-    pub fn parse(&mut self) -> AstNode {
+    pub fn parse(&mut self) {
         // 文法に従いながら解析を行う.
         let _token = self.next();
         match _token.get_token_type() {
             Token::Number => {
-                self.expr()
+                self.expr();
             }
-            _ => {
-                Box::new(Node::new(TokenInfo::new(Token::Unknown, "".to_string())))
-            }
+            _ => panic!("Not Support Token")
         }
     }
 
+    // 抽象構文木.
+    pub fn get_ast(&self) -> &Vec<TokenInfo> { &self.ast }
+
     // トークン読み取り.
     fn next(&mut self) -> TokenInfo {
+        if self.current_pos >= self.tokens.len() {
+            return TokenInfo::new(Token::Unknown, "".to_string());
+        }
         self.tokens[self.current_pos].clone()
     }
 
     // 読み取り位置更新.
-    fn consume(&mut self) {
-        self.current_pos = self.current_pos + 1;
-    }
-
-    // 現在位置を巻き戻す.
-    fn recover(&mut self, i: usize) {
-        self.current_pos = self.current_pos - i
-    }
+    fn consume(&mut self) { self.current_pos = self.current_pos + 1; }
 
     // expression.
-    fn expr(&mut self) -> AstNode {
-        let left_token = self.next();
-        self.consume();
-        let left = self.term(left_token);
-        let ope_token = self.next();
+    fn expr(&mut self) {
+        let left = self.factor();
+        let ope = self.next();
 
-        if Token::Plus != ope_token.get_token_type() &&
-           Token::Minus != ope_token.get_token_type(){
-            // トークンを巻き戻す.
-            self.recover(1);
-            return Box::new(Node::new(TokenInfo::new(Token::Unknown, "".to_string())))
+        if ope.get_token_type() == Token::Plus || ope.get_token_type() == Token::Minus {
+            self.consume();
+            self.ope_add(ope, left);
+            self.expr();
         }
+        else {
+            self.ast.push(left);
+        }
+   }
 
-        // 加算演算子生成.
+    // factor.
+    fn factor(&mut self) -> TokenInfo {
+        let token = self.next();
         self.consume();
-        let right_token = self.next();
-        self.consume();
-        let right = self.term(right_token);
-        self.ope_add(ope_token, left, right)
+        token
     }
 
     // 加算演算子.
-    fn ope_add(&mut self, token: TokenInfo, left: AstNode, right: AstNode) -> AstNode {
-        Box::new(Node { token: token, left: Some(left), right: Some(right) })
-    }
-
-    // ターム.
-    fn term(&mut self, token: TokenInfo) -> AstNode {
-        self.factor(token)
-    }
-
-    // ファクター.
-    fn factor(&mut self, token: TokenInfo) -> AstNode {
-        Box::new(Node::new(token))
+    fn ope_add(&mut self, ope: TokenInfo, left: TokenInfo) {
+        self.ast.push(ope);
+        self.ast.push(left);
     }
 }
 
-impl Node {
-    // コンストラクタ.
-    pub fn new(token: TokenInfo) -> Node {
-        Node { token: token, left: None, right: None }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_operator() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Plus, '+'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Plus, '+'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Number, '2'.to_string()))
+    }
+
+    #[test]
+    fn test_add_operator_some_augend() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Plus, '+'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Plus, '+'.to_string()),
+                TokenInfo::new(Token::Number, '3'.to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Plus, '+'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Plus, '+'.to_string()));
+        assert_eq!(tree[3], TokenInfo::new(Token::Number, '2'.to_string()));
+        assert_eq!(tree[4], TokenInfo::new(Token::Number, '3'.to_string()))
+    }
+
+    #[test]
+    fn test_sub_operator() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Minus, '-'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Minus, '-'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Number, '2'.to_string()))
+    }
+
+    #[test]
+    fn test_sub_operator_some_augent() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Minus, '-'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Minus, '-'.to_string()),
+                TokenInfo::new(Token::Number, '5'.to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Minus, '-'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Minus, '-'.to_string()));
+        assert_eq!(tree[3], TokenInfo::new(Token::Number, '2'.to_string()));
+        assert_eq!(tree[4], TokenInfo::new(Token::Number, '5'.to_string()))
+    }
+
+    #[test]
+    fn test_add_sub_operator() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Plus, '+'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Minus, '-'.to_string()),
+                TokenInfo::new(Token::Number, '5'.to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Plus, '+'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Minus, '-'.to_string()));
+        assert_eq!(tree[3], TokenInfo::new(Token::Number, '2'.to_string()));
+        assert_eq!(tree[4], TokenInfo::new(Token::Number, '5'.to_string()))
     }
 }
-

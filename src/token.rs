@@ -17,7 +17,7 @@ pub enum Token {
 }
 
 // トークンデータ.
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq)]
 pub struct TokenInfo {
     token: Token,  // トークン種別.
     val: String,   // 内容.

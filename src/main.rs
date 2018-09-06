@@ -1,8 +1,6 @@
 mod lexer;
 mod token;
-/* 別の作成方法で実施するので一旦、コメントアウト
 mod ast;
-*/
 
 use std::process;
 use token::Token;
@@ -78,11 +76,4 @@ fn main() {
     println!("  add $4, %rsp");
     println!("  pop %rbp");
     println!("  ret");
-
-/* 別の作成方法で実施するので一旦、コメントアウト
-    // 抽象構文木作成.
-    let mut l = ast::Ast::new(p.get_tokens());
-    let ast = l.parse();
-    println!("{:?}", ast);
-*/
 }
