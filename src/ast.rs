@@ -11,7 +11,7 @@ pub struct Ast<'a> {
 // AST実装.
 //
 // 文法.
-//   Expr ::= Term '+' | Term - | Expr
+//   Expr ::= Term '+' | Term - | Term * | Expr
 //   Term ::= Fact
 //   Fact ::= NUMBER
 impl<'a> Ast<'a> {
@@ -48,16 +48,16 @@ impl<'a> Ast<'a> {
 
     // expression.
     fn expr(&mut self) {
-        let left = self.factor();
+        let token = self.factor();
         let ope = self.next();
 
-        if ope.get_token_type() == Token::Plus || ope.get_token_type() == Token::Minus {
-            self.consume();
-            self.ope_add(ope, left);
-            self.expr();
-        }
-        else {
-            self.ast.push(left);
+        match ope.get_token_type() {
+            Token::Plus | Token::Minus | Token::Multi => {
+                self.consume();
+                self.operator(ope, token);
+                self.expr();
+            }
+            _ => self.ast.push(token)
         }
    }
 
@@ -69,7 +69,7 @@ impl<'a> Ast<'a> {
     }
 
     // 加算演算子.
-    fn ope_add(&mut self, ope: TokenInfo, left: TokenInfo) {
+    fn operator(&mut self, ope: TokenInfo, left: TokenInfo) {
         self.ast.push(ope);
         self.ast.push(left);
     }
@@ -180,4 +180,46 @@ mod tests {
         assert_eq!(tree[3], TokenInfo::new(Token::Number, '2'.to_string()));
         assert_eq!(tree[4], TokenInfo::new(Token::Number, '5'.to_string()))
     }
+
+    #[test]
+    fn test_mul_operator() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Multi, '*'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Multi, '*'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Number, '2'.to_string()))
+    }
+
+    #[test]
+    fn test_mul_operator_some_augent() {
+        let data =
+            vec![
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Multi, '*'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Multi, '*'.to_string()),
+                TokenInfo::new(Token::Number, "100".to_string())
+            ];
+        let mut ast = Ast::new(&data);
+        ast.parse();
+
+        // 期待値確認.
+        let tree = ast.get_ast();
+        assert_eq!(tree[0], TokenInfo::new(Token::Multi, '*'.to_string()));
+        assert_eq!(tree[1], TokenInfo::new(Token::Number, '1'.to_string()));
+        assert_eq!(tree[2], TokenInfo::new(Token::Multi, '*'.to_string()));
+        assert_eq!(tree[3], TokenInfo::new(Token::Number, '2'.to_string()));
+        assert_eq!(tree[4], TokenInfo::new(Token::Number,"100".to_string()))
+    }
+
 }
+
