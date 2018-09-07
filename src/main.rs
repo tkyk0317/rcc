@@ -3,17 +3,17 @@ mod token;
 mod ast;
 
 use std::process;
-use token::Token;
-use lexer::LexicalAnalysis;
+use ast::Ast;
+use ast::Expr;
 
 /**
  * 演算子をアセンブラへ.
  */
-fn operator(ope_token: &Token) {
-    match *ope_token {
-        Token::Multi =>  println!("  mull %edx"),
-        Token::Plus => println!("  addl %edx, %eax"),
-        Token::Minus => println!("  subl %edx, %eax"),
+fn operator(ope: &Expr) {
+    match *ope {
+        Expr::Multiple(_, _) => println!("  mull %edx"),
+        Expr::Plus(_, _)     => println!("  addl %edx, %eax"),
+        Expr::Minus(_, _)    => println!("  subl %edx, %eax"),
         _ => process::abort()
     }
 }
@@ -21,35 +21,26 @@ fn operator(ope_token: &Token) {
 /**
  * 式評価.
  */
-fn expression(tokens: &LexicalAnalysis) {
-    let mut ope_token = Token::Unknown;
-    for t in tokens.get_tokens() {
-        match t.get_token_type() {
+fn expression(ast: &Expr) {
+    match *ast {
+        Expr::Plus(ref a, ref b) |
+        Expr::Minus(ref a, ref b) |
+        Expr::Multiple(ref a, ref b) => {
+            expression(a);
+            expression(b);
+
+            // 各演算子評価.
+            println!("  movl 0(%rsp), %edx\n  add $4, %rsp");
+            println!("  movl 0(%rsp), %eax\n  add $4, %rsp");
+            operator(ast);
+
+            // 演算結果をrspへ退避.
+            println!("  sub $4, %rsp\n  movl %eax, 0(%rsp)");
+        }
+        Expr::Factor(a) => {
             // 数値.
-            Token::Number => {
-                println!("  sub $4, %rsp");
-                println!("  movl ${}, 0(%rsp)", t.get_token_value());
-
-                // 各数値をレジスタへ.
-                if ope_token != Token::Unknown {
-                    println!("  movl 0(%rsp), %edx\n  add $4, %rsp");
-                    println!("  movl 0(%rsp), %eax\n  add $4, %rsp");
-
-                    // 各演算子評価.
-                    operator(&ope_token);
-
-                    // 演算結果をrspへ退避.
-                    println!("  sub $4, %rsp\n  movl %eax, 0(%rsp)");
-                }
-            }
-            // 加算/減算/乗算演算子.
-            Token::Plus | Token::Minus | Token::Multi=> {
-                ope_token = t.get_token_type();
-            }
-            _ => {
-                println!("Not Support Token");
-                process::abort();
-            }
+            println!("  sub $4, %rsp");
+            println!("  movl ${}, 0(%rsp)", a);
         }
     }
 }
@@ -68,9 +59,10 @@ fn main() {
     std::io::stdin().read_line(&mut s).unwrap();
     let mut p = lexer::LexicalAnalysis::new(&s);
     p.read_token();
+    let mut ast = Ast::new(p.get_tokens());
 
     // 演算実施.
-    expression(&p);
+    expression(&ast.parse());
 
     println!("  movl 0(%rsp), %eax");
     println!("  add $4, %rsp");
