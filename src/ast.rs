@@ -57,22 +57,23 @@ impl<'a> Ast<'a> {
 
     // sub logical.
     fn sub_logical(&mut self, acc: Expr) -> Expr {
+        let create = |ope: Token, left, right| {
+            match ope {
+                Token::LogicalAnd => Expr::LogicalAnd(Box::new(left), Box::new(right)),
+                _ => Expr::LogicalOr(Box::new(left), Box::new(right))
+            }
+        };
+
         let ope_type = self.next().get_token_type();
         match ope_type {
             Token::LogicalAnd | Token::LogicalOr => {
                 self.consume();
                 let right = self.relation();
-                let tree = if ope_type == Token::LogicalAnd {
-                    self.logical_and(acc, right)
-                }
-                else {
-                    self.logical_or(acc, right)
-                };
-                self.sub_logical(tree)
+                self.sub_logical(create(ope_type, acc, right))
             }
             _ => acc
         }
-     }
+    }
 
     // relation.
     fn relation(&mut self) -> Expr {
@@ -82,26 +83,26 @@ impl<'a> Ast<'a> {
 
     // sub relation.
     fn sub_relation(&mut self, acc: Expr) -> Expr {
+        let create = |ope: Token, left, right| {
+            match ope {
+                Token::Equal => Expr::Equal(Box::new(left), Box::new(right)),
+                Token::NotEqual => Expr::NotEqual(Box::new(left), Box::new(right)),
+                Token::LessThan => Expr::LessThan(Box::new(left), Box::new(right)),
+                Token::GreaterThan => Expr::GreaterThan(Box::new(left), Box::new(right)),
+                Token::LessThanEqual => Expr::LessThanEqual(Box::new(left), Box::new(right)),
+                Token::GreaterThanEqual => Expr::GreaterThanEqual(Box::new(left), Box::new(right)),
+                _ => panic!("Not Support Token Type {:?}", ope)
+            }
+        };
+
         let ope_type = self.next().get_token_type();
         match ope_type {
-            Token::Equal |
-            Token::NotEqual |
-            Token::LessThan |
-            Token::GreaterThan |
-            Token::LessThanEqual |
-            Token::GreaterThanEqual => {
+            Token::Equal | Token::NotEqual |
+            Token::LessThan | Token::LessThanEqual |
+            Token::GreaterThan | Token::GreaterThanEqual => {
                 self.consume();
                 let right = self.expr(None);
-                let tree = match ope_type {
-                    Token::Equal => self.equal(acc, right),
-                    Token::NotEqual => self.not_equal(acc, right),
-                    Token::LessThan => self.less_than(acc, right),
-                    Token::GreaterThan => self.greater_than(acc, right),
-                    Token::LessThanEqual => self.less_than_equal(acc, right),
-                    Token::GreaterThanEqual => self.greater_than_equal(acc, right),
-                    _ => panic!("relation: not support operator {:?}", ope_type)
-                };
-                self.sub_relation(tree)
+                self.sub_relation(create(ope_type, acc, right))
             }
             _ => acc
         }
@@ -115,16 +116,19 @@ impl<'a> Ast<'a> {
 
     // add or sub expression.
     fn expr_add_sub(&mut self, acc: Expr) -> Expr {
+        let create = |ope, left, right| {
+            match ope {
+                Token::Plus => Expr::Plus(Box::new(left), Box::new(right)),
+                _ => Expr::Minus(Box::new(left), Box::new(right))
+            }
+        };
+
         let ope = self.next();
         match ope.get_token_type() {
             Token::Plus | Token::Minus => {
                 self.consume();
                 let right = self.term(None);
-                let tree = match ope.get_token_type() {
-                    Token::Plus => self.plus(acc, right),
-                    _ => self.minus(acc, right)
-                };
-                self.expr_add_sub(tree)
+                self.expr_add_sub(create(ope.get_token_type(), acc, right))
             }
             _ => self.term(Some(acc))
         }
@@ -138,17 +142,20 @@ impl<'a> Ast<'a> {
 
     // multiple and division term.
     fn term_multi_div(&mut self, acc: Expr) -> Expr {
+        let create = |ope, left, right| {
+            match ope {
+                Token::Multi => Expr::Multiple(Box::new(left), Box::new(right)),
+                Token::Division => Expr::Division(Box::new(left), Box::new(right)),
+                _ => Expr::Remainder(Box::new(left), Box::new(right))
+            }
+        };
+
         let ope = self.next();
         match ope.get_token_type() {
             Token::Multi | Token::Division | Token::Remainder => {
                 self.consume();
                 let right = self.factor(None);
-                let tree = match ope.get_token_type() {
-                    Token::Multi => self.multiple(acc, right),
-                    Token::Division => self.division(acc, right),
-                    _ => self.remainder(acc, right)
-                };
-                self.term_multi_div(tree)
+                self.term_multi_div(create(ope.get_token_type(), acc, right))
             }
             _ => self.factor(Some(acc))
         }
@@ -173,70 +180,6 @@ impl<'a> Ast<'a> {
             },
             _ => acc.unwrap()
         }
-    }
-
-    // logical or.
-    fn logical_or(&self, left: Expr, right: Expr) -> Expr {
-        Expr::LogicalOr(Box::new(left), Box::new(right))
-    }
-
-    // logical and.
-    fn logical_and(&self, left: Expr, right: Expr) -> Expr {
-        Expr::LogicalAnd(Box::new(left), Box::new(right))
-    }
-
-    // equal.
-    fn equal(&self, left: Expr, right: Expr) -> Expr {
-        Expr::Equal(Box::new(left), Box::new(right))
-    }
-
-    // not equal.
-    fn not_equal(&self, left: Expr, right: Expr) -> Expr {
-        Expr::NotEqual(Box::new(left), Box::new(right))
-    }
-
-    // less than.
-    fn less_than(&self, left: Expr, right: Expr) -> Expr {
-        Expr::LessThan(Box::new(left), Box::new(right))
-    }
-
-    // greater than.
-    fn greater_than(&self, left: Expr, right: Expr) -> Expr {
-        Expr::GreaterThan(Box::new(left), Box::new(right))
-    }
-
-    // less than equal.
-    fn less_than_equal(&self, left: Expr, right: Expr) -> Expr {
-        Expr::LessThanEqual(Box::new(left), Box::new(right))
-    }
-
-    // greater than equal.
-    fn greater_than_equal(&self, left: Expr, right: Expr) -> Expr {
-        Expr::GreaterThanEqual(Box::new(left), Box::new(right))
-    }
-    // plus.
-    fn plus(&self, left: Expr, right: Expr) -> Expr {
-        Expr::Plus(Box::new(left), Box::new(right))
-    }
-
-    // minus.
-    fn minus(&self, left: Expr, right: Expr) -> Expr {
-        Expr::Minus(Box::new(left), Box::new(right))
-    }
-
-    // multipler.
-    fn multiple(&self, left: Expr, right: Expr) -> Expr {
-       Expr::Multiple(Box::new(left), Box::new(right))
-    }
-
-    // division.
-    fn division(&self, left: Expr, right: Expr) -> Expr {
-        Expr::Division(Box::new(left), Box::new(right))
-    }
-
-    // remainder.
-    fn remainder(&self, left: Expr, right: Expr) -> Expr {
-        Expr::Remainder(Box::new(left), Box::new(right))
     }
 
     // number
