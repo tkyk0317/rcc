@@ -30,79 +30,71 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        // 文法に従いながら解析を行う.
-        let token = self.next_consume();
-        match token.get_token_type() {
-            Token::Number => self.expr(token),
-            _ => panic!("not support token type {:?}", token)
-        }
+        self.expr()
     }
 
     // expression.
-    fn expr(&mut self, cur: TokenInfo) -> Expr {
+    fn expr(&mut self) -> Expr {
         // 各非終端記号ごとに処理を行う.
+        let cur = self.next_consume();
         let ope = self.next();
         match ope.get_token_type() {
-            Token::Plus | Token::Minus | Token::Multi => self.expr_add_sub(cur),
+            Token::Plus | Token::Minus | Token::Multi => {
+                let factor = self.factor(cur);
+                self.expr_add_sub(factor)
+            }
             _ => panic!("Not Support Token Type: {:?}", ope)
         }
     }
 
     // term.
-    fn term(&mut self, cur: TokenInfo) -> Expr {
-        let left_factor = self.factor(cur);
+    fn term(&mut self, cur: Expr) -> Expr {
         let ope = self.next_consume();
-
         match ope.get_token_type() {
             Token::Multi => {
                 let right_token = self.next_consume();
-                let recur_factor = self.term(right_token);
-                self.multiple(left_factor, recur_factor)
+                let right_factor = self.factor(right_token);
+                let left_factor = self.multiple(cur, right_factor);
+
+                // 次の演算子を確認.
+                let next_ope = self.next();
+                match next_ope.get_token_type() {
+                    Token::Multi => self.term(left_factor),
+                    // 次の演算子は乗算演算子以外.
+                    _ => self.expr_add_sub(left_factor)
+                }
             }
             _ => {
                 self.back(1);
-                left_factor
+                cur
             }
         }
-
     }
 
     // plus/minus expression.
-    fn expr_add_sub(&mut self, cur: TokenInfo) -> Expr {
-        let left_factor = self.term(cur);
+    fn expr_add_sub(&mut self, cur: Expr) -> Expr {
         let ope = self.next_consume();
-
         match ope.get_token_type() {
-            Token::Plus => {
+            Token::Plus | Token::Minus => {
                 // 加減算演算子AST作成.
                 let right_token = self.next_consume();
+                let _right_factor = self.factor(right_token);
+                let right_factor = self.term(_right_factor);
+                let left_factor = match ope.get_token_type() {
+                    Token::Plus => self.plus(cur, right_factor),
+                    _ => self.minus(cur, right_factor)
+                };
+
+                // 次の演算子を確認.
                 let next_ope = self.next();
-                if next_ope.get_token_type() == Token::Plus ||
-                   next_ope.get_token_type() == Token::Minus {
-                    let factor2 = self.expr_add_sub(right_token);
-                    self.plus(left_factor, factor2)
-                }
-                else {
-                    let right_factor = self.term(right_token);
-                    self.plus(left_factor, right_factor)
+                match next_ope.get_token_type() {
+                    Token::Plus | Token::Minus => self.expr_add_sub(left_factor),
+                    _ => self.term(left_factor)
                 }
             }
-            Token::Minus => {
-                let right_token = self.next_consume();
-                let next_ope = self.next();
-                if next_ope.get_token_type() == Token::Plus ||
-                   next_ope.get_token_type() == Token::Minus {
-                    let factor2 = self.expr_add_sub(right_token);
-                    self.minus(left_factor, factor2)
-                }
-                else {
-                    let right_factor = self.term(right_token);
-                    self.minus(left_factor, right_factor)
-                }
-             }
             _ => {
                 self.back(1);
-                left_factor
+                self.term(cur)
             }
         }
     }
@@ -125,7 +117,7 @@ impl<'a> Ast<'a> {
     // factor.
     fn factor(&mut self, cur: TokenInfo) -> Expr {
         if Token::Number == cur.get_token_type() { Expr::Factor(cur.get_token_value().parse::<i64>().unwrap()) }
-        else { self.expr(cur) }
+        else { self.expr() }
     }
 
     // トークン読み取り.
@@ -195,11 +187,11 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::Plus(
-                    Box::new(Expr::Factor(1)),
                     Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3))
-                    ))
+                        Box::new(Expr::Factor(1)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Factor(3))
                 )
             )
         }
@@ -222,14 +214,14 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::Plus(
-                    Box::new(Expr::Factor(1)),
                     Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(2)),
                         Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(3)),
-                            Box::new(Expr::Factor(4))
-                        ))
-                    ))
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
+                        )),
+                        Box::new(Expr::Factor(3)),
+                    )),
+                    Box::new(Expr::Factor(4)),
                 )
             )
         }
@@ -274,11 +266,11 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::Minus(
-                    Box::new(Expr::Factor(100)),
                     Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3))
-                    ))
+                        Box::new(Expr::Factor(100)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Factor(3))
                 )
             )
         }
@@ -301,14 +293,14 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::Minus(
-                    Box::new(Expr::Factor(1)),
                     Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(2)),
                         Box::new(Expr::Minus(
-                            Box::new(Expr::Factor(3)),
-                            Box::new(Expr::Factor(4))
-                        ))
-                    ))
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
+                        )),
+                        Box::new(Expr::Factor(3)),
+                    )),
+                    Box::new(Expr::Factor(4)),
                 )
             )
         }
@@ -353,11 +345,11 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::Multiple(
-                    Box::new(Expr::Factor(1)),
                     Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3))
-                    ))
+                        Box::new(Expr::Factor(1)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Factor(3))
                 )
             )
         }
@@ -380,14 +372,14 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::Multiple(
-                    Box::new(Expr::Factor(1)),
                     Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(2)),
                         Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(3)),
-                            Box::new(Expr::Factor(4))
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
                         )),
+                        Box::new(Expr::Factor(3))
                     )),
+                    Box::new(Expr::Factor(4))
                 )
             )
         }
