@@ -14,9 +14,6 @@ pub enum Expr {
     Minus(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
     Factor(i64),
-    LeftBracket,
-    RightBracket,
-    Unknown,
 }
 
 #[derive(Debug,Clone)]
@@ -39,18 +36,17 @@ impl<'a> Ast<'a> {
         match cur.get_token_type() {
             Token::Number => {
                 let factor = self.number(cur);
-                self.expr(factor)
+                self.expr(Some(factor))
             }
             Token::LeftBracket => {
-                let factor = Expr::LeftBracket;
-                self.expr(factor)
+                self.expr(None)
             }
             _ => panic!("Not Support Token Type: {:?}", cur)
         }
     }
 
     // expression
-    fn expr(&mut self, acc: Expr) -> Expr {
+    fn expr(&mut self, acc: Option<Expr>) -> Expr {
         let factor = self.term(acc);
         self.expr_add_sub(factor)
     }
@@ -61,19 +57,19 @@ impl<'a> Ast<'a> {
         match ope.get_token_type() {
             Token::Plus | Token::Minus => {
                 self.consume();
-                let right = self.term(Expr::Unknown);
+                let right = self.term(None);
                 let tree = match ope.get_token_type() {
                     Token::Plus => self.plus(acc, right),
                     _ => self.minus(acc, right)
                 };
                 self.expr_add_sub(tree)
             }
-            _ => self.term(acc)
+            _ => self.term(Some(acc))
         }
     }
 
     // term.
-    fn term(&mut self, acc: Expr) -> Expr {
+    fn term(&mut self, acc: Option<Expr>) -> Expr {
         let factor = self.factor(acc);
         self.term_multi(factor)
     }
@@ -84,18 +80,18 @@ impl<'a> Ast<'a> {
         match ope.get_token_type() {
             Token::Multi => {
                 self.consume();
-                let right = self.factor(Expr::Unknown);
+                let right = self.factor(None);
                 let tree = self.multiple(acc, right);
                 self.term_multi(tree)
             }
             _ => {
-                self.factor(acc)
+                self.factor(Some(acc))
             }
         }
     }
 
     // factor.
-    fn factor(&mut self, acc: Expr) -> Expr {
+    fn factor(&mut self, acc: Option<Expr>) -> Expr {
         let token = self.next();
         match token.get_token_type() {
             Token::Number => {
@@ -105,13 +101,13 @@ impl<'a> Ast<'a> {
             Token::LeftBracket => {
                 self.consume();
                 let factor = self.factor(acc);
-                self.expr_add_sub(factor)
+                self.expr(Some(factor))
             }
             Token::RightBracket => {
                 self.consume();
-                acc
+                acc.unwrap()
             },
-            _ => acc
+            _ => acc.unwrap()
         }
     }
 
