@@ -39,7 +39,9 @@ impl Asm {
             Expr::Division(ref a, ref b) |
             Expr::Remainder(ref a, ref b) |
             Expr::Equal(ref a, ref b) |
-            Expr::NotEqual(ref a, ref b) => {
+            Expr::NotEqual(ref a, ref b) |
+            Expr::LessThan(ref a, ref b) |
+            Expr::GreaterThan(ref a, ref b)  => {
                 self.generate(a);
                 self.generate(b);
 
@@ -74,13 +76,15 @@ impl Asm {
     // 演算子アセンブラ生成.
     fn operator(&self, ope: &Expr) -> String {
         match *ope {
-            Expr::Multiple(_, _)  => "  imull %ecx\n".to_string(),
-            Expr::Plus(_, _)      => "  addl %ecx, %eax\n".to_string(),
-            Expr::Minus(_, _)     => "  subl %ecx, %eax\n".to_string(),
-            Expr::Division(_, _)  => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
-            Expr::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
-            Expr::Equal(_, _)     => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::NotEqual(_, _)  => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
+            Expr::Multiple(_, _)    => "  imull %ecx\n".to_string(),
+            Expr::Plus(_, _)        => "  addl %ecx, %eax\n".to_string(),
+            Expr::Minus(_, _)       => "  subl %ecx, %eax\n".to_string(),
+            Expr::Division(_, _)    => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            Expr::Remainder(_, _)   => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            Expr::Equal(_, _)       => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
+            Expr::NotEqual(_, _)    => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
+            Expr::LessThan(_, _)    => "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string(),
+            Expr::GreaterThan(_, _) => "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string(),
             _ => process::abort()
         }
     }

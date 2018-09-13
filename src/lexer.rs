@@ -59,6 +59,8 @@ impl<'a> LexicalAnalysis<'a> {
                                 token = TokenInfo::new(Token::Unknown, v.to_string());
                             }
                         }
+                        '>' => { token = TokenInfo::new(Token::GreaterThan, v.to_string()); }
+                        '<' => { token = TokenInfo::new(Token::LessThan, v.to_string()); }
                         '+' => { token = TokenInfo::new(Token::Plus, v.to_string()); }
                         '-' => { token = TokenInfo::new(Token::Minus, v.to_string()); }
                         '*' => { token = TokenInfo::new(Token::Multi, v.to_string()); }
