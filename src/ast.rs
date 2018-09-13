@@ -5,7 +5,7 @@ use token::Token;
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
-//   <MultiDivTerm> ::= ['*'|'.'] <Factor> <MultiDivTerm>
+//   <MultiDivTerm> ::= ['*'|'.'|'%'] <Factor> <MultiDivTerm>
 //   <Factor> ::= '(' NUMBER ')'
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +14,7 @@ pub enum Expr {
     Minus(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
     Division(Box<Expr>, Box<Expr>),
+    Remainder(Box<Expr>, Box<Expr>),
     Factor(i64),
 }
 
@@ -68,12 +69,13 @@ impl<'a> Ast<'a> {
     fn term_multi_div(&mut self, acc: Expr) -> Expr {
         let ope = self.next();
         match ope.get_token_type() {
-            Token::Multi | Token::Division => {
+            Token::Multi | Token::Division | Token::Remainder => {
                 self.consume();
                 let right = self.factor(None);
                 let tree = match ope.get_token_type() {
                     Token::Multi => self.multiple(acc, right),
-                    _ => self.division(acc, right)
+                    Token::Division => self.division(acc, right),
+                    _ => self.remainder(acc, right)
                 };
                 self.term_multi_div(tree)
             }
@@ -120,6 +122,11 @@ impl<'a> Ast<'a> {
     // division.
     fn division(&self, left: Expr, right: Expr) -> Expr {
         Expr::Division(Box::new(left), Box::new(right))
+    }
+
+    // remainder.
+    fn remainder(&self, left: Expr, right: Expr) -> Expr {
+        Expr::Remainder(Box::new(left), Box::new(right))
     }
 
     // number

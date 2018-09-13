@@ -12,6 +12,7 @@ pub enum Token {
     Minus,            // マイナス演算子.
     Multi,            // 乗算演算子.
     Division,         // 除算演算子.
+    Remainder,        // 余り演算子.
     LeftBracket,      // 左括弧.
     RightBracket,     // 右括弧.
     Unknown,          // 不明.

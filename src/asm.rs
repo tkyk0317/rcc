@@ -36,16 +36,20 @@ impl Asm {
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
-            Expr::Division(ref a, ref b) => {
+            Expr::Division(ref a, ref b) |
+            Expr::Remainder(ref a, ref b) => {
                 self.generate(a);
                 self.generate(b);
 
                 // 各演算子評価.
-                self.inst = format!("{}{}{}", self.inst, self.push_stack("ecx"), self.push_stack("eax"));
+                self.inst = format!("{}{}{}", self.inst, self.pop_stack("ecx"), self.pop_stack("eax"));
                 self.inst = format!("{}{}", self.inst, self.operator(ast));
 
-                // 演算結果をrspへ退避.
-                self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n  movl %eax, 0(%rsp)\n");
+                // 演算子に応じて退避するレジスタを変更.
+                match *ast {
+                    Expr::Remainder(_, _) => self.inst = format!("{}{}", self.inst, self.push_stack("edx")),
+                    _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
+                }
             }
             Expr::Factor(a) => {
                 // 数値.
@@ -55,18 +59,24 @@ impl Asm {
         }
     }
 
-    // スタックプッシュ.
-    fn push_stack(&self, reg: &str) -> String {
+    // スタックポップ.
+    fn pop_stack(&self, reg: &str) -> String {
         format!("  movl 0(%rsp), %{}\n  add $4, %rsp\n", reg)
+    }
+
+    // プッシュスタック
+    fn push_stack(&self, reg: &str) -> String {
+        format!("  sub $4, %rsp\n  movl %{}, 0(%rsp)\n", reg)
     }
 
     // 演算子アセンブラ生成.
     fn operator(&self, ope: &Expr) -> String {
         match *ope {
-            Expr::Multiple(_, _) => "  imull %ecx\n".to_string(),
-            Expr::Plus(_, _)     => "  addl %ecx, %eax\n".to_string(),
-            Expr::Minus(_, _)    => "  subl %ecx, %eax\n".to_string(),
-            Expr::Division(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            Expr::Multiple(_, _)  => "  imull %ecx\n".to_string(),
+            Expr::Plus(_, _)      => "  addl %ecx, %eax\n".to_string(),
+            Expr::Minus(_, _)     => "  subl %ecx, %eax\n".to_string(),
+            Expr::Division(_, _)  => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            Expr::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             _ => process::abort()
         }
     }
