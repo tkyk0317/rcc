@@ -2,7 +2,7 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
-//   <Relation> ::= <Expr> ['==' | '!=' | '<' | '>'] <Expr>
+//   <Relation> ::= <Expr> ['==' | '!=' | '<' | '>' | '>=' | '<='] <Expr>
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
@@ -15,6 +15,8 @@ pub enum Expr {
     NotEqual(Box<Expr>, Box<Expr>),
     LessThan(Box<Expr>, Box<Expr>),
     GreaterThan(Box<Expr>, Box<Expr>),
+    LessThanEqual(Box<Expr>, Box<Expr>),
+    GreaterThanEqual(Box<Expr>, Box<Expr>),
     Plus(Box<Expr>, Box<Expr>),
     Minus(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
@@ -46,7 +48,12 @@ impl<'a> Ast<'a> {
         let left = self.expr(None);
         let ope_type = self.next().get_token_type();
         match ope_type {
-            Token::Equal | Token::NotEqual | Token::LessThan | Token::GreaterThan => {
+            Token::Equal |
+            Token::NotEqual |
+            Token::LessThan |
+            Token::GreaterThan |
+            Token::LessThanEqual |
+            Token::GreaterThanEqual => {
                 self.consume();
                 let right = self.expr(None);
                 match ope_type {
@@ -54,6 +61,8 @@ impl<'a> Ast<'a> {
                     Token::NotEqual => self.not_equal(left, right),
                     Token::LessThan => self.less_than(left, right),
                     Token::GreaterThan => self.greater_than(left, right),
+                    Token::LessThanEqual => self.less_than_equal(left, right),
+                    Token::GreaterThanEqual => self.greater_than_equal(left, right),
                     _ => panic!("relation: not support operator {:?}", ope_type)
                 }
             }
@@ -149,6 +158,15 @@ impl<'a> Ast<'a> {
         Expr::GreaterThan(Box::new(left), Box::new(right))
     }
 
+    // less than equal.
+    fn less_than_equal(&self, left: Expr, right: Expr) -> Expr {
+        Expr::LessThanEqual(Box::new(left), Box::new(right))
+    }
+
+    // greater than equal.
+    fn greater_than_equal(&self, left: Expr, right: Expr) -> Expr {
+        Expr::GreaterThanEqual(Box::new(left), Box::new(right))
+    }
     // plus.
     fn plus(&mut self, left: Expr, right: Expr) -> Expr {
         Expr::Plus(Box::new(left), Box::new(right))
@@ -850,6 +868,40 @@ mod tests {
                  )
             )
         }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Multi, '*'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::LessThanEqual, "<=".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Minus, '-'.to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LessThanEqual(
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Multiple(
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
+                        )),
+                        Box::new(Expr::Factor(1))
+                    )),
+                    Box::new(Expr::Minus(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(4))
+                    ))
+                 )
+            )
+        }
     }
 
     #[test]
@@ -874,6 +926,40 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::GreaterThan(
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Multiple(
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
+                        )),
+                        Box::new(Expr::Factor(1))
+                    )),
+                    Box::new(Expr::Minus(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(4))
+                    ))
+                 )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Multi, '*'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::GreaterThanEqual, ">=".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Minus, '-'.to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::GreaterThanEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
                             Box::new(Expr::Factor(1)),

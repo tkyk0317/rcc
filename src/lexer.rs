@@ -59,8 +59,24 @@ impl<'a> LexicalAnalysis<'a> {
                                 token = TokenInfo::new(Token::Unknown, v.to_string());
                             }
                         }
-                        '>' => { token = TokenInfo::new(Token::GreaterThan, v.to_string()); }
-                        '<' => { token = TokenInfo::new(Token::LessThan, v.to_string()); }
+                        '>' => {
+                            if true == self.is_greater_than_equal(v) {
+                                self.skip();
+                                token = TokenInfo::new(Token::GreaterThanEqual, v.to_string());
+                            }
+                            else {
+                                token = TokenInfo::new(Token::GreaterThan, v.to_string());
+                            }
+                        }
+                        '<' => {
+                            if true == self.is_less_than_equal(v) {
+                                self.skip();
+                                token = TokenInfo::new(Token::LessThanEqual, v.to_string());
+                            }
+                            else {
+                                token = TokenInfo::new(Token::LessThan, v.to_string());
+                            }
+                        }
                         '+' => { token = TokenInfo::new(Token::Plus, v.to_string()); }
                         '-' => { token = TokenInfo::new(Token::Minus, v.to_string()); }
                         '*' => { token = TokenInfo::new(Token::Multi, v.to_string()); }
@@ -146,6 +162,22 @@ impl<'a> LexicalAnalysis<'a> {
         match self.read() {
             Some(a) if a == '=' && v == '!' => true,
             _  => false
+        }
+    }
+
+    // 比較演算子(>=)チェック
+    fn is_greater_than_equal(&self, v: char) -> bool {
+        match self.read() {
+            Some(a) if v == '>' && a == '=' => true,
+            _ => false
+        }
+    }
+
+    // 比較演算子(<=)チェック
+    fn is_less_than_equal(&self, v: char) -> bool {
+        match self.read() {
+            Some(a) if v == '<' && a == '=' => true,
+            _ => false
         }
     }
 }

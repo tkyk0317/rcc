@@ -41,7 +41,9 @@ impl Asm {
             Expr::Equal(ref a, ref b) |
             Expr::NotEqual(ref a, ref b) |
             Expr::LessThan(ref a, ref b) |
-            Expr::GreaterThan(ref a, ref b)  => {
+            Expr::GreaterThan(ref a, ref b) |
+            Expr::LessThanEqual(ref a, ref b) |
+            Expr::GreaterThanEqual(ref a, ref b)  => {
                 self.generate(a);
                 self.generate(b);
 
@@ -84,6 +86,8 @@ impl Asm {
             Expr::NotEqual(_, _) => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
             Expr::LessThan(_, _) => "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string(),
             Expr::GreaterThan(_, _) => "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string(),
+            Expr::LessThanEqual(_, _) => "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string(),
+            Expr::GreaterThanEqual(_, _) => "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string(),
             _ => process::abort()
         }
     }
