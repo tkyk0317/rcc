@@ -2,16 +2,21 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
-//   <Expr> ::= <Term> [ ['+' | '-']  <Term>]*
-//   <Term> ::= <Factor> ['*' <Factor>]*
-//   <Factor> ::= [NUMBER]* | <Expr>
+//   <Expr> ::= <Term> <AddSubExpr>
+//   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
+//   <Term> ::= <Factor> <SubTerm>
+//   <MultiTerm> ::= '*' <Factor> <MultiTerm>
+//   <Factor> ::= '(' NUMBER ')'
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Plus(Box<Expr>, Box<Expr>),
     Minus(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
-    Factor(i64)
+    Factor(i64),
+    LeftBracket,
+    RightBracket,
+    Unknown,
 }
 
 #[derive(Debug,Clone)]
@@ -21,7 +26,6 @@ pub struct Ast<'a> {
 }
 
 // AST実装.
-//
 impl<'a> Ast<'a> {
     // コンストラクタ.
     pub fn new (tokens: &Vec<TokenInfo>) -> Ast {
@@ -30,72 +34,84 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        self.expr()
-    }
-
-    // expression.
-    fn expr(&mut self) -> Expr {
         // 各非終端記号ごとに処理を行う.
         let cur = self.next_consume();
+        match cur.get_token_type() {
+            Token::Number => {
+                let factor = self.number(cur);
+                self.expr(factor)
+            }
+            Token::LeftBracket => {
+                let factor = Expr::LeftBracket;
+                self.expr(factor)
+            }
+            _ => panic!("Not Support Token Type: {:?}", cur)
+        }
+    }
+
+    // expression
+    fn expr(&mut self, acc: Expr) -> Expr {
+        let factor = self.term(acc);
+        self.expr_add_sub(factor)
+    }
+
+    // add or sub expression.
+    fn expr_add_sub(&mut self, acc: Expr) -> Expr {
         let ope = self.next();
         match ope.get_token_type() {
-            Token::Plus | Token::Minus | Token::Multi => {
-                let factor = self.factor(cur);
-                self.expr_add_sub(factor)
+            Token::Plus | Token::Minus => {
+                self.consume();
+                let right = self.term(Expr::Unknown);
+                let tree = match ope.get_token_type() {
+                    Token::Plus => self.plus(acc, right),
+                    _ => self.minus(acc, right)
+                };
+                self.expr_add_sub(tree)
             }
-            _ => panic!("Not Support Token Type: {:?}", ope)
+            _ => self.term(acc)
         }
     }
 
     // term.
-    fn term(&mut self, cur: Expr) -> Expr {
-        let ope = self.next_consume();
+    fn term(&mut self, acc: Expr) -> Expr {
+        let factor = self.factor(acc);
+        self.term_multi(factor)
+    }
+
+    // multiple term.
+    fn term_multi(&mut self, acc: Expr) -> Expr {
+        let ope = self.next();
         match ope.get_token_type() {
             Token::Multi => {
-                let right_token = self.next_consume();
-                let right_factor = self.factor(right_token);
-                let left_factor = self.multiple(cur, right_factor);
-
-                // 次の演算子を確認.
-                let next_ope = self.next();
-                match next_ope.get_token_type() {
-                    Token::Multi => self.term(left_factor),
-                    // 次の演算子は乗算演算子以外.
-                    _ => self.expr_add_sub(left_factor)
-                }
+                self.consume();
+                let right = self.factor(Expr::Unknown);
+                let tree = self.multiple(acc, right);
+                self.term_multi(tree)
             }
             _ => {
-                self.back(1);
-                cur
+                self.factor(acc)
             }
         }
     }
 
-    // plus/minus expression.
-    fn expr_add_sub(&mut self, cur: Expr) -> Expr {
-        let ope = self.next_consume();
-        match ope.get_token_type() {
-            Token::Plus | Token::Minus => {
-                // 加減算演算子AST作成.
-                let right_token = self.next_consume();
-                let _right_factor = self.factor(right_token);
-                let right_factor = self.term(_right_factor);
-                let left_factor = match ope.get_token_type() {
-                    Token::Plus => self.plus(cur, right_factor),
-                    _ => self.minus(cur, right_factor)
-                };
-
-                // 次の演算子を確認.
-                let next_ope = self.next();
-                match next_ope.get_token_type() {
-                    Token::Plus | Token::Minus => self.expr_add_sub(left_factor),
-                    _ => self.term(left_factor)
-                }
+    // factor.
+    fn factor(&mut self, acc: Expr) -> Expr {
+        let token = self.next();
+        match token.get_token_type() {
+            Token::Number => {
+                self.consume();
+                self.number(token)
             }
-            _ => {
-                self.back(1);
-                self.term(cur)
+            Token::LeftBracket => {
+                self.consume();
+                let factor = self.factor(acc);
+                self.expr_add_sub(factor)
             }
+            Token::RightBracket => {
+                self.consume();
+                acc
+            },
+            _ => acc
         }
     }
 
@@ -114,10 +130,9 @@ impl<'a> Ast<'a> {
        Expr::Multiple(Box::new(left), Box::new(right))
     }
 
-    // factor.
-    fn factor(&mut self, cur: TokenInfo) -> Expr {
-        if Token::Number == cur.get_token_type() { Expr::Factor(cur.get_token_value().parse::<i64>().unwrap()) }
-        else { self.expr() }
+    // number
+    fn number(&mut self, token: TokenInfo ) -> Expr {
+        Expr::Factor(token.get_token_value().parse::<i64>().unwrap())
     }
 
     // トークン読み取り.
@@ -138,9 +153,9 @@ impl<'a> Ast<'a> {
         token
     }
 
-    // 読み取り位置巻き戻し.
-    fn back(&mut self, i: usize) {
-        self.current_pos = self.current_pos - i;
+    // 読み取り位置更新.
+    fn consume(&mut self) {
+        self.current_pos = self.current_pos + 1;
     }
 }
 
@@ -431,6 +446,58 @@ mod tests {
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Multiple(
+                        Box::new(Expr::Factor(2)),
+                        Box::new(Expr::Factor(3))
+                    ))
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_bracket() {
+        // カッコのテスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::RightBracket, ")".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Plus(
+                    Box::new(Expr::Factor(1)),
+                    Box::new(Expr::Factor(2))
+                )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::RightBracket, ")".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Plus(
+                    Box::new(Expr::Factor(1)),
+                    Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
                         Box::new(Expr::Factor(3))
                     ))

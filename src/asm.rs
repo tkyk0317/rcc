@@ -52,13 +52,14 @@ impl Asm {
                 self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n");
                 self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
             }
+            _ => panic!("Not Support Expr")
         }
     }
 
     // 演算子アセンブラ生成.
     fn operator(&self, ope: &Expr) -> String {
         match *ope {
-            Expr::Multiple(_, _) => "  mull %edx\n".to_string(),
+            Expr::Multiple(_, _) => "  imull %edx\n".to_string(),
             Expr::Plus(_, _)     => "  addl %edx, %eax\n".to_string(),
             Expr::Minus(_, _)    => "  subl %edx, %eax\n".to_string(),
             _ => process::abort()
