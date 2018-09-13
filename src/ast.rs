@@ -5,7 +5,7 @@ use token::Token;
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
-//   <MultiTerm> ::= '*' <Factor> <MultiTerm>
+//   <MultiDivTerm> ::= ['*'|'.'] <Factor> <MultiDivTerm>
 //   <Factor> ::= '(' NUMBER ')'
 
 #[derive(Debug, Clone, PartialEq)]
@@ -13,6 +13,7 @@ pub enum Expr {
     Plus(Box<Expr>, Box<Expr>),
     Minus(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
+    Division(Box<Expr>, Box<Expr>),
     Factor(i64),
 }
 
@@ -60,18 +61,21 @@ impl<'a> Ast<'a> {
     // term.
     fn term(&mut self, acc: Option<Expr>) -> Expr {
         let factor = self.factor(acc);
-        self.term_multi(factor)
+        self.term_multi_div(factor)
     }
 
-    // multiple term.
-    fn term_multi(&mut self, acc: Expr) -> Expr {
+    // multiple and division term.
+    fn term_multi_div(&mut self, acc: Expr) -> Expr {
         let ope = self.next();
         match ope.get_token_type() {
-            Token::Multi => {
+            Token::Multi | Token::Division => {
                 self.consume();
                 let right = self.factor(None);
-                let tree = self.multiple(acc, right);
-                self.term_multi(tree)
+                let tree = match ope.get_token_type() {
+                    Token::Multi => self.multiple(acc, right),
+                    _ => self.division(acc, right)
+                };
+                self.term_multi_div(tree)
             }
             _ => self.factor(Some(acc))
         }
@@ -111,6 +115,11 @@ impl<'a> Ast<'a> {
     // multipler.
     fn multiple(&mut self, left: Expr, right: Expr) -> Expr {
        Expr::Multiple(Box::new(left), Box::new(right))
+    }
+
+    // division.
+    fn division(&self, left: Expr, right: Expr) -> Expr {
+        Expr::Division(Box::new(left), Box::new(right))
     }
 
     // number
@@ -384,6 +393,85 @@ mod tests {
     }
 
     #[test]
+    fn test_div_operator() {
+        // 単純な乗算テスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string())
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Division(
+                    Box::new(Expr::Factor(1)),
+                    Box::new(Expr::Factor(2))
+                )
+            )
+        }
+        // 複数の減算テスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, '1'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '2'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '3'.to_string())
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Division(
+                    Box::new(Expr::Division(
+                        Box::new(Expr::Factor(1)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Factor(3))
+                )
+            )
+        }
+        // 複数の減算テスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, '1'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '2'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '3'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '4'.to_string())
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Division(
+                    Box::new(Expr::Division(
+                        Box::new(Expr::Division(
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
+                        )),
+                        Box::new(Expr::Factor(3))
+                    )),
+                    Box::new(Expr::Factor(4))
+                )
+            )
+        }
+    }
+
+    #[test]
     fn test_mix_operator() {
         // 複数演算子のテスト.
         {
@@ -429,6 +517,56 @@ mod tests {
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Multiple(
+                        Box::new(Expr::Factor(2)),
+                        Box::new(Expr::Factor(3))
+                    ))
+                )
+            )
+        }
+        // 複数演算子のテスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, '1'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '2'.to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, '3'.to_string())
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Plus(
+                    Box::new(Expr::Division(
+                        Box::new(Expr::Factor(1)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Factor(3)),
+                )
+            )
+        }
+        // 複数演算子のテスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, '1'.to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, '2'.to_string()),
+                    TokenInfo::new(Token::Division, '/'.to_string()),
+                    TokenInfo::new(Token::Number, '3'.to_string())
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Plus(
+                    Box::new(Expr::Factor(1)),
+                    Box::new(Expr::Division(
                         Box::new(Expr::Factor(2)),
                         Box::new(Expr::Factor(3))
                     ))

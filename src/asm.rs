@@ -35,13 +35,13 @@ impl Asm {
         match *ast {
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
-            Expr::Multiple(ref a, ref b) => {
+            Expr::Multiple(ref a, ref b) |
+            Expr::Division(ref a, ref b) => {
                 self.generate(a);
                 self.generate(b);
 
                 // 各演算子評価.
-                self.inst = format!("{}{}", self.inst, "  movl 0(%rsp), %edx\n  add $4, %rsp\n");
-                self.inst = format!("{}{}", self.inst, "  movl 0(%rsp), %eax\n  add $4, %rsp\n");
+                self.inst = format!("{}{}{}", self.inst, self.push_stack("ecx"), self.push_stack("eax"));
                 self.inst = format!("{}{}", self.inst, self.operator(ast));
 
                 // 演算結果をrspへ退避.
@@ -52,16 +52,21 @@ impl Asm {
                 self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n");
                 self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
             }
-            _ => panic!("Not Support Expr")
         }
+    }
+
+    // スタックプッシュ.
+    fn push_stack(&self, reg: &str) -> String {
+        format!("  movl 0(%rsp), %{}\n  add $4, %rsp\n", reg)
     }
 
     // 演算子アセンブラ生成.
     fn operator(&self, ope: &Expr) -> String {
         match *ope {
-            Expr::Multiple(_, _) => "  imull %edx\n".to_string(),
-            Expr::Plus(_, _)     => "  addl %edx, %eax\n".to_string(),
-            Expr::Minus(_, _)    => "  subl %edx, %eax\n".to_string(),
+            Expr::Multiple(_, _) => "  imull %ecx\n".to_string(),
+            Expr::Plus(_, _)     => "  addl %ecx, %eax\n".to_string(),
+            Expr::Minus(_, _)    => "  subl %ecx, %eax\n".to_string(),
+            Expr::Division(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             _ => process::abort()
         }
     }
