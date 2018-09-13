@@ -22,7 +22,7 @@ pub struct Ast<'a> {
     current_pos: usize,             // 現在読み取り位置.
 }
 
-// AST実装.
+// 抽象構文木をトークン列から作成する
 impl<'a> Ast<'a> {
     // コンストラクタ.
     pub fn new (tokens: &Vec<TokenInfo>) -> Ast {
@@ -31,18 +31,7 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        // 各非終端記号ごとに処理を行う.
-        let cur = self.next_consume();
-        match cur.get_token_type() {
-            Token::Number => {
-                let factor = self.number(cur);
-                self.expr(Some(factor))
-            }
-            Token::LeftBracket => {
-                self.expr(None)
-            }
-            _ => panic!("Not Support Token Type: {:?}", cur)
-        }
+        self.expr(None)
     }
 
     // expression
@@ -84,9 +73,7 @@ impl<'a> Ast<'a> {
                 let tree = self.multiple(acc, right);
                 self.term_multi(tree)
             }
-            _ => {
-                self.factor(Some(acc))
-            }
+            _ => self.factor(Some(acc))
         }
     }
 
