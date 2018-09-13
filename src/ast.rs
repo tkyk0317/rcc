@@ -2,6 +2,7 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
+//   <Relation> ::= <Expr> <Op> <Expr>
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
@@ -10,6 +11,7 @@ use token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Equal(Box<Expr>, Box<Expr>),
     Plus(Box<Expr>, Box<Expr>),
     Minus(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
@@ -33,7 +35,20 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        self.expr(None)
+        self.relation()
+    }
+
+    // relation.
+    fn relation(&mut self) -> Expr {
+        let left = self.expr(None);
+        match self.next().get_token_type() {
+            Token::Equal => {
+                self.consume();
+                let right = self.expr(None);
+                self.equal(left, right)
+            }
+            _ => left
+        }
     }
 
     // expression
@@ -102,6 +117,11 @@ impl<'a> Ast<'a> {
             },
             _ => acc.unwrap()
         }
+    }
+
+    // equal.
+    fn equal(&self, left: Expr, right: Expr) -> Expr {
+        Expr::Equal(Box::new(left), Box::new(right))
     }
 
     // plus.
@@ -630,6 +650,103 @@ mod tests {
                         Box::new(Expr::Factor(3))
                     ))
                 )
+            )
+        }
+    }
+
+    #[test]
+    fn test_equal_operator() {
+        // 等価演算子テスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Equal(
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Factor(1)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(4))
+                    ))
+                 )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Multi, '*'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Multi, '*'.to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Equal(
+                    Box::new(Expr::Multiple(
+                        Box::new(Expr::Factor(1)),
+                        Box::new(Expr::Factor(2))
+                    )),
+                    Box::new(Expr::Multiple(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(4))
+                    ))
+                 )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Multi, '*'.to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Plus, '+'.to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Minus, '-'.to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Equal(
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Multiple(
+                            Box::new(Expr::Factor(1)),
+                            Box::new(Expr::Factor(2))
+                        )),
+                        Box::new(Expr::Factor(1))
+                    )),
+                    Box::new(Expr::Minus(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(4))
+                    ))
+                 )
             )
         }
     }

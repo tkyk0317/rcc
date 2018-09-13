@@ -37,7 +37,8 @@ impl Asm {
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
             Expr::Division(ref a, ref b) |
-            Expr::Remainder(ref a, ref b) => {
+            Expr::Remainder(ref a, ref b) |
+            Expr::Equal(ref a, ref b) => {
                 self.generate(a);
                 self.generate(b);
 
@@ -56,6 +57,7 @@ impl Asm {
                 self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n");
                 self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
             }
+            _ => { panic!("Not Support") }
         }
     }
 
@@ -77,6 +79,7 @@ impl Asm {
             Expr::Minus(_, _)     => "  subl %ecx, %eax\n".to_string(),
             Expr::Division(_, _)  => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             Expr::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            Expr::Equal(_, _)     => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
             _ => process::abort()
         }
     }

@@ -41,7 +41,15 @@ impl<'a> LexicalAnalysis<'a> {
                             // アルファベットか数値が続くまで抜き出し、トークン生成.
                             token = self.generate_variable_token(v);
                         }
-                        '=' => { token = TokenInfo::new(Token::Equal, v.to_string()); }
+                        '=' => {
+                            if true == self.is_equal(v) {
+                                self.skip();
+                                token = TokenInfo::new(Token::Equal, "==".to_string());
+                            }
+                            else {
+                                token = TokenInfo::new(Token::Substitution, v.to_string());
+                            }
+                        }
                         '+' => { token = TokenInfo::new(Token::Plus, v.to_string()); }
                         '-' => { token = TokenInfo::new(Token::Minus, v.to_string()); }
                         '*' => { token = TokenInfo::new(Token::Multi, v.to_string()); }
@@ -75,6 +83,9 @@ impl<'a> LexicalAnalysis<'a> {
         }
     }
 
+    // 文字をスキップ.
+    fn skip(&mut self) { self.pos = self.pos + 1; }
+
     // 文字列終端チェック.
     fn is_eof(&self) -> bool {
         self.pos > (self.input.len() - 1)
@@ -84,7 +95,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn skip_space(&mut self) {
         while false == self.is_eof() &&
               true == self.input.chars().nth(self.pos).unwrap().is_whitespace() {
-            self.next();
+            self.skip();
         }
     }
 
@@ -109,6 +120,14 @@ impl<'a> LexicalAnalysis<'a> {
             s.push(self.next().unwrap());
         }
         TokenInfo::new(Token::Variable, s)
+    }
+
+    // 等価演算子チェック.
+    fn is_equal(&mut self, v: char) -> bool {
+        match self.read() {
+            Some(a) if a == '=' => true,
+            _  => false
+        }
     }
 }
 
