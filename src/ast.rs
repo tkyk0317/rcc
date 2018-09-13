@@ -168,17 +168,17 @@ impl<'a> Ast<'a> {
         Expr::GreaterThanEqual(Box::new(left), Box::new(right))
     }
     // plus.
-    fn plus(&mut self, left: Expr, right: Expr) -> Expr {
+    fn plus(&self, left: Expr, right: Expr) -> Expr {
         Expr::Plus(Box::new(left), Box::new(right))
     }
 
     // minus.
-    fn minus(&mut self, left: Expr, right: Expr) -> Expr {
+    fn minus(&self, left: Expr, right: Expr) -> Expr {
         Expr::Minus(Box::new(left), Box::new(right))
     }
 
     // multipler.
-    fn multiple(&mut self, left: Expr, right: Expr) -> Expr {
+    fn multiple(&self, left: Expr, right: Expr) -> Expr {
        Expr::Multiple(Box::new(left), Box::new(right))
     }
 
@@ -193,7 +193,7 @@ impl<'a> Ast<'a> {
     }
 
     // number
-    fn number(&mut self, token: TokenInfo ) -> Expr {
+    fn number(&self, token: TokenInfo ) -> Expr {
         Expr::Factor(token.get_token_value().parse::<i64>().unwrap())
     }
 
@@ -206,6 +206,7 @@ impl<'a> Ast<'a> {
     }
 
     // 読み取り位置更新.
+    #[allow(dead_code)]
     fn next_consume(&mut self) -> TokenInfo {
         if self.current_pos >= self.tokens.len() {
             return TokenInfo::new(Token::Unknown, "".to_string());
