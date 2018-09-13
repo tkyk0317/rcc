@@ -9,6 +9,7 @@ pub enum Token {
     Variable,         // 変数.
     Substitution,     // 代入演算子.
     Equal,            // 等価演算子.
+    NotEqual,         // 否等価演算子.
     Plus,             // プラス演算子.
     Minus,            // マイナス演算子.
     Multi,            // 乗算演算子.
