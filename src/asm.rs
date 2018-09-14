@@ -63,8 +63,26 @@ impl Asm {
                 self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n");
                 self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
             }
+            Expr::LogicalAnd(ref a, ref b) => {
+                self.generate_logical(a);
+                self.generate_logical(b);
+                self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
+                self.inst = format!("{}  jmp .L1\n", self.inst);
+                self.inst = format!("{}.L0:\n", self.inst);
+                self.inst = format!("{}  movl $0, %eax\n", self.inst);
+                self.inst = format!("{}.L1:\n", self.inst);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
+            }
+            _ => panic!("Not Support Expression")
         }
     }
+
+    // 論理演算子生成.
+    fn generate_logical(&mut self, a: &Expr) {
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}{}", self.inst, "  cmpl $0, %eax\n  je .L0\n");
+     }
 
     // スタックポップ.
     fn pop_stack(&self, reg: &str) -> String {

@@ -5,8 +5,7 @@
 // トークン識別子.
 #[derive(Debug,Clone,PartialEq)]
 pub enum Token {
-    Number,           // 数値.
-    Variable,         // 変数.
+    LogicalAnd,       // &&演算子.
     Substitution,     // 代入演算子.
     Equal,            // 等価演算子.
     NotEqual,         // 否等価演算子.
@@ -14,6 +13,8 @@ pub enum Token {
     GreaterThan,      // 比較演算子(>).
     LessThanEqual,    // 比較演算子(<=).
     GreaterThanEqual, // 比較演算子(>=).
+    Number,           // 数値.
+    Variable,         // 変数.
     Plus,             // プラス演算子.
     Minus,            // マイナス演算子.
     Multi,            // 乗算演算子.
