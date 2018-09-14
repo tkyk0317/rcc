@@ -33,7 +33,7 @@ impl<'a> LexicalAnalysis<'a> {
                 Some(v) => {
                     let mut token;
                     match v {
-                        '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                        '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                             // 数値が続く部分まで抜き出し、トークン生成.
                             token = self.generate_number_token(v);
                         }
