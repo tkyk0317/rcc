@@ -86,6 +86,15 @@ impl<'a> LexicalAnalysis<'a> {
                                 token = TokenInfo::new(Token::Unknown, v.to_string());
                             }
                         }
+                        '|' => {
+                            if true == self.is_logical_or(v) {
+                                self.skip();
+                                token = TokenInfo::new(Token::LogicalOr, "||".to_string());
+                            }
+                            else {
+                                token = TokenInfo::new(Token::Unknown, v.to_string());
+                            }
+                        }
                         '+' => { token = TokenInfo::new(Token::Plus, v.to_string()); }
                         '-' => { token = TokenInfo::new(Token::Minus, v.to_string()); }
                         '*' => { token = TokenInfo::new(Token::Multi, v.to_string()); }
@@ -194,6 +203,14 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_logical_and(&self, v: char) -> bool {
         match self.read() {
             Some(a) if v == '&' && a == '&' => true,
+            _ => false
+        }
+    }
+
+    // ||演算子チェック
+    fn is_logical_or(&self, v: char) -> bool {
+        match self.read() {
+            Some(a) if v == '|' && a == '|' => true,
             _ => false
         }
     }

@@ -6,6 +6,7 @@
 #[derive(Debug,Clone,PartialEq)]
 pub enum Token {
     LogicalAnd,       // &&演算子.
+    LogicalOr,        // ||演算子.
     Substitution,     // 代入演算子.
     Equal,            // 等価演算子.
     NotEqual,         // 否等価演算子.

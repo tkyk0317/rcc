@@ -64,8 +64,8 @@ impl Asm {
                 self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
             }
             Expr::LogicalAnd(ref a, ref b) => {
-                self.generate_logical(a);
-                self.generate_logical(b);
+                self.generate_logical_and(a);
+                self.generate_logical_and(b);
                 self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
                 self.inst = format!("{}  jmp .L1\n", self.inst);
                 self.inst = format!("{}.L0:\n", self.inst);
@@ -73,15 +73,32 @@ impl Asm {
                 self.inst = format!("{}.L1:\n", self.inst);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
             }
+            Expr::LogicalOr(ref a, ref b) => {
+                self.generate_logical_or(a);
+                self.generate_logical_or(b);
+                self.inst = format!("{}{}", self.inst, "  movl $0, %eax\n");
+                self.inst = format!("{}  jmp .L1\n", self.inst);
+                self.inst = format!("{}.L0:\n", self.inst);
+                self.inst = format!("{}  movl $1, %eax\n", self.inst);
+                self.inst = format!("{}.L1:\n", self.inst);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
+            }
             _ => panic!("Not Support Expression")
         }
     }
 
-    // 論理演算子生成.
-    fn generate_logical(&mut self, a: &Expr) {
+    // &&演算子生成.
+    fn generate_logical_and(&mut self, a: &Expr) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}{}", self.inst, "  cmpl $0, %eax\n  je .L0\n");
+     }
+
+    // ||演算子生成.
+    fn generate_logical_or(&mut self, a: &Expr) {
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}{}", self.inst, "  cmpl $0, %eax\n  jne .L0\n");
      }
 
     // スタックポップ.

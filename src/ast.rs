@@ -14,6 +14,7 @@ use token::Token;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     LogicalAnd(Box<Expr>, Box<Expr>),
+    LogicalOr(Box<Expr>, Box<Expr>),
     Equal(Box<Expr>, Box<Expr>),
     NotEqual(Box<Expr>, Box<Expr>),
     LessThan(Box<Expr>, Box<Expr>),
@@ -51,10 +52,16 @@ impl<'a> Ast<'a> {
         let left = self.relation();
         let ope_type = self.next().get_token_type();
         match ope_type {
-            Token::LogicalAnd => {
+            Token::LogicalAnd | Token::LogicalOr => {
                 self.consume();
                 let right = self.relation();
-                self.logical_and(left, right)
+
+                if ope_type == Token::LogicalAnd {
+                    self.logical_and(left, right)
+                }
+                else {
+                    self.logical_or(left, right)
+                }
             }
             _ => left
         }
@@ -153,6 +160,11 @@ impl<'a> Ast<'a> {
             },
             _ => acc.unwrap()
         }
+    }
+
+    // logical or.
+    fn logical_or(&self, left: Expr, right: Expr) -> Expr {
+        Expr::LogicalOr(Box::new(left), Box::new(right))
     }
 
     // logical and.
@@ -1072,6 +1084,96 @@ mod tests {
             assert_eq!(
                 result,
                 Expr::LogicalAnd(
+                    Box::new(Expr::Equal(
+                        Box::new(Expr::Plus(
+                            Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
+                        )),
+                        Box::new(Expr::Plus(
+                            Box::new(Expr::Factor(4)), Box::new(Expr::Factor(5))
+                        ))
+                    )),
+                    Box::new(Expr::NotEqual(
+                        Box::new(Expr::Plus(
+                            Box::new(Expr::Factor(6)), Box::new(Expr::Factor(7))
+                        )),
+                        Box::new(Expr::Plus(
+                            Box::new(Expr::Factor(8)), Box::new(Expr::Factor(9))
+                        ))
+                    ))
+                )
+            )
+        }
+        // ||演算子のテスト.
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::LogicalOr, "||".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LogicalOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::LogicalOr, "||".to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "5".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LogicalOr(
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
+                    )),
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Factor(4)), Box::new(Expr::Factor(5))
+                    ))
+                )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "5".to_string()),
+                    TokenInfo::new(Token::LogicalOr, "||".to_string()),
+                    TokenInfo::new(Token::Number, "6".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "7".to_string()),
+                    TokenInfo::new(Token::NotEqual, "!=".to_string()),
+                    TokenInfo::new(Token::Number, "8".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "9".to_string()),
+
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LogicalOr(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Plus(
                             Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
