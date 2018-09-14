@@ -2,6 +2,7 @@ mod lexer;
 mod token;
 mod ast;
 mod asm;
+mod config;
 
 use ast::Ast;
 use asm::Asm;

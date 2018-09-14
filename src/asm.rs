@@ -1,5 +1,6 @@
 use std::process;
 use ast::Expr;
+use config::Config;
 
 /**
  * アセンブラ生成部.
@@ -12,8 +13,8 @@ impl Asm {
     // コンストラクタ.
     pub fn new() -> Asm {
         // スタート部分設定.
-        let mut start = format!(".global main\n");
-        start = format!("{}{}", start, "main:\n");
+        let main = if Config::is_mac() { "_main".to_string() } else { "main".to_string() };
+        let mut start = format!(".global {}\n{}:\n", main, main);
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
 
