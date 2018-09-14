@@ -2,8 +2,10 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
-//   <Logical> ::= <Relation> ['&&'] <Relation>
-//   <Relation> ::= <Expr> <Op> <Expr>
+//   <Logical> ::= <Relation> <SubLogical>
+//   <SubLogical> ::= ['&&' | '||'] <Relation> <SubLogical>
+//   <Relation> ::= <Expr> <SubRelation>
+//   <SubRelation> ::= <Op> <Expr> <SubRelation>
 //   <Op> ::= ['==' | '!=' | '<' | '>' | '>=' | '<=']
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
@@ -50,26 +52,36 @@ impl<'a> Ast<'a> {
     // logical.
     fn logical(&mut self) -> Expr {
         let left = self.relation();
+        self.sub_logical(left)
+    }
+
+    // sub logical.
+    fn sub_logical(&mut self, acc: Expr) -> Expr {
         let ope_type = self.next().get_token_type();
         match ope_type {
             Token::LogicalAnd | Token::LogicalOr => {
                 self.consume();
                 let right = self.relation();
-
-                if ope_type == Token::LogicalAnd {
-                    self.logical_and(left, right)
+                let tree = if ope_type == Token::LogicalAnd {
+                    self.logical_and(acc, right)
                 }
                 else {
-                    self.logical_or(left, right)
-                }
+                    self.logical_or(acc, right)
+                };
+                self.sub_logical(tree)
             }
-            _ => left
+            _ => acc
         }
-    }
+     }
 
     // relation.
     fn relation(&mut self) -> Expr {
         let left = self.expr(None);
+        self.sub_relation(left)
+    }
+
+    // sub relation.
+    fn sub_relation(&mut self, acc: Expr) -> Expr {
         let ope_type = self.next().get_token_type();
         match ope_type {
             Token::Equal |
@@ -80,17 +92,18 @@ impl<'a> Ast<'a> {
             Token::GreaterThanEqual => {
                 self.consume();
                 let right = self.expr(None);
-                match ope_type {
-                    Token::Equal => self.equal(left, right),
-                    Token::NotEqual => self.not_equal(left, right),
-                    Token::LessThan => self.less_than(left, right),
-                    Token::GreaterThan => self.greater_than(left, right),
-                    Token::LessThanEqual => self.less_than_equal(left, right),
-                    Token::GreaterThanEqual => self.greater_than_equal(left, right),
+                let tree = match ope_type {
+                    Token::Equal => self.equal(acc, right),
+                    Token::NotEqual => self.not_equal(acc, right),
+                    Token::LessThan => self.less_than(acc, right),
+                    Token::GreaterThan => self.greater_than(acc, right),
+                    Token::LessThanEqual => self.less_than_equal(acc, right),
+                    Token::GreaterThanEqual => self.greater_than_equal(acc, right),
                     _ => panic!("relation: not support operator {:?}", ope_type)
-                }
+                };
+                self.sub_relation(tree)
             }
-            _ => left
+            _ => acc
         }
     }
 
@@ -678,6 +691,34 @@ mod tests {
                 )
             )
         }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::LessThan, "<".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                    TokenInfo::new(Token::GreaterThanEqual, ">=".to_string()),
+                    TokenInfo::new(Token::Number, "5".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::GreaterThanEqual(
+                    Box::new(Expr::Equal(
+                       Box::new(Expr::LessThan(
+                           Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
+                       )),
+                       Box::new(Expr::Factor(4))
+                    )),
+                    Box::new(Expr::Factor(5))
+                )
+            )
+        }
     }
 
     #[test]
@@ -1190,6 +1231,38 @@ mod tests {
                             Box::new(Expr::Factor(8)), Box::new(Expr::Factor(9))
                         ))
                     ))
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_mix_logical_operator() {
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::LogicalOr, "||".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
+                    TokenInfo::new(Token::Number, "4".to_string()),
+                    TokenInfo::new(Token::LogicalOr, "||".to_string()),
+                    TokenInfo::new(Token::Number, "5".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LogicalOr(
+                    Box::new(Expr::LogicalAnd(
+                        Box::new(Expr::LogicalOr(
+                            Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
+                        )),
+                        Box::new(Expr::Factor(4))
+                    )),
+                    Box::new(Expr::Factor(5))
                 )
             )
         }

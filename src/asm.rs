@@ -7,6 +7,7 @@ use config::Config;
  */
 pub struct Asm {
     inst: String,
+    label_no: u64,
 }
 
 impl Asm {
@@ -18,7 +19,7 @@ impl Asm {
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
 
-        Asm { inst: start }
+        Asm { inst: start, label_no: 0 }
     }
 
     // アセンブラ取得
@@ -64,41 +65,51 @@ impl Asm {
                 self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
             }
             Expr::LogicalAnd(ref a, ref b) => {
-                self.generate_logical_and(a);
-                self.generate_logical_and(b);
+                let label_false = self.label_no;
+                self.label_no = self.label_no + 1;
+                let label_end = self.label_no;
+                self.label_no = self.label_no + 1;
+
+                self.generate_logical_and(a, label_false);
+                self.generate_logical_and(b, label_false);
                 self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
-                self.inst = format!("{}  jmp .L1\n", self.inst);
-                self.inst = format!("{}.L0:\n", self.inst);
+                self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
+                self.inst = format!("{}.L{}:\n", self.inst, label_false);
                 self.inst = format!("{}  movl $0, %eax\n", self.inst);
-                self.inst = format!("{}.L1:\n", self.inst);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
+                self.inst = format!("{}.L{}:\n", self.inst, label_end);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
             Expr::LogicalOr(ref a, ref b) => {
-                self.generate_logical_or(a);
-                self.generate_logical_or(b);
+                let label_true = self.label_no;
+                self.label_no = self.label_no + 1;
+                let label_end = self.label_no;
+                self.label_no = self.label_no + 1;
+
+                self.generate_logical_or(a, label_true);
+                self.generate_logical_or(b, label_true);
                 self.inst = format!("{}{}", self.inst, "  movl $0, %eax\n");
-                self.inst = format!("{}  jmp .L1\n", self.inst);
-                self.inst = format!("{}.L0:\n", self.inst);
+                self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
+                self.inst = format!("{}.L{}:\n", self.inst, label_true);
                 self.inst = format!("{}  movl $1, %eax\n", self.inst);
-                self.inst = format!("{}.L1:\n", self.inst);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
+                self.inst = format!("{}.L{}:\n", self.inst, label_end);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
             _ => panic!("Not Support Expression")
         }
     }
 
     // &&演算子生成.
-    fn generate_logical_and(&mut self, a: &Expr) {
+    fn generate_logical_and(&mut self, a: &Expr, i: u64) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}{}", self.inst, "  cmpl $0, %eax\n  je .L0\n");
+        self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, i);
      }
 
     // ||演算子生成.
-    fn generate_logical_or(&mut self, a: &Expr) {
+    fn generate_logical_or(&mut self, a: &Expr, i: u64) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}{}", self.inst, "  cmpl $0, %eax\n  jne .L0\n");
+        self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, i);
      }
 
     // スタックポップ.
