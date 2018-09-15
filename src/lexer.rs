@@ -102,6 +102,8 @@ impl<'a> LexicalAnalysis<'a> {
                         '%' => { token = TokenInfo::new(Token::Remainder, v.to_string()); }
                         '(' => { token = TokenInfo::new(Token::LeftBracket, v.to_string()); }
                         ')' => { token = TokenInfo::new(Token::RightBracket, v.to_string()); }
+                        '?' => { token = TokenInfo::new(Token::Question, v.to_string()); }
+                        ':' => { token = TokenInfo::new(Token::Colon, v.to_string()); }
                         _ => { token = TokenInfo::new(Token::Unknown, v.to_string()); }
                     }
                     self.tokens.push(token);

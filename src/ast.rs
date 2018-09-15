@@ -2,6 +2,8 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
+//   <Condition> ::= <Logical> <SubCondition>
+//   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
 //   <SubLogical> ::= ['&&' | '||'] <Relation> <SubLogical>
 //   <Relation> ::= <Expr> <SubRelation>
@@ -15,6 +17,7 @@ use token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
     Equal(Box<Expr>, Box<Expr>),
@@ -46,12 +49,38 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        self.logical()
+        self.condition(None)
+    }
+
+    // condition.
+    fn condition(&mut self, acc: Option<Expr>) -> Expr {
+        let left = self.logical(acc);
+        self.sub_condition(left)
+    }
+
+    // sub condition.
+    fn sub_condition(&mut self, acc: Expr) -> Expr {
+        let ope_type = self.next().get_token_type();
+        match ope_type {
+            Token::Question => {
+                self.consume();
+                let middle = self.logical(None);
+
+                // コロンがない場合、終了.
+                if self.next_consume().get_token_type() != Token::Colon { panic!("Not Exists Colon") }
+                else {
+                    let right = self.logical(None);
+                    let tree = Expr::Condition(Box::new(acc), Box::new(middle), Box::new(right));
+                    self.sub_condition(tree)
+                }
+            }
+            _ => acc
+        }
     }
 
     // logical.
-    fn logical(&mut self) -> Expr {
-        let left = self.relation();
+    fn logical(&mut self, acc: Option<Expr>) -> Expr {
+        let left = self.relation(acc);
         self.sub_logical(left)
     }
 
@@ -68,7 +97,7 @@ impl<'a> Ast<'a> {
         match ope_type {
             Token::LogicalAnd | Token::LogicalOr => {
                 self.consume();
-                let right = self.relation();
+                let right = self.relation(None);
                 self.sub_logical(create(ope_type, acc, right))
             }
             _ => acc
@@ -76,8 +105,8 @@ impl<'a> Ast<'a> {
     }
 
     // relation.
-    fn relation(&mut self) -> Expr {
-        let left = self.expr(None);
+    fn relation(&mut self, acc: Option<Expr>) -> Expr {
+        let left = self.expr(acc);
         self.sub_relation(left)
     }
 
@@ -172,7 +201,7 @@ impl<'a> Ast<'a> {
             Token::LeftBracket => {
                 self.consume();
                 let factor = self.factor(acc);
-                self.expr(Some(factor))
+                self.condition(Some(factor))
             }
             Token::RightBracket => {
                 self.consume();
@@ -1204,6 +1233,76 @@ mod tests {
                             Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
                         )),
                         Box::new(Expr::Factor(4))
+                    )),
+                    Box::new(Expr::Factor(5))
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_condition_expression() {
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Question, "?".to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::Colon, ":".to_string()),
+                    TokenInfo::new(Token::Number, "5".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Condition(
+                    Box::new(Expr::Equal(
+                        Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
+                    )),
+                    Box::new(Expr::Factor(1)),
+                    Box::new(Expr::Factor(5))
+                )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "3".to_string()),
+                    TokenInfo::new(Token::Question, "?".to_string()),
+                    TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                    TokenInfo::new(Token::Number, "10".to_string()),
+                    TokenInfo::new(Token::Equal, "==".to_string()),
+                    TokenInfo::new(Token::Number, "11".to_string()),
+                    TokenInfo::new(Token::Question, "?".to_string()),
+                    TokenInfo::new(Token::Number, "12".to_string()),
+                    TokenInfo::new(Token::Colon, ":".to_string()),
+                    TokenInfo::new(Token::Number, "13".to_string()),
+                    TokenInfo::new(Token::RightBracket, ")".to_string()),
+                    TokenInfo::new(Token::Colon, ":".to_string()),
+                    TokenInfo::new(Token::Number, "5".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Condition(
+                    Box::new(Expr::Equal(
+                        Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))
+                    )),
+                    Box::new(Expr::Condition(
+                        Box::new(Expr::Equal(
+                            Box::new(Expr::Factor(10)), Box::new(Expr::Factor(11))
+                        )),
+                        Box::new(Expr::Factor(12)),
+                        Box::new(Expr::Factor(13))
                     )),
                     Box::new(Expr::Factor(5))
                 )

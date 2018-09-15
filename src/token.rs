@@ -5,6 +5,8 @@
 // トークン識別子.
 #[derive(Debug,Clone,PartialEq)]
 pub enum Token {
+    Question,         // ?演算子.
+    Colon,            // コロン.
     LogicalAnd,       // &&演算子.
     LogicalOr,        // ||演算子.
     Substitution,     // 代入演算子.
