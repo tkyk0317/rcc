@@ -1,3 +1,4 @@
+use std::fmt;
 use token::TokenInfo;
 use token::Token;
 
@@ -32,6 +33,29 @@ pub enum Expr {
     Division(Box<Expr>, Box<Expr>),
     Remainder(Box<Expr>, Box<Expr>),
     Factor(i64),
+}
+
+// 出力フォーマット定義.
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Expr::Condition(ref a, ref b, ref c) =>  write!(f, "{} ? {} : {}", *a, *b, *c),
+            Expr::LogicalAnd(ref a, ref b) => write!(f, "{} && {}", *a, *b),
+            Expr::LogicalOr(ref a, ref b) => write!(f, "{} || {}", *a, *b),
+            Expr::Equal(ref a, ref b) => write!(f, "{} == {}", *a, *b),
+            Expr::NotEqual(ref a, ref b) => write!(f, "{} != {}", *a, *b),
+            Expr::LessThan(ref a, ref b) => write!(f, "{} < {}", *a, *b),
+            Expr::LessThanEqual(ref a, ref b) => write!(f, "{} <= {}", *a, *b),
+            Expr::GreaterThan(ref a, ref b) => write!(f, "{} > {}", *a, *b),
+            Expr::GreaterThanEqual(ref a, ref b) => write!(f, "{} >= {}", *a, *b),
+            Expr::Plus(ref a, ref b) => write!(f, "{} + {}", *a, *b),
+            Expr::Minus(ref a, ref b) => write!(f, "{} - {}", *a, *b),
+            Expr::Multiple(ref a, ref b) => write!(f, "{} * {}", *a, *b),
+            Expr::Division(ref a, ref b) => write!(f, "{} / {}", *a, *b),
+            Expr::Remainder(ref a, ref b) =>  write!(f, "{} % {}", *a, *b),
+            Expr::Factor(v) =>  write!(f, "{}", v),
+        }
+    }
 }
 
 #[derive(Debug,Clone)]
@@ -201,12 +225,14 @@ impl<'a> Ast<'a> {
             Token::LeftBracket => {
                 self.consume();
                 let factor = self.factor(acc);
-                self.condition(Some(factor))
+                let tree = self.condition(Some(factor));
+
+                // 閉じカッコがあるかどうかチェック.
+                if Token::RightBracket != self.next_consume().get_token_type() {
+                    panic!("Not Exists Right Bracket")
+                }
+                tree
             }
-            Token::RightBracket => {
-                self.consume();
-                acc.unwrap()
-            },
             _ => acc.unwrap()
         }
     }
