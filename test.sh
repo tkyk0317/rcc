@@ -1,6 +1,8 @@
 #!/bin/bash
-# Macで使用する場合、環境変数を設定.
-#export TARGET="mac"
+# Macかどうかを判定し、環境変数設定.
+if [ "$(uname)" == 'Darwin' ]; then
+    export TARGET="mac"
+fi
 
 # テスト用関数
 # 第一引数：テストする値
