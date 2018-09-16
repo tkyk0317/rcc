@@ -94,6 +94,24 @@ impl Asm {
                 self.inst = format!("{}.L{}:\n", self.inst, label_end);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
+            Expr::Condition(ref a, ref b, ref c) => {
+                let label_false = self.label_no;
+                self.label_no = self.label_no + 1;
+                let label_end = self.label_no;
+                self.label_no = self.label_no + 1;
+
+                self.generate(a);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+                self.inst = format!("{}  je .L{}\n", self.inst, label_false);
+
+                self.generate(b);
+                self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
+                self.inst = format!("{}.L{}:\n", self.inst, label_false);
+
+                self.generate(c);
+                self.inst = format!("{}.L{}:\n", self.inst, label_end);
+            }
             _ => panic!("Not Support Expression")
         }
     }
