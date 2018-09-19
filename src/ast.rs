@@ -7,9 +7,11 @@ use token::Token;
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
 //   <SubLogical> ::= ['&&' | '||'] <Relation> <SubLogical>
-//   <Relation> ::= <Expr> <SubRelation>
-//   <SubRelation> ::= <Op> <Expr> <SubRelation>
+//   <Relation> ::= <Shift> <SubRelation>
+//   <SubRelation> ::= <Op> <Shift> <SubRelation>
 //   <Op> ::= ['==' | '!=' | '<' | '>' | '>=' | '<=']
+//   <Shift> ::= <Expr> <SubShift>
+//   <SubShift> ::= ['<<'|'>>'] <Expr> <SubShift>
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
@@ -30,6 +32,8 @@ pub enum Expr {
     GreaterThanEqual(Box<Expr>, Box<Expr>),
     Plus(Box<Expr>, Box<Expr>),
     Minus(Box<Expr>, Box<Expr>),
+    LeftShift(Box<Expr>, Box<Expr>),
+    RightShift(Box<Expr>, Box<Expr>),
     Multiple(Box<Expr>, Box<Expr>),
     Division(Box<Expr>, Box<Expr>),
     Remainder(Box<Expr>, Box<Expr>),
@@ -52,6 +56,8 @@ impl fmt::Display for Expr {
             Expr::LessThanEqual(ref a, ref b) => write!(f, "{} <= {}", *a, *b),
             Expr::GreaterThan(ref a, ref b) => write!(f, "{} > {}", *a, *b),
             Expr::GreaterThanEqual(ref a, ref b) => write!(f, "{} >= {}", *a, *b),
+            Expr::LeftShift(ref a, ref b) => write!(f, "{} << {}", *a, *b),
+            Expr::RightShift(ref a, ref b) => write!(f, "{} >> {}", *a, *b),
             Expr::Plus(ref a, ref b) => write!(f, "{} + {}", *a, *b),
             Expr::Minus(ref a, ref b) => write!(f, "{} - {}", *a, *b),
             Expr::Multiple(ref a, ref b) => write!(f, "{} * {}", *a, *b),
@@ -139,7 +145,7 @@ impl<'a> Ast<'a> {
 
     // relation.
     fn relation(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.expr(acc);
+        let left = self.shift(acc);
         self.sub_relation(left)
     }
 
@@ -160,10 +166,34 @@ impl<'a> Ast<'a> {
             Token::Equal | Token::NotEqual | Token::LessThan | Token::LessThanEqual |
             Token::GreaterThan | Token::GreaterThanEqual => {
                 self.consume();
-                let right = self.expr(None);
+                let right = self.shift(None);
                 self.sub_relation(create(ope_type, acc, right))
             }
             _ => acc,
+        }
+    }
+
+    // shift operation.
+    fn shift(&mut self, acc: Option<Expr>) -> Expr {
+        let left = self.expr(acc);
+        self.sub_shift(left)
+    }
+
+    fn sub_shift(&mut self, acc: Expr) -> Expr {
+        let create = |ope: Token, left, right| match ope {
+            Token::LeftShift => Expr::LeftShift(Box::new(left), Box::new(right)),
+            Token::RightShift => Expr::RightShift(Box::new(left), Box::new(right)),
+            _ => panic!("Not Support Token {:?}", ope)
+        };
+
+        let token = self.next();
+        match token.get_token_type() {
+            Token::LeftShift | Token::RightShift => {
+                self.consume();
+                let right = self.expr(None);
+                self.sub_shift(create(token.get_token_type(), acc, right))
+            }
+            _ => acc
         }
     }
 
@@ -1416,6 +1446,92 @@ mod tests {
                     Box::new(Expr::Equal(
                         Box::new(Expr::Factor(2)),
                         Box::new(Expr::Factor(3)),
+                    ))
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_shift_operator() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::LeftShift, "<<".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LeftShift(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::Factor(1)),
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::RightShift, ">>".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::RightShift(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::Factor(1)),
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightShift, ">>".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::RightShift(
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Factor(2)),
+                        Box::new(Expr::Factor(3)),
+                    )),
+                    Box::new(Expr::Factor(1))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::LessThan, "<".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightShift, ">>".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::LessThan(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::RightShift(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(1)),
                     ))
                 )
             )

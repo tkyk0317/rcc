@@ -50,7 +50,9 @@ impl Asm {
             Expr::LessThan(ref a, ref b) |
             Expr::GreaterThan(ref a, ref b) |
             Expr::LessThanEqual(ref a, ref b) |
-            Expr::GreaterThanEqual(ref a, ref b) => {
+            Expr::GreaterThanEqual(ref a, ref b) |
+            Expr::LeftShift(ref a, ref b) |
+            Expr::RightShift(ref a, ref b) => {
                 self.generate(a);
                 self.generate(b);
 
@@ -192,6 +194,12 @@ impl Asm {
             }
             Expr::GreaterThanEqual(_, _) => {
                 "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
+            }
+            Expr::LeftShift(_, _) => {
+                "  sall %cl, %eax\n".to_string()
+            }
+            Expr::RightShift(_, _) => {
+                "  sarl %cl, %eax\n".to_string()
             }
             _ => process::abort(),
         }

@@ -3,6 +3,8 @@
 // トークン識別子.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
+    LeftShift, // 左シフト演算子.
+    RightShift, // 右シフト演算子.
     Question, // ?演算子.
     Colon, // コロン.
     LogicalAnd, // &&演算子.

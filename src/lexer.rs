@@ -63,7 +63,12 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_greater_than_equal(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::GreaterThanEqual, ">=".to_string());
-                            } else {
+                            }
+                            else if true == self.is_right_shift(v) {
+                                self.skip();
+                                token = TokenInfo::new(Token::RightShift, v.to_string());
+                            }
+                            else {
                                 token = TokenInfo::new(Token::GreaterThan, v.to_string());
                             }
                         }
@@ -71,7 +76,12 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_less_than_equal(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::LessThanEqual, "<=".to_string());
-                            } else {
+                            }
+                            else if true == self.is_left_shift(v) {
+                                self.skip();
+                                token = TokenInfo::new(Token::LeftShift, v.to_string());
+                            }
+                            else {
                                 token = TokenInfo::new(Token::LessThan, v.to_string());
                             }
                         }
@@ -233,6 +243,22 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_logical_or(&self, v: char) -> bool {
         match self.read() {
             Some(a) if v == '|' && a == '|' => true,
+            _ => false,
+        }
+    }
+
+    // 左シフト演算子チェック.
+    fn is_left_shift(&self, v: char) -> bool {
+        match self.read() {
+            Some(a) if a == '<' && v == '<' => true,
+            _ => false,
+        }
+    }
+
+    // 右シフト演算子チェック.
+    fn is_right_shift(&self, v: char) -> bool {
+        match self.read() {
+            Some(a) if a == '>' && v == '>' => true,
             _ => false,
         }
     }
