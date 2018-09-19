@@ -1,9 +1,7 @@
 use token::TokenInfo;
 use token::Token;
 
-/**
- * 字句解析.
- */
+#[doc = " 字句解析"]
 pub struct LexicalAnalysis<'a> {
     input: &'a String,
     pos: usize,
@@ -13,7 +11,11 @@ pub struct LexicalAnalysis<'a> {
 impl<'a> LexicalAnalysis<'a> {
     // コンストラクタ.
     pub fn new(input: &'a String) -> LexicalAnalysis {
-        LexicalAnalysis { input: input, pos: 0, tokens: vec![] }
+        LexicalAnalysis {
+            input: input,
+            pos: 0,
+            tokens: vec![],
+        }
     }
 
     // トークン群取得.
@@ -45,17 +47,15 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_equal(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::Equal, "==".to_string());
-                            }
-                            else {
+                            } else {
                                 token = TokenInfo::new(Token::Substitution, v.to_string());
                             }
                         }
-                        '!' =>{
+                        '!' => {
                             if true == self.is_not_equal(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::NotEqual, "!=".to_string());
-                            }
-                            else {
+                            } else {
                                 token = TokenInfo::new(Token::Unknown, v.to_string());
                             }
                         }
@@ -63,8 +63,7 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_greater_than_equal(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::GreaterThanEqual, ">=".to_string());
-                            }
-                            else {
+                            } else {
                                 token = TokenInfo::new(Token::GreaterThan, v.to_string());
                             }
                         }
@@ -72,8 +71,7 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_less_than_equal(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::LessThanEqual, "<=".to_string());
-                            }
-                            else {
+                            } else {
                                 token = TokenInfo::new(Token::LessThan, v.to_string());
                             }
                         }
@@ -81,8 +79,7 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_logical_and(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::LogicalAnd, "&&".to_string());
-                            }
-                            else {
+                            } else {
                                 token = TokenInfo::new(Token::Unknown, v.to_string());
                             }
                         }
@@ -90,21 +87,40 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_logical_or(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::LogicalOr, "||".to_string());
-                            }
-                            else {
+                            } else {
                                 token = TokenInfo::new(Token::Unknown, v.to_string());
                             }
                         }
-                        '+' => { token = TokenInfo::new(Token::Plus, v.to_string()); }
-                        '-' => { token = TokenInfo::new(Token::Minus, v.to_string()); }
-                        '*' => { token = TokenInfo::new(Token::Multi, v.to_string()); }
-                        '/' => { token = TokenInfo::new(Token::Division, v.to_string()); }
-                        '%' => { token = TokenInfo::new(Token::Remainder, v.to_string()); }
-                        '(' => { token = TokenInfo::new(Token::LeftBracket, v.to_string()); }
-                        ')' => { token = TokenInfo::new(Token::RightBracket, v.to_string()); }
-                        '?' => { token = TokenInfo::new(Token::Question, v.to_string()); }
-                        ':' => { token = TokenInfo::new(Token::Colon, v.to_string()); }
-                        _ => { token = TokenInfo::new(Token::Unknown, v.to_string()); }
+                        '+' => {
+                            token = TokenInfo::new(Token::Plus, v.to_string());
+                        }
+                        '-' => {
+                            token = TokenInfo::new(Token::Minus, v.to_string());
+                        }
+                        '*' => {
+                            token = TokenInfo::new(Token::Multi, v.to_string());
+                        }
+                        '/' => {
+                            token = TokenInfo::new(Token::Division, v.to_string());
+                        }
+                        '%' => {
+                            token = TokenInfo::new(Token::Remainder, v.to_string());
+                        }
+                        '(' => {
+                            token = TokenInfo::new(Token::LeftBracket, v.to_string());
+                        }
+                        ')' => {
+                            token = TokenInfo::new(Token::RightBracket, v.to_string());
+                        }
+                        '?' => {
+                            token = TokenInfo::new(Token::Question, v.to_string());
+                        }
+                        ':' => {
+                            token = TokenInfo::new(Token::Colon, v.to_string());
+                        }
+                        _ => {
+                            token = TokenInfo::new(Token::Unknown, v.to_string());
+                        }
                     }
                     self.tokens.push(token);
                 }
@@ -122,8 +138,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn next(&mut self) -> Option<char> {
         if true == self.is_eof() {
             None
-        }
-        else {
+        } else {
             let s = self.input.chars().nth(self.pos);
             self.pos = self.pos + 1;
             s
@@ -131,7 +146,9 @@ impl<'a> LexicalAnalysis<'a> {
     }
 
     // 文字をスキップ.
-    fn skip(&mut self) { self.pos = self.pos + 1; }
+    fn skip(&mut self) {
+        self.pos = self.pos + 1;
+    }
 
     // 文字列終端チェック.
     fn is_eof(&self) -> bool {
@@ -141,7 +158,8 @@ impl<'a> LexicalAnalysis<'a> {
     // 空白読み飛ばし.
     fn skip_space(&mut self) {
         while false == self.is_eof() &&
-              true == self.input.chars().nth(self.pos).unwrap().is_whitespace() {
+            true == self.input.chars().nth(self.pos).unwrap().is_whitespace()
+        {
             self.skip();
         }
     }
@@ -163,7 +181,9 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() &&
-              (true == self.read().unwrap().is_alphabetic() || true == self.read().unwrap().is_digit(10)) {
+            (true == self.read().unwrap().is_alphabetic() ||
+                 true == self.read().unwrap().is_digit(10))
+        {
             s.push(self.next().unwrap());
         }
         TokenInfo::new(Token::Variable, s)
@@ -173,7 +193,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_equal(&mut self, v: char) -> bool {
         match self.read() {
             Some(a) if a == '=' && v == '=' => true,
-            _  => false
+            _ => false,
         }
     }
 
@@ -181,7 +201,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_not_equal(&mut self, v: char) -> bool {
         match self.read() {
             Some(a) if a == '=' && v == '!' => true,
-            _  => false
+            _ => false,
         }
     }
 
@@ -189,7 +209,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_greater_than_equal(&self, v: char) -> bool {
         match self.read() {
             Some(a) if v == '>' && a == '=' => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -197,7 +217,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_less_than_equal(&self, v: char) -> bool {
         match self.read() {
             Some(a) if v == '<' && a == '=' => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -205,7 +225,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_logical_and(&self, v: char) -> bool {
         match self.read() {
             Some(a) if v == '&' && a == '&' => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -213,8 +233,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_logical_or(&self, v: char) -> bool {
         match self.read() {
             Some(a) if v == '|' && a == '|' => true,
-            _ => false
+            _ => false,
         }
     }
 }
-

@@ -8,7 +8,7 @@ impl Config {
         // 環境変数が設定されている場合、mac.
         match env::var("TARGET") {
             Ok(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }

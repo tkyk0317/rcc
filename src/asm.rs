@@ -2,9 +2,7 @@ use std::process;
 use ast::Expr;
 use config::Config;
 
-/**
- * アセンブラ生成部.
- */
+#[doc = "アセンブラ生成部" ]
 pub struct Asm {
     inst: String,
     label_no: u64,
@@ -14,12 +12,19 @@ impl Asm {
     // コンストラクタ.
     pub fn new() -> Asm {
         // スタート部分設定.
-        let main = if Config::is_mac() { "_main".to_string() } else { "main".to_string() };
+        let main = if Config::is_mac() {
+            "_main".to_string()
+        } else {
+            "main".to_string()
+        };
         let mut start = format!(".global {}\n{}:\n", main, main);
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
 
-        Asm { inst: start, label_no: 0 }
+        Asm {
+            inst: start,
+            label_no: 0,
+        }
     }
 
     // アセンブラ取得
@@ -45,18 +50,25 @@ impl Asm {
             Expr::LessThan(ref a, ref b) |
             Expr::GreaterThan(ref a, ref b) |
             Expr::LessThanEqual(ref a, ref b) |
-            Expr::GreaterThanEqual(ref a, ref b)  => {
+            Expr::GreaterThanEqual(ref a, ref b) => {
                 self.generate(a);
                 self.generate(b);
 
                 // 各演算子評価.
-                self.inst = format!("{}{}{}", self.inst, self.pop_stack("ecx"), self.pop_stack("eax"));
+                self.inst = format!(
+                    "{}{}{}",
+                    self.inst,
+                    self.pop_stack("ecx"),
+                    self.pop_stack("eax")
+                );
                 self.inst = format!("{}{}", self.inst, self.operator(ast));
 
                 // 演算子に応じて退避するレジスタを変更.
                 match *ast {
-                    Expr::Remainder(_, _) => self.inst = format!("{}{}", self.inst, self.push_stack("edx")),
-                    _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax"))
+                    Expr::Remainder(_, _) => {
+                        self.inst = format!("{}{}", self.inst, self.push_stack("edx"))
+                    }
+                    _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
                 }
             }
             Expr::Factor(a) => {
@@ -121,7 +133,7 @@ impl Asm {
                 self.inst = format!("{}  neg %eax\n", self.inst);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
-            _ => panic!("Not Support Expression")
+            _ => panic!("Not Support Expression"),
         }
     }
 
@@ -130,14 +142,14 @@ impl Asm {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, i);
-     }
+    }
 
     // ||演算子生成.
     fn generate_logical_or(&mut self, a: &Expr, i: u64) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, i);
-     }
+    }
 
     // スタックポップ.
     fn pop_stack(&self, reg: &str) -> String {
@@ -155,14 +167,25 @@ impl Asm {
             Expr::Multiple(_, _) => "  imull %ecx\n".to_string(),
             Expr::Plus(_, _) => "  addl %ecx, %eax\n".to_string(),
             Expr::Minus(_, _) => "  subl %ecx, %eax\n".to_string(),
-            Expr::Division(_, _) | Expr::Remainder(_, _)  => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            Expr::Division(_, _) |
+            Expr::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             Expr::Equal(_, _) => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::NotEqual(_, _) => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::LessThan(_, _) => "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::GreaterThan(_, _) => "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::LessThanEqual(_, _) => "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::GreaterThanEqual(_, _) => "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string(),
-            _ => process::abort()
+            Expr::NotEqual(_, _) => {
+                "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string()
+            }
+            Expr::LessThan(_, _) => {
+                "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string()
+            }
+            Expr::GreaterThan(_, _) => {
+                "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string()
+            }
+            Expr::LessThanEqual(_, _) => {
+                "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string()
+            }
+            Expr::GreaterThanEqual(_, _) => {
+                "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
+            }
+            _ => process::abort(),
         }
     }
 }
