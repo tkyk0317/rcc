@@ -56,7 +56,7 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.skip();
                                 token = TokenInfo::new(Token::NotEqual, "!=".to_string());
                             } else {
-                                token = TokenInfo::new(Token::Unknown, v.to_string());
+                                token = TokenInfo::new(Token::Not, v.to_string());
                             }
                         }
                         '>' => {

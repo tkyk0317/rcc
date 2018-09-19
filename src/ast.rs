@@ -15,7 +15,7 @@ use token::Token;
 //   <Term> ::= <Factor> <SubTerm>
 //   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
 //   <Factor> ::= '(' NUMBER ')' | <UnAry>
-//   <UnAry> ::= ['+'|'-'] NUMBER
+//   <UnAry> ::= ['!'|'+'|'-'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -35,6 +35,7 @@ pub enum Expr {
     Remainder(Box<Expr>, Box<Expr>),
     UnPlus(Box<Expr>),
     UnMinus(Box<Expr>),
+    Not(Box<Expr>),
     Factor(i64),
 }
 
@@ -58,6 +59,7 @@ impl fmt::Display for Expr {
             Expr::Remainder(ref a, ref b) => write!(f, "{} % {}", *a, *b),
             Expr::UnPlus(ref a) => write!(f, "+{}", *a),
             Expr::UnMinus(ref a) => write!(f, "-{}", *a),
+            Expr::Not(ref a) => write!(f, "!{}", *a),
             Expr::Factor(v) => write!(f, "{}", v),
         }
     }
@@ -239,6 +241,10 @@ impl<'a> Ast<'a> {
             Token::Minus => {
                 self.consume();
                 Expr::UnMinus(Box::new(self.factor(None)))
+            }
+            Token::Not => {
+                self.consume();
+                Expr::Not(Box::new(self.factor(None)))
             }
             _ => acc.unwrap(),
         }
@@ -1376,6 +1382,41 @@ mod tests {
                 Expr::Multiple(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
+                )
+            )
+        }
+        // 否定演算子のテスト.
+        {
+            let data = vec![
+                TokenInfo::new(Token::Not, "!".to_string()),
+                TokenInfo::new(Token::Number, "2".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(result, Expr::Not(Box::new(Expr::Factor(2))))
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Not, "!".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Not(
+                    Box::new(Expr::Equal(
+                        Box::new(Expr::Factor(2)),
+                        Box::new(Expr::Factor(3)),
+                    ))
                 )
             )
         }

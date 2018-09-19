@@ -133,6 +133,14 @@ impl Asm {
                 self.inst = format!("{}  neg %eax\n", self.inst);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
+            Expr::Not(ref a) => {
+                self.generate(a);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+                self.inst = format!("{}  sete %al\n", self.inst);
+                self.inst = format!("{}  movzbl %al, %eax\n", self.inst);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+            }
             _ => panic!("Not Support Expression"),
         }
     }

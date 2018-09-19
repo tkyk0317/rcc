@@ -23,6 +23,7 @@ pub enum Token {
     Remainder, // 余り演算子.
     LeftBracket, // 左括弧.
     RightBracket, // 右括弧.
+    Not, // 否定演算子.
     Unknown, // 不明.
 }
 
