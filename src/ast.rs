@@ -13,8 +13,9 @@ use token::Token;
 //   <Expr> ::= <Term> <AddSubExpr>
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
-//   <MultiDivTerm> ::= ['*'|'.'|'%'] <Factor> <MultiDivTerm>
-//   <Factor> ::= '(' NUMBER ')'
+//   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
+//   <Factor> ::= '(' NUMBER ')' | <UnAry>
+//   <UnAry> ::= ['+'|'-'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -32,6 +33,8 @@ pub enum Expr {
     Multiple(Box<Expr>, Box<Expr>),
     Division(Box<Expr>, Box<Expr>),
     Remainder(Box<Expr>, Box<Expr>),
+    UnPlus(Box<Expr>),
+    UnMinus(Box<Expr>),
     Factor(i64),
 }
 
@@ -53,6 +56,8 @@ impl fmt::Display for Expr {
             Expr::Multiple(ref a, ref b) => write!(f, "{} * {}", *a, *b),
             Expr::Division(ref a, ref b) => write!(f, "{} / {}", *a, *b),
             Expr::Remainder(ref a, ref b) =>  write!(f, "{} % {}", *a, *b),
+            Expr::UnPlus(ref a) => write!(f, "+{}", *a),
+            Expr::UnMinus(ref a) => write!(f, "-{}", *a),
             Expr::Factor(v) =>  write!(f, "{}", v),
         }
     }
@@ -163,8 +168,8 @@ impl<'a> Ast<'a> {
 
     // expression
     fn expr(&mut self, acc: Option<Expr>) -> Expr {
-        let factor = self.term(acc);
-        self.expr_add_sub(factor)
+        let left = self.term(acc);
+        self.expr_add_sub(left)
     }
 
     // add or sub expression.
@@ -183,14 +188,14 @@ impl<'a> Ast<'a> {
                 let right = self.term(None);
                 self.expr_add_sub(create(ope.get_token_type(), acc, right))
             }
-            _ => self.term(Some(acc))
+            _ => acc
         }
     }
 
     // term.
     fn term(&mut self, acc: Option<Expr>) -> Expr {
-        let factor = self.factor(acc);
-        self.term_multi_div(factor)
+        let left = self.factor(acc);
+        self.term_multi_div(left)
     }
 
     // multiple and division term.
@@ -210,7 +215,7 @@ impl<'a> Ast<'a> {
                 let right = self.factor(None);
                 self.term_multi_div(create(ope.get_token_type(), acc, right))
             }
-            _ => self.factor(Some(acc))
+            _ => acc
         }
     }
 
@@ -224,8 +229,7 @@ impl<'a> Ast<'a> {
             }
             Token::LeftBracket => {
                 self.consume();
-                let factor = self.factor(acc);
-                let tree = self.condition(Some(factor));
+                let tree = self.condition(None);
 
                 // 閉じカッコがあるかどうかチェック.
                 if Token::RightBracket != self.next_consume().get_token_type() {
@@ -233,7 +237,15 @@ impl<'a> Ast<'a> {
                 }
                 tree
             }
-            _ => acc.unwrap()
+            Token::Plus => {
+                self.consume();
+                Expr::UnPlus(Box::new(self.factor(None)))
+            }
+            Token::Minus => {
+                self.consume();
+                Expr::UnMinus(Box::new(self.factor(None)))
+            }
+             _ => acc.unwrap()
         }
     }
 
@@ -1331,6 +1343,87 @@ mod tests {
                         Box::new(Expr::Factor(13))
                     )),
                     Box::new(Expr::Factor(5))
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_unary_operator() {
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::UnPlus(Box::new(Expr::Factor(2)))
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Minus, "-".to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Minus(
+                    Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
+                    Box::new(Expr::Factor(1))
+                )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Minus, "-".to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                    TokenInfo::new(Token::RightBracket, ")".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Minus(
+                    Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
+                    Box::new(Expr::Factor(1))
+                )
+            )
+        }
+        {
+            let data =
+                vec![
+                    TokenInfo::new(Token::Plus, "+".to_string()),
+                    TokenInfo::new(Token::Number, "2".to_string()),
+                    TokenInfo::new(Token::Multi, "*".to_string()),
+                    TokenInfo::new(Token::Number, "1".to_string()),
+                ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Multiple(
+                    Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
+                    Box::new(Expr::Factor(1))
                 )
             )
         }

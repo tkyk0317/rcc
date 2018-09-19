@@ -112,6 +112,15 @@ impl Asm {
                 self.generate(c);
                 self.inst = format!("{}.L{}:\n", self.inst, label_end);
             }
+            Expr::UnPlus(ref a) => {
+                self.generate(a);
+            }
+            Expr::UnMinus(ref a) => {
+                self.generate(a);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.inst = format!("{}  neg %eax\n", self.inst);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+            }
             _ => panic!("Not Support Expression")
         }
     }
