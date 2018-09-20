@@ -105,6 +105,9 @@ impl<'a> LexicalAnalysis<'a> {
                         '^' => {
                             token = TokenInfo::new(Token::BitXor, v.to_string());
                         }
+                        '~' => {
+                            token = TokenInfo::new(Token::BitReverse, v.to_string());
+                        }
                         '+' => {
                             token = TokenInfo::new(Token::Plus, v.to_string());
                         }
@@ -347,6 +350,15 @@ mod tests {
             assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
             assert_eq!(TokenInfo::new(Token::RightShift, ">>".to_string()), lexer.get_tokens()[1]);
             assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+        }
+        {
+            let input = "~1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::BitReverse, "~".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[1]);
         }
     }
 }

@@ -19,7 +19,7 @@ use token::Token;
 //   <Term> ::= <Factor> <SubTerm>
 //   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
 //   <Factor> ::= '(' NUMBER ')' | <UnAry>
-//   <UnAry> ::= ['!'|'+'|'-'] NUMBER
+//   <UnAry> ::= ['!'|'+'|'-'|'~'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -45,6 +45,7 @@ pub enum Expr {
     UnPlus(Box<Expr>),
     UnMinus(Box<Expr>),
     Not(Box<Expr>),
+    BitReverse(Box<Expr>),
     Factor(i64),
 }
 
@@ -74,6 +75,7 @@ impl fmt::Display for Expr {
             Expr::UnPlus(ref a) => write!(f, "+{}", *a),
             Expr::UnMinus(ref a) => write!(f, "-{}", *a),
             Expr::Not(ref a) => write!(f, "!{}", *a),
+            Expr::BitReverse(ref a) => write!(f, "~{}", *a),
             Expr::Factor(v) => write!(f, "{}", v),
         }
     }
@@ -309,6 +311,10 @@ impl<'a> Ast<'a> {
             Token::Not => {
                 self.consume();
                 Expr::Not(Box::new(self.factor(None)))
+            }
+            Token::BitReverse => {
+                self.consume();
+                Expr::BitReverse(Box::new(self.factor(None)))
             }
             _ => acc.unwrap(),
         }
@@ -1483,6 +1489,18 @@ mod tests {
                     ))
                 )
             )
+        }
+        // ビット反転演算子.
+        {
+            let data = vec![
+                TokenInfo::new(Token::BitReverse, "~".to_string()),
+                TokenInfo::new(Token::Number, "2".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(result, Expr::BitReverse(Box::new(Expr::Factor(2))))
         }
     }
 

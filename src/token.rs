@@ -3,6 +3,7 @@
 // トークン識別子.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
+    BitReverse, // ビット反転演算子.
     BitAnd, // ビットAND演算子
     BitOr, // ビットOR演算子
     BitXor, // ビットXOR演算子

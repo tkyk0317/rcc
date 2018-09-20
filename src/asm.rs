@@ -146,6 +146,12 @@ impl Asm {
                 self.inst = format!("{}  movzbl %al, %eax\n", self.inst);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
+            Expr::BitReverse(ref a) => {
+                self.generate(a);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.inst = format!("{}  not %eax\n", self.inst);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+            }
             _ => panic!("Not Support Expression"),
         }
     }
