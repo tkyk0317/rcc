@@ -6,7 +6,9 @@ use token::Token;
 //   <Condition> ::= <Logical> <SubCondition>
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
-//   <SubLogical> ::= ['&&' | '||'] <Relation> <SubLogical>
+//   <SubLogical> ::= ['&&' | '||'] <BitOp> <SubLogical>
+//   <BitOp> ::=  <Relation> <SubBitOp>
+//   <SubBitOp> ::= ['&'|'|'|'^'] <Relation> <SubBitOp>
 //   <Relation> ::= <Shift> <SubRelation>
 //   <SubRelation> ::= <Op> <Shift> <SubRelation>
 //   <Op> ::= ['==' | '!=' | '<' | '>' | '>=' | '<=']
@@ -24,6 +26,9 @@ pub enum Expr {
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
+    BitAnd(Box<Expr>, Box<Expr>),
+    BitOr(Box<Expr>, Box<Expr>),
+    BitXor(Box<Expr>, Box<Expr>),
     Equal(Box<Expr>, Box<Expr>),
     NotEqual(Box<Expr>, Box<Expr>),
     LessThan(Box<Expr>, Box<Expr>),
@@ -63,6 +68,9 @@ impl fmt::Display for Expr {
             Expr::Multiple(ref a, ref b) => write!(f, "{} * {}", *a, *b),
             Expr::Division(ref a, ref b) => write!(f, "{} / {}", *a, *b),
             Expr::Remainder(ref a, ref b) => write!(f, "{} % {}", *a, *b),
+            Expr::BitAnd(ref a, ref b) => write!(f, "{} & {}", *a, *b),
+            Expr::BitOr(ref a, ref b) => write!(f, "{} | {}", *a, *b),
+            Expr::BitXor(ref a, ref b) => write!(f, "{} ^ {}", *a, *b),
             Expr::UnPlus(ref a) => write!(f, "+{}", *a),
             Expr::UnMinus(ref a) => write!(f, "-{}", *a),
             Expr::Not(ref a) => write!(f, "!{}", *a),
@@ -121,7 +129,7 @@ impl<'a> Ast<'a> {
 
     // logical.
     fn logical(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.relation(acc);
+        let left = self.bit_operator(acc);
         self.sub_logical(left)
     }
 
@@ -136,10 +144,36 @@ impl<'a> Ast<'a> {
         match ope_type {
             Token::LogicalAnd | Token::LogicalOr => {
                 self.consume();
-                let right = self.relation(None);
+                let right = self.bit_operator(None);
                 self.sub_logical(create(ope_type, acc, right))
             }
             _ => acc,
+        }
+    }
+
+    // bit operator.
+    fn bit_operator(&mut self, acc: Option<Expr>) -> Expr {
+        let left = self.relation(acc);
+        self.sub_bit_operator(left)
+    }
+
+    // sub bit operator.
+    fn sub_bit_operator(&mut self, acc: Expr) -> Expr {
+        let create = |ope, left, right| match ope {
+            Token::BitOr => Expr::BitOr(Box::new(left), Box::new(right)),
+            Token::BitAnd => Expr::BitAnd(Box::new(left), Box::new(right)),
+            Token::BitXor => Expr::BitXor(Box::new(left), Box::new(right)),
+            _ => panic!("sub_bit_operator: Not Support Token {:?}", ope)
+        };
+
+        let token = self.next();
+        match token.get_token_type() {
+            Token::BitOr | Token::BitAnd | Token::BitXor => {
+                self.consume();
+                let right = self.relation(None);
+                self.sub_bit_operator(create(token.get_token_type(), acc, right))
+            }
+            _ => acc
         }
     }
 
@@ -1533,6 +1567,88 @@ mod tests {
                         Box::new(Expr::Factor(3)),
                         Box::new(Expr::Factor(1)),
                     ))
+                )
+            )
+        }
+    }
+
+    // ビット演算子テスト.
+    #[test]
+    fn test_bit_operator() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::BitAnd, "&".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::BitAnd(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::Factor(3))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::BitOr, "&".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::BitOr(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::Factor(3))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::BitXor, "^".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::BitXor(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::Factor(3))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::BitAnd, "&".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::BitOr, "|".to_string()),
+                TokenInfo::new(Token::Number, "4".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::BitOr(
+                    Box::new(Expr::BitAnd(
+                        Box::new(Expr::Factor(2)),
+                        Box::new(Expr::Factor(3))
+                    )),
+                    Box::new(Expr::Factor(4)),
                 )
             )
         }

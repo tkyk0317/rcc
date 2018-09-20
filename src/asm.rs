@@ -52,7 +52,10 @@ impl Asm {
             Expr::LessThanEqual(ref a, ref b) |
             Expr::GreaterThanEqual(ref a, ref b) |
             Expr::LeftShift(ref a, ref b) |
-            Expr::RightShift(ref a, ref b) => {
+            Expr::RightShift(ref a, ref b) |
+            Expr::BitAnd(ref a, ref b) |
+            Expr::BitOr(ref a, ref b) |
+            Expr::BitXor(ref a, ref b) => {
                 self.generate(a);
                 self.generate(b);
 
@@ -200,6 +203,15 @@ impl Asm {
             }
             Expr::RightShift(_, _) => {
                 "  sarl %cl, %eax\n".to_string()
+            }
+            Expr::BitAnd(_, _) => {
+                "  andl %ecx, %eax\n".to_string()
+            }
+            Expr::BitOr(_, _) => {
+                "  orl %ecx, %eax\n".to_string()
+            }
+            Expr::BitXor(_, _) => {
+                "  xorl %ecx, %eax\n".to_string()
             }
             _ => process::abort(),
         }

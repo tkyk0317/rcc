@@ -89,8 +89,9 @@ impl<'a> LexicalAnalysis<'a> {
                             if true == self.is_logical_and(v) {
                                 self.skip();
                                 token = TokenInfo::new(Token::LogicalAnd, "&&".to_string());
-                            } else {
-                                token = TokenInfo::new(Token::Unknown, v.to_string());
+                            }
+                            else {
+                                token = TokenInfo::new(Token::BitAnd, v.to_string());
                             }
                         }
                         '|' => {
@@ -98,8 +99,11 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.skip();
                                 token = TokenInfo::new(Token::LogicalOr, "||".to_string());
                             } else {
-                                token = TokenInfo::new(Token::Unknown, v.to_string());
+                                token = TokenInfo::new(Token::BitOr, v.to_string());
                             }
+                        }
+                        '^' => {
+                            token = TokenInfo::new(Token::BitXor, v.to_string());
                         }
                         '+' => {
                             token = TokenInfo::new(Token::Plus, v.to_string());
