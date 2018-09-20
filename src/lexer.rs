@@ -66,7 +66,7 @@ impl<'a> LexicalAnalysis<'a> {
                             }
                             else if true == self.is_right_shift(v) {
                                 self.skip();
-                                token = TokenInfo::new(Token::RightShift, v.to_string());
+                                token = TokenInfo::new(Token::RightShift, ">>".to_string());
                             }
                             else {
                                 token = TokenInfo::new(Token::GreaterThan, v.to_string());
@@ -79,7 +79,7 @@ impl<'a> LexicalAnalysis<'a> {
                             }
                             else if true == self.is_left_shift(v) {
                                 self.skip();
-                                token = TokenInfo::new(Token::LeftShift, v.to_string());
+                                token = TokenInfo::new(Token::LeftShift, "<<".to_string());
                             }
                             else {
                                 token = TokenInfo::new(Token::LessThan, v.to_string());
@@ -264,6 +264,89 @@ impl<'a> LexicalAnalysis<'a> {
         match self.read() {
             Some(a) if a == '>' && v == '>' => true,
             _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lexer() {
+        {
+            let input = "2 + 1 / 3 * 7".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::Plus, "+".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+            assert_eq!(TokenInfo::new(Token::Division, "/".to_string()), lexer.get_tokens()[3]);
+            assert_eq!(TokenInfo::new(Token::Number, "3".to_string()), lexer.get_tokens()[4]);
+            assert_eq!(TokenInfo::new(Token::Multi, "*".to_string()), lexer.get_tokens()[5]);
+            assert_eq!(TokenInfo::new(Token::Number, "7".to_string()), lexer.get_tokens()[6]);
+        }
+        {
+            let input = "2 >= 1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::GreaterThanEqual, ">=".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+        }
+        {
+            let input = "2 <= 1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::LessThanEqual, "<=".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+        }
+        {
+            let input = "2 == 1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::Equal, "==".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+        }
+        {
+            let input = "2 != 1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::NotEqual, "!=".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+        }
+        {
+            let input = "2 << 1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::LeftShift, "<<".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
+        }
+        {
+            let input = "2 >> 1".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::RightShift, ">>".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[2]);
         }
     }
 }
