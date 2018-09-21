@@ -30,6 +30,7 @@ pub enum Token {
     LeftBracket, // 左括弧.
     RightBracket, // 右括弧.
     Not, // 否定演算子.
+    SemiColon, // セミコロン.
     Unknown, // 不明.
 }
 

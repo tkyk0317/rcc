@@ -3,6 +3,7 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
+//   <Expression> ::= <Condition> ';'
 //   <Condition> ::= <Logical> <SubCondition>
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
@@ -99,7 +100,11 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        self.condition(None)
+        let expr = self.condition(None);
+        if self.next().get_token_type() != Token::SemiColon {
+            panic!("Not exists SemiColon {:?}", self.next())
+        }
+        expr
     }
 
     // condition.
@@ -362,6 +367,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -380,6 +386,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -406,6 +413,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -435,6 +443,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -453,6 +462,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -479,6 +489,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -508,6 +519,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -526,6 +538,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -552,6 +565,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -581,6 +595,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -599,6 +614,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -625,6 +641,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -656,6 +673,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -680,6 +698,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -704,6 +723,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -728,6 +748,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -753,6 +774,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::GreaterThanEqual, ">=".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -784,6 +806,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -803,6 +826,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -833,6 +857,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -861,6 +886,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -891,6 +917,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -928,6 +955,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -965,6 +993,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -998,6 +1027,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1035,6 +1065,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1068,6 +1099,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1100,6 +1132,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1119,6 +1152,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1155,6 +1189,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "8".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "9".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1192,6 +1227,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1211,6 +1247,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1247,6 +1284,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "8".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "9".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1291,6 +1329,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1323,6 +1362,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Colon, ":".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1357,6 +1397,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::Colon, ":".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1389,6 +1430,7 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1402,6 +1444,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Minus, "-".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1423,6 +1466,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, "-".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1442,6 +1486,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Multi, "*".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1460,6 +1505,7 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Not, "!".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1475,6 +1521,7 @@ mod tests {
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1495,6 +1542,7 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::BitReverse, "~".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1511,6 +1559,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LeftShift, "<<".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1529,6 +1578,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1549,6 +1599,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1572,6 +1623,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1598,6 +1650,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitAnd, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1616,6 +1669,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitOr, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1634,6 +1688,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitXor, "^".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
@@ -1654,6 +1709,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
