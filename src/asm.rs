@@ -2,7 +2,7 @@ use std::process;
 use ast::Expr;
 use config::Config;
 
-#[doc = "アセンブラ生成部" ]
+#[doc = "アセンブラ生成部"]
 pub struct Asm {
     inst: String,
     label_no: u64,
@@ -40,6 +40,15 @@ impl Asm {
     // アセンブラ生成.
     pub fn generate(&mut self, ast: &Expr) {
         match *ast {
+            Expr::Factor(a) => self.generate_factor(a),
+            Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
+            Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
+            Expr::Condition(ref a, ref b, ref c) => self.generate_condition(a, b, c),
+            Expr::UnPlus(ref a) => self.generate_unplus(a),
+            Expr::UnMinus(ref a) => self.generate_unminus(a),
+            Expr::Not(ref a) => self.generate_not(a),
+            Expr::BitReverse(ref a) => self.generate_bit_reverse(a),
+            Expr::Block(ref a, ref b) => self.generate_block(a, b),
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
@@ -55,123 +64,138 @@ impl Asm {
             Expr::RightShift(ref a, ref b) |
             Expr::BitAnd(ref a, ref b) |
             Expr::BitOr(ref a, ref b) |
-            Expr::BitXor(ref a, ref b) => {
-                self.generate(a);
-                self.generate(b);
-
-                // 各演算子評価.
-                self.inst = format!(
-                    "{}{}{}",
-                    self.inst,
-                    self.pop_stack("ecx"),
-                    self.pop_stack("eax")
-                );
-                self.inst = format!("{}{}", self.inst, self.operator(ast));
-
-                // 演算子に応じて退避するレジスタを変更.
-                match *ast {
-                    Expr::Remainder(_, _) => {
-                        self.inst = format!("{}{}", self.inst, self.push_stack("edx"))
-                    }
-                    _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
-                }
-            }
-            Expr::Factor(a) => {
-                // 数値.
-                self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n");
-                self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
-            }
-            Expr::LogicalAnd(ref a, ref b) => {
-                let label_false = self.label_no;
-                self.label_no = self.label_no + 1;
-                let label_end = self.label_no;
-                self.label_no = self.label_no + 1;
-
-                self.generate_logical_and(a, label_false);
-                self.generate_logical_and(b, label_false);
-                self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
-                self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
-                self.inst = format!("{}.L{}:\n", self.inst, label_false);
-                self.inst = format!("{}  movl $0, %eax\n", self.inst);
-                self.inst = format!("{}.L{}:\n", self.inst, label_end);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-            }
-            Expr::LogicalOr(ref a, ref b) => {
-                let label_true = self.label_no;
-                self.label_no = self.label_no + 1;
-                let label_end = self.label_no;
-                self.label_no = self.label_no + 1;
-
-                self.generate_logical_or(a, label_true);
-                self.generate_logical_or(b, label_true);
-                self.inst = format!("{}{}", self.inst, "  movl $0, %eax\n");
-                self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
-                self.inst = format!("{}.L{}:\n", self.inst, label_true);
-                self.inst = format!("{}  movl $1, %eax\n", self.inst);
-                self.inst = format!("{}.L{}:\n", self.inst, label_end);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-            }
-            Expr::Condition(ref a, ref b, ref c) => {
-                let label_false = self.label_no;
-                self.label_no = self.label_no + 1;
-                let label_end = self.label_no;
-                self.label_no = self.label_no + 1;
-
-                self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
-                self.inst = format!("{}  je .L{}\n", self.inst, label_false);
-
-                self.generate(b);
-                self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
-                self.inst = format!("{}.L{}:\n", self.inst, label_false);
-
-                self.generate(c);
-                self.inst = format!("{}.L{}:\n", self.inst, label_end);
-            }
-            Expr::UnPlus(ref a) => {
-                self.generate(a);
-            }
-            Expr::UnMinus(ref a) => {
-                self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                self.inst = format!("{}  negl %eax\n", self.inst);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-            }
-            Expr::Not(ref a) => {
-                self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
-                self.inst = format!("{}  sete %al\n", self.inst);
-                self.inst = format!("{}  movzbl %al, %eax\n", self.inst);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-            }
-            Expr::BitReverse(ref a) => {
-                self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                self.inst = format!("{}  notl %eax\n", self.inst);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-            }
-            Expr::Block(ref a, ref b) => {
-                self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                self.generate(b);
-            }
+            Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
         }
     }
 
-    // &&演算子生成.
-    fn generate_logical_and(&mut self, a: &Expr, i: u64) {
+    // block生成.
+    fn generate_block(&mut self, a: &Expr, b: &Expr) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, i);
+        self.generate(b);
+    }
+
+    // bit反転演算子生成.
+    fn generate_bit_reverse(&mut self, a: &Expr) {
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  notl %eax\n", self.inst);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
+
+    // Not演算子生成.
+    fn generate_not(&mut self, a: &Expr) {
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.inst = format!("{}  sete %al\n", self.inst);
+        self.inst = format!("{}  movzbl %al, %eax\n", self.inst);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
+
+    // マイナス単項演算子生成.
+    fn generate_unminus(&mut self, a: &Expr) {
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  negl %eax\n", self.inst);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
+
+    // プラス単項演算子生成.
+    fn generate_unplus(&mut self, a: &Expr) {
+        self.generate(a);
+    }
+
+    // 三項演算子生成.
+    fn generate_condition(&mut self, a: &Expr, b: &Expr, c: &Expr) {
+        let label_false = self.label_no;
+        self.label_no = self.label_no + 1;
+        let label_end = self.label_no;
+        self.label_no = self.label_no + 1;
+
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.inst = format!("{}  je .L{}\n", self.inst, label_false);
+
+        self.generate(b);
+        self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
+        self.inst = format!("{}.L{}:\n", self.inst, label_false);
+
+        self.generate(c);
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+    }
+
+    // &&演算子生成.
+    fn generate_logical_and(&mut self, a: &Expr, b: &Expr) {
+        let label_false = self.label_no;
+        self.label_no = self.label_no + 1;
+        let label_end = self.label_no;
+        self.label_no = self.label_no + 1;
+
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, label_false);
+        self.generate(b);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, label_false);
+
+        self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
+        self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
+        self.inst = format!("{}.L{}:\n", self.inst, label_false);
+        self.inst = format!("{}  movl $0, %eax\n", self.inst);
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
 
     // ||演算子生成.
-    fn generate_logical_or(&mut self, a: &Expr, i: u64) {
+    fn generate_logical_or(&mut self, a: &Expr, b: &Expr) {
+        let label_true = self.label_no;
+        self.label_no = self.label_no + 1;
+        let label_end = self.label_no;
+        self.label_no = self.label_no + 1;
+
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, i);
+        self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, label_true);
+        self.generate(b);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, label_true);
+
+        self.inst = format!("{}{}", self.inst, "  movl $0, %eax\n");
+        self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
+        self.inst = format!("{}.L{}:\n", self.inst, label_true);
+        self.inst = format!("{}  movl $1, %eax\n", self.inst);
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
+
+    // 数値生成.
+    fn generate_factor(&mut self, a: i64) {
+        // 数値.
+        self.inst = format!("{}{}", self.inst, "  sub $4, %rsp\n");
+        self.inst = format!("{}  movl ${}, 0(%rsp)\n", self.inst, a);
+    }
+
+    // 演算子生成.
+    fn generate_operator(&mut self, ast: &Expr, a: &Expr, b: &Expr) {
+        self.generate(a);
+        self.generate(b);
+
+        // 各演算子評価.
+        self.inst = format!(
+            "{}{}{}",
+            self.inst,
+            self.pop_stack("ecx"),
+            self.pop_stack("eax")
+        );
+        self.inst = format!("{}{}", self.inst, self.operator(ast));
+
+        // 演算子に応じて退避するレジスタを変更.
+        match *ast {
+            Expr::Remainder(_, _) => self.inst = format!("{}{}", self.inst, self.push_stack("edx")),
+            _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
+        }
     }
 
     // スタックポップ.
@@ -208,21 +232,11 @@ impl Asm {
             Expr::GreaterThanEqual(_, _) => {
                 "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
             }
-            Expr::LeftShift(_, _) => {
-                "  sall %cl, %eax\n".to_string()
-            }
-            Expr::RightShift(_, _) => {
-                "  sarl %cl, %eax\n".to_string()
-            }
-            Expr::BitAnd(_, _) => {
-                "  andl %ecx, %eax\n".to_string()
-            }
-            Expr::BitOr(_, _) => {
-                "  orl %ecx, %eax\n".to_string()
-            }
-            Expr::BitXor(_, _) => {
-                "  xorl %ecx, %eax\n".to_string()
-            }
+            Expr::LeftShift(_, _) => "  sall %cl, %eax\n".to_string(),
+            Expr::RightShift(_, _) => "  sarl %cl, %eax\n".to_string(),
+            Expr::BitAnd(_, _) => "  andl %ecx, %eax\n".to_string(),
+            Expr::BitOr(_, _) => "  orl %ecx, %eax\n".to_string(),
+            Expr::BitXor(_, _) => "  xorl %ecx, %eax\n".to_string(),
             _ => process::abort(),
         }
     }

@@ -122,12 +122,11 @@ impl<'a> Ast<'a> {
                 if self.next().get_token_type() != Token::Unknown {
                     let right = self.condition(None);
                     Expr::Block(Box::new(acc), Box::new(self.sub_block(right)))
-                }
-                else {
+                } else {
                     acc
                 }
             }
-            _ => acc
+            _ => acc,
         }
     }
 
@@ -194,7 +193,7 @@ impl<'a> Ast<'a> {
             Token::BitOr => Expr::BitOr(Box::new(left), Box::new(right)),
             Token::BitAnd => Expr::BitAnd(Box::new(left), Box::new(right)),
             Token::BitXor => Expr::BitXor(Box::new(left), Box::new(right)),
-            _ => panic!("sub_bit_operator: Not Support Token {:?}", ope)
+            _ => panic!("sub_bit_operator: Not Support Token {:?}", ope),
         };
 
         let token = self.next();
@@ -204,7 +203,7 @@ impl<'a> Ast<'a> {
                 let right = self.relation(None);
                 self.sub_bit_operator(create(token.get_token_type(), acc, right))
             }
-            _ => acc
+            _ => acc,
         }
     }
 
@@ -248,7 +247,7 @@ impl<'a> Ast<'a> {
         let create = |ope: Token, left, right| match ope {
             Token::LeftShift => Expr::LeftShift(Box::new(left), Box::new(right)),
             Token::RightShift => Expr::RightShift(Box::new(left), Box::new(right)),
-            _ => panic!("Not Support Token {:?}", ope)
+            _ => panic!("Not Support Token {:?}", ope),
         };
 
         let token = self.next();
@@ -258,7 +257,7 @@ impl<'a> Ast<'a> {
                 let right = self.expr(None);
                 self.sub_shift(create(token.get_token_type(), acc, right))
             }
-            _ => acc
+            _ => acc,
         }
     }
 
@@ -1553,12 +1552,10 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::Not(
-                    Box::new(Expr::Equal(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    ))
-                )
+                Expr::Not(Box::new(Expr::Equal(
+                    Box::new(Expr::Factor(2)),
+                    Box::new(Expr::Factor(3)),
+                )))
             )
         }
         // ビット反転演算子.
@@ -1591,10 +1588,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::LeftShift(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::Factor(1)),
-                )
+                Expr::LeftShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
             )
         }
         {
@@ -1610,10 +1604,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::RightShift(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::Factor(1)),
-                )
+                Expr::RightShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
             )
         }
         {
@@ -1636,7 +1627,7 @@ mod tests {
                         Box::new(Expr::Factor(2)),
                         Box::new(Expr::Factor(3)),
                     )),
-                    Box::new(Expr::Factor(1))
+                    Box::new(Expr::Factor(1)),
                 )
             )
         }
@@ -1660,7 +1651,7 @@ mod tests {
                     Box::new(Expr::RightShift(
                         Box::new(Expr::Factor(3)),
                         Box::new(Expr::Factor(1)),
-                    ))
+                    )),
                 )
             )
         }
@@ -1682,10 +1673,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::BitAnd(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::Factor(3))
-                )
+                Expr::BitAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
         {
@@ -1701,10 +1689,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::BitOr(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::Factor(3))
-                )
+                Expr::BitOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
         {
@@ -1720,10 +1705,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::BitXor(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::Factor(3))
-                )
+                Expr::BitXor(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
         {
@@ -1744,7 +1726,7 @@ mod tests {
                 Expr::BitOr(
                     Box::new(Expr::BitAnd(
                         Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3))
+                        Box::new(Expr::Factor(3)),
                     )),
                     Box::new(Expr::Factor(4)),
                 )

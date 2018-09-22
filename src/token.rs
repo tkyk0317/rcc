@@ -1,5 +1,4 @@
 #[doc = "トークン"]
-
 // トークン識別子.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
