@@ -152,6 +152,11 @@ impl Asm {
                 self.inst = format!("{}  notl %eax\n", self.inst);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
+            Expr::Block(ref a, ref b) => {
+                self.generate(a);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.generate(b);
+            }
         }
     }
 

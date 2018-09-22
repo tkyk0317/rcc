@@ -374,5 +374,19 @@ mod tests {
             assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[2]);
             assert_eq!(TokenInfo::new(Token::SemiColon, ";".to_string()), lexer.get_tokens()[3]);
         }
+        {
+            let input = "1 + 2; 3 >= 2".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(TokenInfo::new(Token::Number, "1".to_string()), lexer.get_tokens()[0]);
+            assert_eq!(TokenInfo::new(Token::Plus, "+".to_string()), lexer.get_tokens()[1]);
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[2]);
+            assert_eq!(TokenInfo::new(Token::SemiColon, ";".to_string()), lexer.get_tokens()[3]);
+            assert_eq!(TokenInfo::new(Token::Number, "3".to_string()), lexer.get_tokens()[4]);
+            assert_eq!(TokenInfo::new(Token::GreaterThanEqual, ">=".to_string()), lexer.get_tokens()[5]);
+            assert_eq!(TokenInfo::new(Token::Number, "2".to_string()), lexer.get_tokens()[6]);
+        }
     }
 }

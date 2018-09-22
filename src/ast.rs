@@ -24,6 +24,7 @@ use token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Block(Box<Expr>, Box<Expr>),
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
@@ -54,6 +55,7 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expr::Block(ref a, ref b) => write!(f, "{}{}", *a, *b),
             Expr::Condition(ref a, ref b, ref c) => write!(f, "{} ? {} : {}", *a, *b, *c),
             Expr::LogicalAnd(ref a, ref b) => write!(f, "{} && {}", *a, *b),
             Expr::LogicalOr(ref a, ref b) => write!(f, "{} || {}", *a, *b),
@@ -100,11 +102,33 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        let expr = self.condition(None);
-        if self.next().get_token_type() != Token::SemiColon {
-            panic!("Not exists SemiColon {:?}", self.next())
+        self.block(None)
+    }
+
+    // block.
+    fn block(&mut self, acc: Option<Expr>) -> Expr {
+        let left = self.condition(acc);
+        self.sub_block(left)
+    }
+
+    //sub block.
+    fn sub_block(&mut self, acc: Expr) -> Expr {
+        let token = self.next();
+        match token.get_token_type() {
+            Token::SemiColon => {
+                self.consume();
+
+                // 次のトークンがあれば処理を行う.
+                if self.next().get_token_type() != Token::Unknown {
+                    let right = self.condition(None);
+                    Expr::Block(Box::new(acc), Box::new(self.sub_block(right)))
+                }
+                else {
+                    acc
+                }
+            }
+            _ => acc
         }
-        expr
     }
 
     // condition.
