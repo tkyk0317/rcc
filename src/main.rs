@@ -3,6 +3,7 @@ mod token;
 mod ast;
 mod asm;
 mod config;
+mod string;
 
 use ast::Ast;
 use asm::Asm;
