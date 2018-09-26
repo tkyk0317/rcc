@@ -3,7 +3,9 @@ use token::TokenInfo;
 use token::Token;
 
 // 文法.
-//   <Expression> ::= <Condition> ';'
+//   <Expression> ::= <Block>
+//   <Block> ::=  <Assign> ';'
+//   <Assign> ::= VARIABLE '=' <Condition>
 //   <Condition> ::= <Logical> <SubCondition>
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
@@ -48,7 +50,9 @@ pub enum Expr {
     UnMinus(Box<Expr>),
     Not(Box<Expr>),
     BitReverse(Box<Expr>),
+    Assign(Box<Expr>, Box<Expr>),
     Factor(i64),
+    Variable(String),
 }
 
 // 出力フォーマット定義.
@@ -79,6 +83,8 @@ impl fmt::Display for Expr {
             Expr::UnMinus(ref a) => write!(f, "-{}", *a),
             Expr::Not(ref a) => write!(f, "!{}", *a),
             Expr::BitReverse(ref a) => write!(f, "~{}", *a),
+            Expr::Assign(ref a, ref b) => write!(f, "{} = {}", *a, *b),
+            Expr::Variable(ref v) => write!(f, "{}", v.clone()),
             Expr::Factor(v) => write!(f, "{}", v),
         }
     }
@@ -102,12 +108,12 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
-        self.block(None)
+        self.block()
     }
 
     // block.
-    fn block(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.condition(acc);
+    fn block(&mut self) -> Expr {
+        let left = self.assign();
         self.sub_block(left)
     }
 
@@ -127,6 +133,21 @@ impl<'a> Ast<'a> {
                 }
             }
             _ => acc,
+        }
+    }
+
+    // assign.
+    fn assign(&mut self) -> Expr {
+        let left = self.next();
+        match left.get_token_type() {
+            Token::Variable => {
+                // ひとまず、assign operator決め打ち.
+                self.consume();
+                let var = Expr::Variable(left.get_token_value());
+                self.consume();
+                Expr::Assign(Box::new(var), Box::new(self.condition(None)))
+            }
+            _ => self.condition(None)
         }
     }
 
@@ -167,12 +188,13 @@ impl<'a> Ast<'a> {
     fn sub_logical(&mut self, acc: Expr) -> Expr {
         let create = |ope: Token, left, right| match ope {
             Token::LogicalAnd => Expr::LogicalAnd(Box::new(left), Box::new(right)),
+            Token::Assign => Expr::Assign(Box::new(left), Box::new(right)),
             _ => Expr::LogicalOr(Box::new(left), Box::new(right)),
         };
 
         let ope_type = self.next().get_token_type();
         match ope_type {
-            Token::LogicalAnd | Token::LogicalOr => {
+            Token::LogicalAnd | Token::LogicalOr | Token::Assign => {
                 self.consume();
                 let right = self.bit_operator(None);
                 self.sub_logical(create(ope_type, acc, right))
@@ -343,6 +365,10 @@ impl<'a> Ast<'a> {
             Token::BitReverse => {
                 self.consume();
                 Expr::BitReverse(Box::new(self.factor(None)))
+            }
+            Token::Variable => {
+                self.consume();
+                Expr::Variable(token.get_token_value())
             }
             _ => acc.unwrap(),
         }
@@ -1729,6 +1755,120 @@ mod tests {
                         Box::new(Expr::Factor(3)),
                     )),
                     Box::new(Expr::Factor(4)),
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_assign_operator() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Factor(3))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(1))
+                    ))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::LogicalAnd(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(1))
+                    ))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::Multi, "*".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Multiple(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(1))
+                    ))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::BitOr, "|".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::BitOr(
+                        Box::new(Expr::Factor(3)),
+                        Box::new(Expr::Factor(1))
+                    ))
                 )
             )
         }

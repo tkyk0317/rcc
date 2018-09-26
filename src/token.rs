@@ -12,7 +12,6 @@ pub enum Token {
     Colon, // コロン.
     LogicalAnd, // &&演算子.
     LogicalOr, // ||演算子.
-    Substitution, // 代入演算子.
     Equal, // 等価演算子.
     NotEqual, // 否等価演算子.
     LessThan, // 比較演算子(<).
@@ -30,6 +29,7 @@ pub enum Token {
     RightBracket, // 右括弧.
     Not, // 否定演算子.
     SemiColon, // セミコロン.
+    Assign, // 代入演算子.
     Unknown, // 不明.
 }
 

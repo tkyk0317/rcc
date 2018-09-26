@@ -49,6 +49,8 @@ impl Asm {
             Expr::Not(ref a) => self.generate_not(a),
             Expr::BitReverse(ref a) => self.generate_bit_reverse(a),
             Expr::Block(ref a, ref b) => self.generate_block(a, b),
+            Expr::Assign(ref a, ref b) => self.generate_assign(a, b),
+            Expr::Variable(_) => self.generate_variable(),
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
@@ -66,6 +68,20 @@ impl Asm {
             Expr::BitOr(ref a, ref b) |
             Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
         }
+    }
+
+    // assign生成.
+    fn generate_assign(&mut self, _: &Expr, b: &Expr) {
+        self.generate(b);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  movl %eax, -4(%rbp)\n", self.inst);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
+
+    // variable生成.
+    fn generate_variable(&mut self) {
+        self.inst = format!("{}  movl -4(%rbp), %eax\n", self.inst);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
 
     // block生成.

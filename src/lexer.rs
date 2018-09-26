@@ -48,7 +48,7 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.skip();
                                 token = TokenInfo::new(Token::Equal, "==".to_string());
                             } else {
-                                token = TokenInfo::new(Token::Substitution, v.to_string());
+                                token = TokenInfo::new(Token::Assign, v.to_string());
                             }
                         }
                         '!' => {
@@ -497,5 +497,32 @@ mod tests {
                 lexer.get_tokens()[6]
             );
         }
+        {
+            let input = "a = 1 + 2;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "1".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string()),
+                lexer.get_tokens()[4]
+            );
+         }
     }
 }
