@@ -4,6 +4,7 @@ mod ast;
 mod asm;
 mod config;
 mod string;
+mod map;
 
 use ast::Ast;
 use asm::Asm;
