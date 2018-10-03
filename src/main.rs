@@ -5,9 +5,11 @@ mod asm;
 mod config;
 mod string;
 mod map;
+mod symbol;
 
 use ast::Ast;
 use asm::Asm;
+use symbol::Symbol;
 
 #[doc = "メイン関数"]
 fn main() {
@@ -16,7 +18,10 @@ fn main() {
     std::io::stdin().read_line(&mut s).unwrap();
     let mut p = lexer::LexicalAnalysis::new(&s);
     p.read_token();
-    let mut ast = Ast::new(p.get_tokens());
+
+    // AST作成
+    let mut symbol = Symbol::new();
+    let mut ast = Ast::new(p.get_tokens(), &mut symbol);
 
     // アセンブラへ変換.
     let mut asm = Asm::new();

@@ -1,6 +1,7 @@
 use std::fmt;
 use token::TokenInfo;
 use token::Token;
+use symbol::Symbol;
 
 // 文法.
 //   <Expression> ::= <Block>
@@ -90,19 +91,21 @@ impl fmt::Display for Expr {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Ast<'a> {
+#[derive(Debug)]
+pub struct Ast<'a, 'b> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize, // 現在読み取り位置.
+    symbol: &'b mut Symbol, // シンボルテーブル.
 }
 
 // 抽象構文木をトークン列から作成する
-impl<'a> Ast<'a> {
+impl<'a, 'b> Ast<'a, 'b> {
     // コンストラクタ.
-    pub fn new(tokens: &Vec<TokenInfo>) -> Ast {
+    pub fn new(tokens: &'a Vec<TokenInfo>, s: &'b mut Symbol) -> Ast<'a, 'b> {
         Ast {
             current_pos: 0,
             tokens: tokens,
+            symbol: s,
         }
     }
 
@@ -141,6 +144,9 @@ impl<'a> Ast<'a> {
         let left = self.next();
         match left.get_token_type() {
             Token::Variable => {
+                // シンボルテーブルへ保存.
+                self.symbol.push(left.get_token_value(), "".to_string());
+
                 // ひとまず、assign operator決め打ち.
                 self.consume();
                 let var = Expr::Variable(left.get_token_value());
@@ -418,7 +424,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -437,7 +444,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -464,7 +472,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -494,7 +503,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -513,7 +523,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -540,7 +551,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -570,7 +582,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -589,7 +602,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -616,7 +630,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -646,7 +661,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -665,7 +681,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -692,7 +709,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -724,7 +742,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -749,7 +768,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -774,7 +794,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -799,7 +820,8 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -825,7 +847,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -857,7 +880,8 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -877,7 +901,8 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -908,7 +933,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -937,7 +963,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -968,7 +995,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1006,7 +1034,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1044,7 +1073,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1078,7 +1108,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1116,7 +1147,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1150,7 +1182,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1183,7 +1216,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1203,7 +1237,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1240,7 +1275,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1278,7 +1314,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1298,7 +1335,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1335,7 +1373,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1380,7 +1419,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1413,7 +1453,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1448,7 +1489,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1481,7 +1523,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1495,7 +1538,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1517,7 +1561,8 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1537,7 +1582,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1556,7 +1602,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1572,7 +1619,8 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1591,7 +1639,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1608,7 +1657,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1624,7 +1674,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1642,7 +1693,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1666,7 +1718,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1693,7 +1746,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1709,7 +1763,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1725,7 +1780,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1743,7 +1799,8 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1768,7 +1825,8 @@ mod tests {
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1788,7 +1846,8 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1811,7 +1870,8 @@ mod tests {
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1834,7 +1894,8 @@ mod tests {
                 TokenInfo::new(Token::Multi, "*".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
@@ -1857,7 +1918,8 @@ mod tests {
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut s = Symbol::new();
+            let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
             // 期待値確認.
