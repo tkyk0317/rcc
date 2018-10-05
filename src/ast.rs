@@ -1,7 +1,7 @@
 use std::fmt;
 use token::TokenInfo;
 use token::Token;
-use symbol::Symbol;
+use symbol::SymbolTable;
 
 // 文法.
 //   <Expression> ::= <Block>
@@ -95,17 +95,17 @@ impl fmt::Display for Expr {
 pub struct Ast<'a, 'b> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize, // 現在読み取り位置.
-    symbol: &'b mut Symbol, // シンボルテーブル.
+    s_table: &'b mut SymbolTable, // シンボルテーブル.
 }
 
 // 抽象構文木をトークン列から作成する
 impl<'a, 'b> Ast<'a, 'b> {
     // コンストラクタ.
-    pub fn new(tokens: &'a Vec<TokenInfo>, s: &'b mut Symbol) -> Ast<'a, 'b> {
+    pub fn new(tokens: &'a Vec<TokenInfo>, s: &'b mut SymbolTable) -> Ast<'a, 'b> {
         Ast {
             current_pos: 0,
             tokens: tokens,
-            symbol: s,
+            s_table: s,
         }
     }
 
@@ -145,7 +145,7 @@ impl<'a, 'b> Ast<'a, 'b> {
         match left.get_token_type() {
             Token::Variable => {
                 // シンボルテーブルへ保存.
-                self.symbol.push(left.get_token_value(), "".to_string());
+                self.s_table.push(left.get_token_value(), "".to_string());
 
                 // ひとまず、assign operator決め打ち.
                 self.consume();
@@ -424,7 +424,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -444,7 +444,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -472,7 +472,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -503,7 +503,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -523,7 +523,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -551,7 +551,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -582,7 +582,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -602,7 +602,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -630,7 +630,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -661,7 +661,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -681,7 +681,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -709,7 +709,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -742,7 +742,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -768,7 +768,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -794,7 +794,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -820,7 +820,7 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -847,7 +847,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -880,7 +880,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -901,7 +901,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -933,7 +933,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -963,7 +963,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -995,7 +995,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1034,7 +1034,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1073,7 +1073,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1108,7 +1108,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1147,7 +1147,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1182,7 +1182,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1216,7 +1216,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1237,7 +1237,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1275,7 +1275,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1314,7 +1314,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1335,7 +1335,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1373,7 +1373,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1419,7 +1419,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1453,7 +1453,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1489,7 +1489,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1523,7 +1523,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1538,7 +1538,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1561,7 +1561,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1582,7 +1582,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1602,7 +1602,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1619,7 +1619,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1639,7 +1639,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1657,7 +1657,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1674,7 +1674,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1693,7 +1693,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1718,7 +1718,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1746,7 +1746,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1763,7 +1763,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1780,7 +1780,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1799,7 +1799,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1825,7 +1825,7 @@ mod tests {
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1846,7 +1846,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1870,7 +1870,7 @@ mod tests {
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1894,7 +1894,7 @@ mod tests {
                 TokenInfo::new(Token::Multi, "*".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 
@@ -1918,7 +1918,7 @@ mod tests {
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
             ];
-            let mut s = Symbol::new();
+            let mut s = SymbolTable::new();
             let mut ast = Ast::new(&data, &mut s);
             let result = ast.parse();
 

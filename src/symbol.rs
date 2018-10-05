@@ -3,17 +3,17 @@
 use map::Map;
 
 #[derive(Debug)]
-pub struct Symbol {
+pub struct SymbolTable {
     map: Map<String>,
 }
 
-impl Symbol {
+impl SymbolTable {
 
     /**
      * コンストラクタ.
      */
     pub fn new() -> Self {
-        Symbol {
+        SymbolTable {
             map: Map::new()
         }
     }
