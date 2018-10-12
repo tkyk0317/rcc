@@ -142,7 +142,7 @@ impl<'a> Ast<'a> {
 
                 // 次のトークンがあれば処理を行う.
                 if self.next().get_token_type() != Token::Unknown {
-                    let right = self.condition(None);
+                    let right = self.condition();
                     Expr::Block(Box::new(acc), Box::new(self.sub_block(right)))
                 } else {
                     acc
@@ -161,12 +161,12 @@ impl<'a> Ast<'a> {
                 let var = self.factor();
                 if Token::Assign == self.next().get_token_type() {
                     self.consume();
-                    Expr::Assign(Box::new(var), Box::new(self.condition(None)))
+                    Expr::Assign(Box::new(var), Box::new(self.condition()))
                 } else {
                     self.call_func(var)
                 }
             }
-            _ => self.condition(None),
+            _ => self.condition(),
         }
     }
 
@@ -181,8 +181,8 @@ impl<'a> Ast<'a> {
     }
 
     // condition.
-    fn condition(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.logical(acc);
+    fn condition(&mut self) -> Expr {
+        let left = self.logical();
         self.sub_condition(left)
     }
 
@@ -192,13 +192,13 @@ impl<'a> Ast<'a> {
         match ope_type {
             Token::Question => {
                 self.consume();
-                let middle = self.logical(None);
+                let middle = self.logical();
 
                 // コロンがない場合、終了.
                 if self.next_consume().get_token_type() != Token::Colon {
                     panic!("Not Exists Colon")
                 } else {
-                    let right = self.logical(None);
+                    let right = self.logical();
                     let tree = Expr::Condition(Box::new(acc), Box::new(middle), Box::new(right));
                     self.sub_condition(tree)
                 }
@@ -208,8 +208,8 @@ impl<'a> Ast<'a> {
     }
 
     // logical.
-    fn logical(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.bit_operator(acc);
+    fn logical(&mut self) -> Expr {
+        let left = self.bit_operator();
         self.sub_logical(left)
     }
 
@@ -225,7 +225,7 @@ impl<'a> Ast<'a> {
         match ope_type {
             Token::LogicalAnd | Token::LogicalOr | Token::Assign => {
                 self.consume();
-                let right = self.bit_operator(None);
+                let right = self.bit_operator();
                 self.sub_logical(create(ope_type, acc, right))
             }
             _ => acc,
@@ -233,8 +233,8 @@ impl<'a> Ast<'a> {
     }
 
     // bit operator.
-    fn bit_operator(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.relation(acc);
+    fn bit_operator(&mut self) -> Expr {
+        let left = self.relation();
         self.sub_bit_operator(left)
     }
 
@@ -251,7 +251,7 @@ impl<'a> Ast<'a> {
         match token.get_token_type() {
             Token::BitOr | Token::BitAnd | Token::BitXor => {
                 self.consume();
-                let right = self.relation(None);
+                let right = self.relation();
                 self.sub_bit_operator(create(token.get_token_type(), acc, right))
             }
             _ => acc,
@@ -259,8 +259,8 @@ impl<'a> Ast<'a> {
     }
 
     // relation.
-    fn relation(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.shift(acc);
+    fn relation(&mut self) -> Expr {
+        let left = self.shift();
         self.sub_relation(left)
     }
 
@@ -281,7 +281,7 @@ impl<'a> Ast<'a> {
             Token::Equal | Token::NotEqual | Token::LessThan | Token::LessThanEqual |
             Token::GreaterThan | Token::GreaterThanEqual => {
                 self.consume();
-                let right = self.shift(None);
+                let right = self.shift();
                 self.sub_relation(create(ope_type, acc, right))
             }
             _ => acc,
@@ -289,8 +289,8 @@ impl<'a> Ast<'a> {
     }
 
     // shift operation.
-    fn shift(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.expr(acc);
+    fn shift(&mut self) -> Expr {
+        let left = self.expr();
         self.sub_shift(left)
     }
 
@@ -305,7 +305,7 @@ impl<'a> Ast<'a> {
         match token.get_token_type() {
             Token::LeftShift | Token::RightShift => {
                 self.consume();
-                let right = self.expr(None);
+                let right = self.expr();
                 self.sub_shift(create(token.get_token_type(), acc, right))
             }
             _ => acc,
@@ -313,8 +313,8 @@ impl<'a> Ast<'a> {
     }
 
     // expression
-    fn expr(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.term(acc);
+    fn expr(&mut self) -> Expr {
+        let left = self.term();
         self.expr_add_sub(left)
     }
 
@@ -329,7 +329,7 @@ impl<'a> Ast<'a> {
         match ope.get_token_type() {
             Token::Plus | Token::Minus => {
                 self.consume();
-                let right = self.term(None);
+                let right = self.term();
                 self.expr_add_sub(create(ope.get_token_type(), acc, right))
             }
             _ => acc,
@@ -337,7 +337,7 @@ impl<'a> Ast<'a> {
     }
 
     // term.
-    fn term(&mut self, acc: Option<Expr>) -> Expr {
+    fn term(&mut self) -> Expr {
         let left = self.factor();
         self.term_multi_div(left)
     }
@@ -432,11 +432,6 @@ impl<'a> Ast<'a> {
     // 読み取り位置更新.
     fn consume(&mut self) {
         self.current_pos = self.current_pos + 1;
-    }
-
-    // 読み取り位置後退.
-    fn back(&mut self, i: usize) {
-        self.current_pos -= i;
     }
 }
 
