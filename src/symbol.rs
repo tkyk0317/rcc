@@ -4,7 +4,14 @@ use map::Map;
 
 #[derive(Debug)]
 pub struct SymbolTable {
-    map: Map<String>,
+    count: usize,
+    map: Map<Meta>,
+}
+
+#[derive(Clone,Debug,PartialEq)]
+pub struct Meta {
+    pub pos: usize,
+    pub val: String,
 }
 
 impl SymbolTable {
@@ -14,7 +21,7 @@ impl SymbolTable {
      */
     pub fn new() -> Self {
         SymbolTable {
-            map: Map::new()
+            count: 0, map: Map::new()
         }
     }
 
@@ -22,13 +29,41 @@ impl SymbolTable {
      * シンボル追加.
      */
     pub fn push(&mut self, k: String, v: String) -> bool {
-        self.map.add(k ,v)
+        let res = self.map.add(k ,Meta { pos: self.count, val: v });
+        self.count = self.count + 1;
+        res
     }
 
     /**
      * シンボル検索
      */
-    pub fn search(&self, k: &String) -> Option<String> {
+    pub fn search(&self, k: &String) -> Option<Meta> {
         self.map.search(k)
     }
+
+    /**
+     * シンボル数取得.
+     */
+    pub fn count(&self) -> usize { self.count }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test() {
+        {
+            let mut s = SymbolTable::new();
+            s.push("key".to_string(), "value".to_string());
+            assert_eq!(s.count(), 1);
+            assert_eq!(s.search(&"key".to_string()), Some(Meta { pos: 0, val: "value".to_string() }))
+        }
+        {
+            let mut s = SymbolTable::new();
+            s.push("key".to_string(), "value".to_string());
+            assert_eq!(s.count(), 1);
+            assert_eq!(s.search(&"not_exist_key".to_string()), None)
+        }
+     }
 }

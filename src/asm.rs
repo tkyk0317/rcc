@@ -1,16 +1,18 @@
 use std::process;
 use ast::Expr;
 use config::Config;
+use symbol::SymbolTable;
 
 #[doc = "アセンブラ生成部"]
-pub struct Asm {
+pub struct Asm<'a> {
     inst: String,
     label_no: u64,
+    symbol_table: &'a SymbolTable,
 }
 
-impl Asm {
+impl<'a> Asm<'a> {
     // コンストラクタ.
-    pub fn new() -> Asm {
+    pub fn new(symbol_table: &'a SymbolTable) -> Asm {
         // スタート部分設定.
         let main = if Config::is_mac() {
             "_main".to_string()
@@ -24,6 +26,7 @@ impl Asm {
         Asm {
             inst: start,
             label_no: 0,
+            symbol_table: symbol_table
         }
     }
 
@@ -50,7 +53,7 @@ impl Asm {
             Expr::BitReverse(ref a) => self.generate_bit_reverse(a),
             Expr::Block(ref a, ref b) => self.generate_block(a, b),
             Expr::Assign(ref a, ref b) => self.generate_assign(a, b),
-            Expr::Variable(_) => self.generate_variable(),
+            Expr::Variable(ref a) => self.generate_variable(a),
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
@@ -71,16 +74,23 @@ impl Asm {
     }
 
     // assign生成.
-    fn generate_assign(&mut self, _: &Expr, b: &Expr) {
-        self.generate(b);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  movl %eax, -4(%rbp)\n", self.inst);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    fn generate_assign(&mut self, a: &Expr, b: &Expr) {
+        match *a {
+            Expr::Variable(ref a) => {
+                let pos = self.symbol_table.search(a).unwrap().pos * 4 + 4;
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+            },
+            _ => self.generate(b)
+        }
     }
 
     // variable生成.
-    fn generate_variable(&mut self) {
-        self.inst = format!("{}  movl -4(%rbp), %eax\n", self.inst);
+    fn generate_variable(&mut self, v: &String) {
+        let pos = self.symbol_table.search(v).unwrap().pos * 4 + 4;
+        self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
 

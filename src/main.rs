@@ -9,7 +9,6 @@ mod symbol;
 
 use ast::Ast;
 use asm::Asm;
-use symbol::SymbolTable;
 
 #[doc = "メイン関数"]
 fn main() {
@@ -20,11 +19,12 @@ fn main() {
     p.read_token();
 
     // AST作成
-    let mut table = SymbolTable::new();
-    let mut ast = Ast::new(p.get_tokens(), &mut table);
+    let mut ast = Ast::new(p.get_tokens());
+    let tree = ast.parse();
 
     // アセンブラへ変換.
-    let mut asm = Asm::new();
-    asm.generate(&ast.parse());
+    let table = ast.get_symbol_table();
+    let mut asm = Asm::new(&table);
+    asm.generate(&tree);
     println!("{}", asm.get_inst());
 }
