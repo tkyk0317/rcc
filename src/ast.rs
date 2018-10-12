@@ -22,7 +22,7 @@ use symbol::SymbolTable;
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
 //   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
-//   <Factor> ::= '(' NUMBER ')' | <UnAry>
+//   <Factor> ::= '(' NUMBER ')' | <UnAry> | <Expression>
 //   <UnAry> ::= ['!'|'+'|'-'|'~'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
@@ -116,6 +116,11 @@ impl<'a> Ast<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> Expr {
+        self.expression()
+    }
+
+    // expression.
+    fn expression(&mut self) -> Expr {
         self.block()
     }
 
@@ -353,7 +358,7 @@ impl<'a> Ast<'a> {
             }
             Token::LeftBracket => {
                 self.consume();
-                let tree = self.condition(None);
+                let tree = self.expression();
 
                 // 閉じカッコがあるかどうかチェック.
                 if Token::RightBracket != self.next_consume().get_token_type() {
