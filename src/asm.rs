@@ -19,7 +19,9 @@ impl<'a> Asm<'a> {
         } else {
             "main".to_string()
         };
-        let mut start = format!(".global {}\n{}:\n", main, main);
+
+        let mut start = format!(".global test\n"); // テスト関数用.
+        start = format!("{}.global {}\n{}:\n", start, main, main);
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
 
@@ -54,6 +56,7 @@ impl<'a> Asm<'a> {
             Expr::Block(ref a, ref b) => self.generate_block(a, b),
             Expr::Assign(ref a, ref b) => self.generate_assign(a, b),
             Expr::Variable(ref a) => self.generate_variable(a),
+            Expr::CallFunc(ref a) => self.generate_call_func(a),
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
@@ -70,7 +73,6 @@ impl<'a> Asm<'a> {
             Expr::BitAnd(ref a, ref b) |
             Expr::BitOr(ref a, ref b) |
             Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
-            _ => panic!("asm.rs: Not Support Ast {:?}", ast),
         }
     }
 
@@ -93,6 +95,17 @@ impl<'a> Asm<'a> {
         let pos = self.symbol_table.search(v).unwrap().pos * 4 + 4;
         self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
+
+    // 関数コール生成.
+    fn generate_call_func(&mut self, a: &Expr) {
+        match *a {
+            Expr::Variable(ref n) => {
+                self.inst = format!("{}  call {}\n", self.inst, n);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+            }
+            _ => panic!("asm.rs(generate_call_func): Not Exists Function name")
+        }
     }
 
     // block生成.

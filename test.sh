@@ -5,6 +5,9 @@ if [ "$(uname)" == 'Darwin' ]; then
 fi
 
 # テスト用関数
+
+# 生成したプログラムの出力が期待値通りになっているか、確認.
+#
 # 第一引数：テストする値
 # 第二引数：期待値
 # 第三引数：テスト番号
@@ -18,6 +21,67 @@ test() {
     ret=$?
     [ ! $ret -eq "$2" ] && echo "[TestNo.$3] failed (actual $ret but expected $2)"
     rm ${exe}.s ${exe}
+}
+
+# 関数コール用テスト関数
+# 第一引数：関数コール文
+# 第二引数：スタブ
+# 第三引数：期待値
+test_call_func() {
+    exp=$1
+    stub=$2
+    output=$3
+    prog=./target/debug/rcc
+
+    echo "$exp" | $prog > out.s
+    if [ $? -ne 0 ]; then
+        echo generate assembly error from "$exp"
+        rm out.s
+        exit 1
+    fi
+
+    gcc -c out.s -o out.o
+    if [ $? -ne 0 ]; then
+        echo generate object file from from "$exp"
+        cat out.s
+        rm out.s
+        exit 1
+    fi
+
+    gcc -c "$stub" -o stub.o
+    if [ $? -ne 0 ]; then
+        echo compile error "$stub"
+        rm out.s out.o
+        exit 1
+    fi
+
+    gcc out.o stub.o -o out
+    if [ $? -ne 0 ]; then
+        echo link error from "$exp"
+        cat out.s
+        rm out.s out.o stub.o
+        exit 1
+    fi
+
+    ./out > stdout.txt
+    ret=$?
+
+    if [ $ret -ne 0 ]; then
+        echo "$exp" should be 0, but got $ret.
+        cat out.s
+        rm out.s out.o stub.o out
+        exit 1
+    fi
+
+    echo "$output" | diff - stdout.txt > /dev/null
+    if [ $? -ne 0 ]; then
+        echo expect stdout to be \""$output"\", but got \""$(cat stdout.txt)"\".
+        cat out.s
+        rm out.s out.o stub.o out stdout.txt
+        exit 1
+    fi
+
+    rm out.s out.o stub.o out stdout.txt
 }
 
 # ビルドを実行してからテスト
@@ -125,4 +189,7 @@ test "x = 3; x = x * x + 1; x + 3;" 13 100
 test "x = 2 * 3 * 4;" 24 101
 test "x = x = x = 3;" 3 102
 #test 256 256 # 255までしか数値を扱うことができない
+
+# 関数コールテスト.
+test_call_func "test();" "./tests/stub.c" "function for test"
 
