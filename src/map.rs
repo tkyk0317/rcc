@@ -10,7 +10,9 @@ impl<T: Clone> Map<T> {
     // コンストラクタ.
     pub fn new() -> Map<T> {
         Map {
-            count: 0, keys: Vec::<String>::with_capacity(1024), values: Vec::<T>::with_capacity(1024)
+            count: 0,
+            keys: Vec::<String>::with_capacity(1024),
+            values: Vec::<T>::with_capacity(1024),
         }
     }
 

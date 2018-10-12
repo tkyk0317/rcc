@@ -1,4 +1,4 @@
-#[doc = "文字列構造" ]
+#[doc = "文字列構造"]
 pub struct StringData {
     len: usize, // 文字列長.
     size: usize, // 文字列バッファサイズ.
@@ -10,7 +10,9 @@ impl StringData {
     pub fn new() -> StringData {
         let l = 64;
         StringData {
-            len: 0, size: 64, buf: Vec::<char>::with_capacity(l)
+            len: 0,
+            size: 64,
+            buf: Vec::<char>::with_capacity(l),
         }
     }
 
@@ -52,7 +54,9 @@ mod tests {
         {
             // 64文字追加.
             let mut s = StringData::new();
-            for _ in 0..64 { s.push('9'); }
+            for _ in 0..64 {
+                s.push('9');
+            }
 
             assert_eq!(s.len, 64);
             assert_eq!(s.size, 128);
@@ -62,7 +66,9 @@ mod tests {
         {
             // 65文字追加.
             let mut s = StringData::new();
-            for _ in 0..64 { s.push('9'); }
+            for _ in 0..64 {
+                s.push('9');
+            }
             s.push('1');
 
             assert_eq!(s.len, 65);

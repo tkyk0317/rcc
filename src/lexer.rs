@@ -523,6 +523,6 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 lexer.get_tokens()[4]
             );
-         }
+        }
     }
 }

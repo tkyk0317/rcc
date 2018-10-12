@@ -26,7 +26,7 @@ impl<'a> Asm<'a> {
         Asm {
             inst: start,
             label_no: 0,
-            symbol_table: symbol_table
+            symbol_table: symbol_table,
         }
     }
 
@@ -70,7 +70,7 @@ impl<'a> Asm<'a> {
             Expr::BitAnd(ref a, ref b) |
             Expr::BitOr(ref a, ref b) |
             Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
-            _ => panic!("asm.rs: Not Support Ast {:?}", ast)
+            _ => panic!("asm.rs: Not Support Ast {:?}", ast),
         }
     }
 
@@ -83,8 +83,8 @@ impl<'a> Asm<'a> {
                 self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                 self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-            },
-            _ => self.generate(b)
+            }
+            _ => self.generate(b),
         }
     }
 

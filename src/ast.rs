@@ -162,19 +162,19 @@ impl<'a> Ast<'a> {
                 if Token::Assign == self.next().get_token_type() {
                     self.consume();
                     Expr::Assign(Box::new(var), Box::new(self.condition(None)))
-                }
-                else {
+                } else {
                     self.call_func(var)
                 }
             }
-            _ => self.condition(None)
+            _ => self.condition(None),
         }
     }
 
     // func call.
     fn call_func(&mut self, acc: Expr) -> Expr {
         if Token::LeftBracket == self.next_consume().get_token_type() &&
-           Token::RightBracket == self.next_consume().get_token_type() {
+            Token::RightBracket == self.next_consume().get_token_type()
+        {
             return Expr::CallFunc(Box::new(acc));
         }
         panic!("ast.rs(call_func): Not exists RightBracket")
@@ -1812,7 +1812,7 @@ mod tests {
                 result,
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Factor(3))
+                    Box::new(Expr::Factor(3)),
                 )
             )
         }
@@ -1834,8 +1834,8 @@ mod tests {
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1))
-                    ))
+                        Box::new(Expr::Factor(1)),
+                    )),
                 )
             )
         }
@@ -1857,8 +1857,8 @@ mod tests {
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::LogicalAnd(
                         Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1))
-                    ))
+                        Box::new(Expr::Factor(1)),
+                    )),
                 )
             )
         }
@@ -1880,8 +1880,8 @@ mod tests {
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1))
-                    ))
+                        Box::new(Expr::Factor(1)),
+                    )),
                 )
             )
         }
@@ -1903,8 +1903,8 @@ mod tests {
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::BitOr(
                         Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1))
-                    ))
+                        Box::new(Expr::Factor(1)),
+                    )),
                 )
             )
         }
@@ -1912,7 +1912,7 @@ mod tests {
 
     #[test]
     fn test_call_func() {
-         {
+        {
             let data = vec![
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
@@ -1924,9 +1924,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::CallFunc(
-                    Box::new(Expr::Variable("a".to_string())),
-                )
+                Expr::CallFunc(Box::new(Expr::Variable("a".to_string())))
             )
         }
     }
