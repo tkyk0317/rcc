@@ -70,6 +70,7 @@ impl<'a> Asm<'a> {
             Expr::BitAnd(ref a, ref b) |
             Expr::BitOr(ref a, ref b) |
             Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
+            _ => panic!("asm.rs: Not Support Ast {:?}", ast)
         }
     }
 

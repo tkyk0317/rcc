@@ -7,6 +7,7 @@ use symbol::SymbolTable;
 //   <Expression> ::= <Block>
 //   <Block> ::=  <Assign> ';'
 //   <Assign> ::= VARIABLE '=' <Condition>
+//   <CallFunc> ::= VARIABLE '()'
 //   <Condition> ::= <Logical> <SubCondition>
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
@@ -22,7 +23,7 @@ use symbol::SymbolTable;
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
 //   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
-//   <Factor> ::= '(' NUMBER ')' | <UnAry> | <Expression>
+//   <Factor> ::= '(' NUMBER ')' | <UnAry> | <Expression> | <CallFunc>
 //   <UnAry> ::= ['!'|'+'|'-'|'~'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,6 +55,7 @@ pub enum Expr {
     Assign(Box<Expr>, Box<Expr>),
     Factor(i64),
     Variable(String),
+    CallFunc(Box<Expr>),
 }
 
 // 出力フォーマット定義.
@@ -87,6 +89,7 @@ impl fmt::Display for Expr {
             Expr::Assign(ref a, ref b) => write!(f, "{} = {}", *a, *b),
             Expr::Variable(ref v) => write!(f, "{}", v.clone()),
             Expr::Factor(v) => write!(f, "{}", v),
+            Expr::CallFunc(ref v) => write!(f, "{}()", v),
         }
     }
 }
@@ -154,17 +157,27 @@ impl<'a> Ast<'a> {
         let left = self.next();
         match left.get_token_type() {
             Token::Variable => {
-                // シンボルテーブルへ保存.
-                self.s_table.push(left.get_token_value(), "".to_string());
-
-                // ひとまず、assign operator決め打ち.
-                self.consume();
-                let var = Expr::Variable(left.get_token_value());
-                self.consume();
-                Expr::Assign(Box::new(var), Box::new(self.condition(None)))
+                // 代入演算子判定.
+                let var = self.factor();
+                if Token::Assign == self.next().get_token_type() {
+                    self.consume();
+                    Expr::Assign(Box::new(var), Box::new(self.condition(None)))
+                }
+                else {
+                    self.call_func(var)
+                }
             }
             _ => self.condition(None)
         }
+    }
+
+    // func call.
+    fn call_func(&mut self, acc: Expr) -> Expr {
+        if Token::LeftBracket == self.next_consume().get_token_type() &&
+           Token::RightBracket == self.next_consume().get_token_type() {
+            return Expr::CallFunc(Box::new(acc));
+        }
+        panic!("ast.rs(call_func): Not exists RightBracket")
     }
 
     // condition.
@@ -325,7 +338,7 @@ impl<'a> Ast<'a> {
 
     // term.
     fn term(&mut self, acc: Option<Expr>) -> Expr {
-        let left = self.factor(acc);
+        let left = self.factor();
         self.term_multi_div(left)
     }
 
@@ -341,7 +354,7 @@ impl<'a> Ast<'a> {
         match ope.get_token_type() {
             Token::Multi | Token::Division | Token::Remainder => {
                 self.consume();
-                let right = self.factor(None);
+                let right = self.factor();
                 self.term_multi_div(create(ope.get_token_type(), acc, right))
             }
             _ => acc,
@@ -349,7 +362,7 @@ impl<'a> Ast<'a> {
     }
 
     // factor.
-    fn factor(&mut self, acc: Option<Expr>) -> Expr {
+    fn factor(&mut self) -> Expr {
         let token = self.next();
         match token.get_token_type() {
             Token::Number => {
@@ -368,25 +381,27 @@ impl<'a> Ast<'a> {
             }
             Token::Plus => {
                 self.consume();
-                Expr::UnPlus(Box::new(self.factor(None)))
+                Expr::UnPlus(Box::new(self.factor()))
             }
             Token::Minus => {
                 self.consume();
-                Expr::UnMinus(Box::new(self.factor(None)))
+                Expr::UnMinus(Box::new(self.factor()))
             }
             Token::Not => {
                 self.consume();
-                Expr::Not(Box::new(self.factor(None)))
+                Expr::Not(Box::new(self.factor()))
             }
             Token::BitReverse => {
                 self.consume();
-                Expr::BitReverse(Box::new(self.factor(None)))
+                Expr::BitReverse(Box::new(self.factor()))
             }
             Token::Variable => {
+                // シンボルテーブルへ保存.
+                self.s_table.push(token.get_token_value(), "".to_string());
                 self.consume();
                 Expr::Variable(token.get_token_value())
             }
-            _ => acc.unwrap(),
+            _ => panic!("ast.rs: failed in factor {:?}", token),
         }
     }
 
@@ -417,6 +432,11 @@ impl<'a> Ast<'a> {
     // 読み取り位置更新.
     fn consume(&mut self) {
         self.current_pos = self.current_pos + 1;
+    }
+
+    // 読み取り位置後退.
+    fn back(&mut self, i: usize) {
+        self.current_pos -= i;
     }
 }
 
@@ -1885,6 +1905,27 @@ mod tests {
                         Box::new(Expr::Factor(3)),
                         Box::new(Expr::Factor(1))
                     ))
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_call_func() {
+         {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::CallFunc(
+                    Box::new(Expr::Variable("a".to_string())),
                 )
             )
         }
