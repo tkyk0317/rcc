@@ -19,14 +19,8 @@ impl<'a> Asm<'a> {
         } else {
             "main".to_string()
         };
-        let test = if Config::is_mac() {
-            "_test_func".to_string()
-        } else {
-            "test_func".to_string()
-        };
 
-        let mut start = format!(".global {}\n", test); // テスト関数用.
-        start = format!("{}.global {}\n{}:\n", start, main, main);
+        let mut start = format!(".global {}\n{}:\n", main, main);
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
 
@@ -61,7 +55,7 @@ impl<'a> Asm<'a> {
             Expr::Block(ref a, ref b) => self.generate_block(a, b),
             Expr::Assign(ref a, ref b) => self.generate_assign(a, b),
             Expr::Variable(ref a) => self.generate_variable(a),
-            Expr::CallFunc(ref a) => self.generate_call_func(a),
+            Expr::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
             Expr::Plus(ref a, ref b) |
             Expr::Minus(ref a, ref b) |
             Expr::Multiple(ref a, ref b) |
@@ -78,6 +72,7 @@ impl<'a> Asm<'a> {
             Expr::BitAnd(ref a, ref b) |
             Expr::BitOr(ref a, ref b) |
             Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
+            _ => panic!("asm.rs(generate): not support expression"),
         }
     }
 
@@ -103,9 +98,27 @@ impl<'a> Asm<'a> {
     }
 
     // 関数コール生成.
-    fn generate_call_func(&mut self, a: &Expr) {
+    fn generate_call_func(&mut self, a: &Expr, b: &Expr) {
         match *a {
+            // 関数名.
             Expr::Variable(ref n) => {
+                match *b {
+                    Expr::Argment(ref v) => {
+                        // 各引数を評価（スタックに積むので、逆順で積んでいく）.
+                        v.into_iter().rev().for_each(|d| self.generate(d));
+
+                        // 関数引数をレジスタへ.
+                        let regs = vec!["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"];
+                        let mut i = 0;
+                        v.into_iter().for_each(|_d| {
+                            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                            self.inst = format!("{}  mov %rax, {}\n", self.inst, regs[i]);
+                            i = i + 1;
+                        });
+                    }
+                    _ => panic!("asm.rs(generate_call_func): Not Function Argment")
+                }
+
                 // macの場合、関数名の前にアンダーバーを付与.
                 let func_name = if Config::is_mac() {
                     format!("_{}", n)

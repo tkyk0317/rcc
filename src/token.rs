@@ -10,6 +10,7 @@ pub enum Token {
     RightShift, // 右シフト演算子.
     Question, // ?演算子.
     Colon, // コロン.
+    Comma, // カンマ.
     LogicalAnd, // &&演算子.
     LogicalOr, // ||演算子.
     Equal, // 等価演算子.

@@ -192,4 +192,9 @@ test "x = x = x = 3;" 3 102
 
 # 関数コールテスト.
 test_call_func "test_func();" "./tests/stub.c" "function for test"
-
+test_call_func "func_arg1(10);" "./tests/stub.c" "10"
+test_call_func "func_arg2(10, 9);" "./tests/stub.c" "19"
+test_call_func "func_arg3(1, 2, 3);" "./tests/stub.c" "1, 2, 3"
+test_call_func "func_arg4(1, 2, 3, 4);" "./tests/stub.c" "24"
+test_call_func "func_arg5(1, 2, 3, 4, 5);" "./tests/stub.c" "1, 2, 3, 4, 5"
+test_call_func "func_arg6(1, 1, 1, 1, 1, 1);" "./tests/stub.c" "6"

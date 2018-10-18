@@ -7,7 +7,8 @@ use symbol::SymbolTable;
 //   <Expression> ::= <Block>
 //   <Block> ::=  <Assign> ';'
 //   <Assign> ::= VARIABLE '=' <Condition>
-//   <CallFunc> ::= VARIABLE '()'
+//   <CallFunc> ::= VARIABLE '(' <Argment> ')'
+//   <Argment> ::= [ '' |  <Expression> ',']
 //   <Condition> ::= <Logical> <SubCondition>
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
 //   <Logical> ::= <Relation> <SubLogical>
@@ -55,7 +56,8 @@ pub enum Expr {
     Assign(Box<Expr>, Box<Expr>),
     Factor(i64),
     Variable(String),
-    CallFunc(Box<Expr>),
+    CallFunc(Box<Expr>, Box<Expr>),
+    Argment(Vec<Expr>),
 }
 
 // 出力フォーマット定義.
@@ -89,7 +91,8 @@ impl fmt::Display for Expr {
             Expr::Assign(ref a, ref b) => write!(f, "{} = {}", *a, *b),
             Expr::Variable(ref v) => write!(f, "{}", v.clone()),
             Expr::Factor(v) => write!(f, "{}", v),
-            Expr::CallFunc(ref v) => write!(f, "{}()", v),
+            Expr::CallFunc(ref v, ref a) => write!(f, "{}({})", v, *a),
+            Expr::Argment(ref v) => write!(f, "{:?}", v),
         }
     }
 }
@@ -172,12 +175,52 @@ impl<'a> Ast<'a> {
 
     // func call.
     fn call_func(&mut self, acc: Expr) -> Expr {
-        if Token::LeftBracket == self.next_consume().get_token_type() &&
-            Token::RightBracket == self.next_consume().get_token_type()
+        if Token::LeftBracket == self.next_consume().get_token_type()
         {
-            return Expr::CallFunc(Box::new(acc));
+            let call_func = Expr::CallFunc(
+                Box::new(acc),
+                Box::new(self.argment(Expr::Argment(vec![])))
+            );
+            if Token::RightBracket != self.next_consume().get_token_type() {
+                panic!("ast.rs(call_func): Not exists RightBracket")
+            }
+            return call_func;
         }
-        panic!("ast.rs(call_func): Not exists RightBracket")
+        panic!("ast.rs(call_func): Not exists LeftBracket")
+    }
+
+    // argment.
+    fn argment(&mut self, acc: Expr) -> Expr {
+        // 右括弧が表れるまで、引数とみなす
+        let token = self.next();
+        match token.get_token_type() {
+            Token::RightBracket => acc,
+            Token::Variable | Token::Number => {
+                match acc {
+                    Expr::Argment(a) => {
+                        let mut args = a;
+
+                        if Token::Variable == token.get_token_type() {
+                            args.push(Expr::Variable(token.get_token_value()));
+                        } else {
+                            args.push(self.number(token));
+                        }
+                        self.next_consume();
+
+                        // カンマがあれば引き続き、引数とみなす.
+                        if Token::Comma == self.next().get_token_type() {
+                            self.next_consume();
+                            self.argment(Expr::Argment(args))
+                        } else {
+                            Expr::Argment(args)
+                        }
+
+                    }
+                    _ => panic!("ast.rs(argment): Error")
+                }
+            }
+            _ => acc
+        }
     }
 
     // condition.
@@ -1919,7 +1962,47 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result,
-                Expr::CallFunc(Box::new(Expr::Variable("a".to_string())))
+                Expr::CallFunc(Box::new(Expr::Variable("a".to_string())), Box::new(Expr::Argment(vec![])))
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::CallFunc(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string())]))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Comma, ",".to_string()),
+                TokenInfo::new(Token::Variable, "c".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+            ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result,
+                Expr::CallFunc(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string()), Expr::Variable('c'.to_string())]))
+                )
             )
         }
     }

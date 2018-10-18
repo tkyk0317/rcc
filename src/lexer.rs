@@ -133,6 +133,9 @@ impl<'a> LexicalAnalysis<'a> {
                         ';' => {
                             token = TokenInfo::new(Token::SemiColon, v.to_string());
                         }
+                        ',' => {
+                            token = TokenInfo::new(Token::Comma, v.to_string());
+                        }
                         _ => {
                             token = TokenInfo::new(Token::Unknown, v.to_string());
                         }
@@ -550,6 +553,25 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Number, "2".to_string()),
                 lexer.get_tokens()[4]
+            );
+        }
+        {
+            let input = "a, b;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Comma, ",".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                lexer.get_tokens()[2]
             );
         }
     }
