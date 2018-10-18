@@ -19,8 +19,13 @@ impl<'a> Asm<'a> {
         } else {
             "main".to_string()
         };
+        let test = if Config::is_mac() {
+            "_test".to_string()
+        } else {
+            "test".to_string()
+        };
 
-        let mut start = format!(".global test\n"); // テスト関数用.
+        let mut start = format!(".global {}\n", test); // テスト関数用.
         start = format!("{}.global {}\n{}:\n", start, main, main);
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
@@ -101,7 +106,13 @@ impl<'a> Asm<'a> {
     fn generate_call_func(&mut self, a: &Expr) {
         match *a {
             Expr::Variable(ref n) => {
-                self.inst = format!("{}  call {}\n", self.inst, n);
+                // macの場合、関数名の前にアンダーバーを付与.
+                let func_name = if Config::is_mac() {
+                    format!("_{}", n)
+                } else {
+                    n.to_string()
+                };
+                self.inst = format!("{}  call {}\n", self.inst, func_name);
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
             _ => panic!("asm.rs(generate_call_func): Not Exists Function name")
