@@ -119,18 +119,21 @@ impl<'a> Asm<'a> {
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment")
                 }
 
-                // macの場合、関数名の前にアンダーバーを付与.
-                let func_name = if Config::is_mac() {
-                    format!("_{}", n)
-                } else {
-                    n.to_string()
-                };
-                self.inst = format!("{}  call {}\n", self.inst, func_name);
+                self.inst = format!("{}  call {}\n", self.inst, self.generate_func_symbol(n));
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
             _ => panic!("asm.rs(generate_call_func): Not Exists Function name")
         }
     }
+
+    // 関数シンボル生成.
+    fn generate_func_symbol(&self, s: &String) -> String {
+        if Config::is_mac() {
+            format!("_{}", s)
+        } else {
+            s.to_string()
+        }
+     }
 
     // block生成.
     fn generate_block(&mut self, a: &Expr, b: &Expr) {
