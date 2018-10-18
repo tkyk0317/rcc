@@ -20,9 +20,9 @@ impl<'a> Asm<'a> {
             "main".to_string()
         };
         let test = if Config::is_mac() {
-            "_test".to_string()
+            "_test_func".to_string()
         } else {
-            "test".to_string()
+            "test_func".to_string()
         };
 
         let mut start = format!(".global {}\n", test); // テスト関数用.

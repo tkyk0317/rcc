@@ -39,7 +39,7 @@ impl<'a> LexicalAnalysis<'a> {
                             // 数値が続く部分まで抜き出し、トークン生成.
                             token = self.generate_number_token(v);
                         }
-                        s if true == s.is_alphabetic() => {
+                        s if true == s.is_alphabetic() || s == '_' => {
                             // アルファベットか数値が続くまで抜き出し、トークン生成.
                             token = self.generate_variable_token(v);
                         }
@@ -197,7 +197,8 @@ impl<'a> LexicalAnalysis<'a> {
 
         while false == self.is_eof() &&
             (true == self.read().unwrap().is_alphabetic() ||
-                 true == self.read().unwrap().is_digit(10))
+             '_' == self.read().unwrap() ||
+             true == self.read().unwrap().is_digit(10))
         {
             s.push(self.next().unwrap());
         }
@@ -505,6 +506,33 @@ mod tests {
 
             assert_eq!(
                 TokenInfo::new(Token::Variable, "a".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "1".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string()),
+                lexer.get_tokens()[4]
+            );
+        }
+        {
+            let input = "_a_aa = 1 + 2;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "_a_aa".to_string()),
                 lexer.get_tokens()[0]
             );
             assert_eq!(

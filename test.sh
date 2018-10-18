@@ -191,5 +191,5 @@ test "x = x = x = 3;" 3 102
 #test 256 256 # 255までしか数値を扱うことができない
 
 # 関数コールテスト.
-test_call_func "test();" "./tests/stub.c" "function for test"
+test_call_func "test_func();" "./tests/stub.c" "function for test"
 

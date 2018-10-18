@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int test(void) {
+int test_func(void) {
   printf("function for test\n");
   return 0;
 }
