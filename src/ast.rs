@@ -121,37 +121,25 @@ impl<'a> Ast<'a> {
     }
 
     // トークン列を受け取り、抽象構文木を返す.
-    pub fn parse(&mut self) -> Expr {
-        self.expression()
+    pub fn parse(&mut self) -> Vec<Expr> {
+        self.compound(&vec![])
     }
 
-    // expression.
-    fn expression(&mut self) -> Expr {
-        self.block()
-    }
-
-    // block.
-    fn block(&mut self) -> Expr {
-        let left = self.assign();
-        self.sub_block(left)
-    }
-
-    //sub block.
-    fn sub_block(&mut self, acc: Expr) -> Expr {
+    // compound.
+    fn compound(&mut self, expr: &Vec<Expr>) -> Vec<Expr> {
+        // トークンがなくなるまで、構文木生成.
+        let mut stmt = expr.clone();
         let token = self.next();
         match token.get_token_type() {
             Token::SemiColon => {
                 self.consume();
-
-                // 次のトークンがあれば処理を行う.
-                if self.next().get_token_type() != Token::Unknown {
-                    let right = self.condition();
-                    Expr::Block(Box::new(acc), Box::new(self.sub_block(right)))
-                } else {
-                    acc
-                }
+                self.compound(&stmt)
             }
-            _ => acc,
+            Token::Unknown => expr.clone(),
+            _ => {
+                stmt.push(self.assign());
+                self.compound(&stmt)
+            }
         }
     }
 
@@ -162,11 +150,17 @@ impl<'a> Ast<'a> {
             Token::Variable => {
                 // 代入演算子判定.
                 let var = self.factor();
-                if Token::Assign == self.next().get_token_type() {
-                    self.consume();
-                    Expr::Assign(Box::new(var), Box::new(self.condition()))
-                } else {
-                    self.call_func(var)
+                match self.next().get_token_type() {
+                    Token::Assign => {
+                        self.consume();
+                        Expr::Assign(Box::new(var), Box::new(self.condition()))
+                    }
+                    Token::LeftBracket => self.call_func(var),
+                    _ =>{
+                        // variable分を巻き戻し.
+                        self.back(1);
+                        self.condition()
+                    }
                 }
             }
             _ => self.condition(),
@@ -214,7 +208,6 @@ impl<'a> Ast<'a> {
                         } else {
                             Expr::Argment(args)
                         }
-
                     }
                     _ => panic!("ast.rs(argment): Error")
                 }
@@ -414,7 +407,7 @@ impl<'a> Ast<'a> {
             }
             Token::LeftBracket => {
                 self.consume();
-                let tree = self.expression();
+                let tree = self.assign();
 
                 // 閉じカッコがあるかどうかチェック.
                 if Token::RightBracket != self.next_consume().get_token_type() {
@@ -476,6 +469,11 @@ impl<'a> Ast<'a> {
     fn consume(&mut self) {
         self.current_pos = self.current_pos + 1;
     }
+
+    // 読み取り位置巻き戻し.
+    fn back(&mut self, i: usize) {
+        self.current_pos = self.current_pos - i;
+    }
 }
 
 #[cfg(test)]
@@ -497,7 +495,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -516,7 +514,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(1)),
@@ -543,7 +541,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Plus(
@@ -573,7 +571,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Minus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -592,7 +590,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Minus(
                     Box::new(Expr::Minus(
                         Box::new(Expr::Factor(100)),
@@ -619,7 +617,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Minus(
                     Box::new(Expr::Minus(
                         Box::new(Expr::Minus(
@@ -649,7 +647,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Multiple(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -668,7 +666,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Multiple(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(1)),
@@ -695,7 +693,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Multiple(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Multiple(
@@ -725,7 +723,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Division(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -744,7 +742,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Division(
                     Box::new(Expr::Division(
                         Box::new(Expr::Factor(1)),
@@ -771,7 +769,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Division(
                     Box::new(Expr::Division(
                         Box::new(Expr::Division(
@@ -803,7 +801,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(1)),
@@ -828,7 +826,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Multiple(
@@ -853,7 +851,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Division(
                         Box::new(Expr::Factor(1)),
@@ -878,7 +876,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Division(
@@ -904,7 +902,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::GreaterThanEqual(
                     Box::new(Expr::Equal(
                         Box::new(Expr::LessThan(
@@ -936,7 +934,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -956,7 +954,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Plus(
@@ -987,7 +985,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Equal(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(1)),
@@ -1016,7 +1014,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Equal(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(1)),
@@ -1047,7 +1045,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Equal(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1085,7 +1083,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::NotEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1123,7 +1121,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LessThan(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1157,7 +1155,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LessThanEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1195,7 +1193,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::GreaterThan(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1229,7 +1227,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::GreaterThanEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1262,7 +1260,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1282,7 +1280,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalAnd(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
@@ -1319,7 +1317,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalAnd(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Plus(
@@ -1357,7 +1355,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1377,7 +1375,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalOr(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
@@ -1414,7 +1412,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalOr(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Plus(
@@ -1459,7 +1457,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LogicalOr(
                     Box::new(Expr::LogicalAnd(
                         Box::new(Expr::LogicalOr(
@@ -1492,7 +1490,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Condition(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Factor(2)),
@@ -1527,7 +1525,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Condition(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Factor(2)),
@@ -1559,7 +1557,7 @@ mod tests {
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result, Expr::UnPlus(Box::new(Expr::Factor(2))))
+            assert_eq!(result[0], Expr::UnPlus(Box::new(Expr::Factor(2))))
         }
         {
             let data = vec![
@@ -1574,7 +1572,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Minus(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
@@ -1596,7 +1594,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Minus(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
@@ -1616,7 +1614,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Multiple(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
@@ -1634,7 +1632,7 @@ mod tests {
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result, Expr::Not(Box::new(Expr::Factor(2))))
+            assert_eq!(result[0], Expr::Not(Box::new(Expr::Factor(2))))
         }
         {
             let data = vec![
@@ -1651,7 +1649,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Not(Box::new(Expr::Equal(
                     Box::new(Expr::Factor(2)),
                     Box::new(Expr::Factor(3)),
@@ -1669,7 +1667,7 @@ mod tests {
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result, Expr::BitReverse(Box::new(Expr::Factor(2))))
+            assert_eq!(result[0], Expr::BitReverse(Box::new(Expr::Factor(2))))
         }
     }
 
@@ -1687,7 +1685,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LeftShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
             )
         }
@@ -1703,7 +1701,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::RightShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
             )
         }
@@ -1721,7 +1719,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::RightShift(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
@@ -1745,7 +1743,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::LessThan(
                     Box::new(Expr::Factor(2)),
                     Box::new(Expr::RightShift(
@@ -1772,7 +1770,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::BitAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1788,7 +1786,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::BitOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1804,7 +1802,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::BitXor(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1822,7 +1820,7 @@ mod tests {
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::BitOr(
                     Box::new(Expr::BitAnd(
                         Box::new(Expr::Factor(2)),
@@ -1841,13 +1839,14 @@ mod tests {
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Factor(3)),
@@ -1861,13 +1860,14 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Plus(
@@ -1884,13 +1884,14 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::LogicalAnd(
@@ -1907,13 +1908,14 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Multi, "*".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Multiple(
@@ -1930,13 +1932,14 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::BitOr(
@@ -1955,13 +1958,14 @@ mod tests {
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::CallFunc(Box::new(Expr::Variable("a".to_string())), Box::new(Expr::Argment(vec![])))
             )
         }
@@ -1971,13 +1975,14 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::CallFunc(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string())]))
@@ -1992,18 +1997,93 @@ mod tests {
                 TokenInfo::new(Token::Comma, ",".to_string()),
                 TokenInfo::new(Token::Variable, "c".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
             let mut ast = Ast::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result,
+                result[0],
                 Expr::CallFunc(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string()), Expr::Variable('c'.to_string())]))
                 )
             )
         }
+    }
+
+    #[test]
+    fn test_compound() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+             ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result[0],
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Factor(3)),
+                )
+            );
+            assert_eq!(
+                result[1],
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Plus(
+                        Box::new(Expr::Variable("a".to_string())),
+                        Box::new(Expr::Factor(3))
+                    ))
+                )
+            )
+         }
+         {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Multi, "*".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+             ];
+            let mut ast = Ast::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result[0],
+                Expr::Assign(
+                    Box::new(Expr::Variable("a".to_string())),
+                    Box::new(Expr::Factor(3)),
+                )
+            );
+            assert_eq!(
+                result[1],
+                Expr::Plus(
+                    Box::new(Expr::Multiple(
+                        Box::new(Expr::Variable("a".to_string())),
+                        Box::new(Expr::Variable("a".to_string()))
+                    )),
+                    Box::new(Expr::Factor(1))
+                )
+            )
+         }
     }
 }

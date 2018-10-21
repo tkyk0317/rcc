@@ -41,8 +41,18 @@ impl<'a> Asm<'a> {
         format!("{}{}", self.inst, end)
     }
 
+    // アセンブラ生成開始.
+    pub fn exec(&mut self, ast_vec: &Vec<Expr>) {
+        ast_vec.iter()
+            .enumerate()
+            .for_each(|(i, ast)| {
+                if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
+                self.generate(&ast);
+            });
+    }
+
     // アセンブラ生成.
-    pub fn generate(&mut self, ast: &Expr) {
+    fn generate(&mut self, ast: &Expr) {
         match *ast {
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
@@ -52,7 +62,6 @@ impl<'a> Asm<'a> {
             Expr::UnMinus(ref a) => self.generate_unminus(a),
             Expr::Not(ref a) => self.generate_not(a),
             Expr::BitReverse(ref a) => self.generate_bit_reverse(a),
-            Expr::Block(ref a, ref b) => self.generate_block(a, b),
             Expr::Assign(ref a, ref b) => self.generate_assign(a, b),
             Expr::Variable(ref a) => self.generate_variable(a),
             Expr::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
@@ -109,11 +118,11 @@ impl<'a> Asm<'a> {
 
                         // 関数引数をレジスタへ.
                         let regs = vec!["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"];
-                        let mut i = 0;
-                        v.into_iter().for_each(|_d| {
+                        v.iter()
+                         .enumerate()
+                         .for_each(|(i, _d)| {
                             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                             self.inst = format!("{}  mov %rax, {}\n", self.inst, regs[i]);
-                            i = i + 1;
                         });
                     }
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment")
@@ -134,13 +143,6 @@ impl<'a> Asm<'a> {
             s.to_string()
         }
      }
-
-    // block生成.
-    fn generate_block(&mut self, a: &Expr, b: &Expr) {
-        self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.generate(b);
-    }
 
     // bit反転演算子生成.
     fn generate_bit_reverse(&mut self, a: &Expr) {

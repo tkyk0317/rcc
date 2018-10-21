@@ -25,6 +25,6 @@ fn main() {
     // アセンブラへ変換.
     let table = ast.get_symbol_table();
     let mut asm = Asm::new(&table);
-    asm.generate(&tree);
+    asm.exec(&tree);
     println!("{}", asm.get_inst());
 }
