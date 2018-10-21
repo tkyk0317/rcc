@@ -29,7 +29,6 @@ use symbol::SymbolTable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Block(Box<Expr>, Box<Expr>),
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
@@ -64,7 +63,6 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expr::Block(ref a, ref b) => write!(f, "{}{}", *a, *b),
             Expr::Condition(ref a, ref b, ref c) => write!(f, "{} ? {} : {}", *a, *b, *c),
             Expr::LogicalAnd(ref a, ref b) => write!(f, "{} && {}", *a, *b),
             Expr::LogicalOr(ref a, ref b) => write!(f, "{} || {}", *a, *b),
@@ -98,17 +96,34 @@ impl fmt::Display for Expr {
 }
 
 #[derive(Debug)]
-pub struct Ast<'a> {
+pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize, // 現在読み取り位置.
     s_table: SymbolTable, // シンボルテーブル.
 }
 
-// 抽象構文木をトークン列から作成する
-impl<'a> Ast<'a> {
+pub struct AstTree {
+    tree: Vec<Expr>,  // 抽象構文木.
+}
+
+// 抽象構文木.
+impl AstTree {
     // コンストラクタ.
-    pub fn new(tokens: &'a Vec<TokenInfo>) -> Ast<'a> {
-        Ast {
+    fn new (tree: Vec<Expr>) -> Self {
+        AstTree { tree: tree }
+    }
+
+    // 抽象構文木取得.
+    pub fn get_tree(&self) -> &Vec<Expr> {
+        &self.tree
+    }
+}
+
+// 抽象構文木をトークン列から作成する
+impl<'a> AstGen<'a> {
+    // コンストラクタ.
+    pub fn new(tokens: &'a Vec<TokenInfo>) -> AstGen<'a> {
+        AstGen {
             current_pos: 0,
             tokens: tokens,
             s_table: SymbolTable::new(),
@@ -121,8 +136,8 @@ impl<'a> Ast<'a> {
     }
 
     // トークン列を受け取り、抽象構文木を返す.
-    pub fn parse(&mut self) -> Vec<Expr> {
-        self.compound(&vec![])
+    pub fn parse(&mut self) -> AstTree {
+        AstTree::new(self.compound(&vec![]))
     }
 
     // compound.
@@ -490,12 +505,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -509,12 +524,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(1)),
@@ -536,12 +551,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Plus(
@@ -566,12 +581,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Minus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -585,12 +600,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Minus(
                     Box::new(Expr::Minus(
                         Box::new(Expr::Factor(100)),
@@ -612,12 +627,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Minus(
                     Box::new(Expr::Minus(
                         Box::new(Expr::Minus(
@@ -642,12 +657,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Multiple(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -661,12 +676,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Multiple(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(1)),
@@ -688,12 +703,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Multiple(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Multiple(
@@ -718,12 +733,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Division(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -737,12 +752,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Division(
                     Box::new(Expr::Division(
                         Box::new(Expr::Factor(1)),
@@ -764,12 +779,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Division(
                     Box::new(Expr::Division(
                         Box::new(Expr::Division(
@@ -796,12 +811,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(1)),
@@ -821,12 +836,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Multiple(
@@ -846,12 +861,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Division(
                         Box::new(Expr::Factor(1)),
@@ -871,12 +886,12 @@ mod tests {
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Division(
@@ -897,12 +912,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::GreaterThanEqual(
                     Box::new(Expr::Equal(
                         Box::new(Expr::LessThan(
@@ -929,12 +944,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
             )
         }
@@ -949,12 +964,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Plus(
                     Box::new(Expr::Factor(1)),
                     Box::new(Expr::Plus(
@@ -980,12 +995,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Equal(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(1)),
@@ -1009,12 +1024,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Equal(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Factor(1)),
@@ -1040,12 +1055,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Equal(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1078,12 +1093,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::NotEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1116,12 +1131,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LessThan(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1150,12 +1165,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LessThanEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1188,12 +1203,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::GreaterThan(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1222,12 +1237,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::GreaterThanEqual(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Multiple(
@@ -1255,12 +1270,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1275,12 +1290,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalAnd(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
@@ -1312,12 +1327,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalAnd(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Plus(
@@ -1350,12 +1365,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1370,12 +1385,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalOr(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
@@ -1407,12 +1422,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalOr(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Plus(
@@ -1452,12 +1467,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LogicalOr(
                     Box::new(Expr::LogicalAnd(
                         Box::new(Expr::LogicalOr(
@@ -1485,12 +1500,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Condition(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Factor(2)),
@@ -1520,12 +1535,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Condition(
                     Box::new(Expr::Equal(
                         Box::new(Expr::Factor(2)),
@@ -1553,11 +1568,11 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result[0], Expr::UnPlus(Box::new(Expr::Factor(2))))
+            assert_eq!(result.get_tree()[0], Expr::UnPlus(Box::new(Expr::Factor(2))))
         }
         {
             let data = vec![
@@ -1567,12 +1582,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Minus(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
@@ -1589,12 +1604,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Minus(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
@@ -1609,12 +1624,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Multiple(
                     Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
                     Box::new(Expr::Factor(1)),
@@ -1628,11 +1643,11 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result[0], Expr::Not(Box::new(Expr::Factor(2))))
+            assert_eq!(result.get_tree()[0], Expr::Not(Box::new(Expr::Factor(2))))
         }
         {
             let data = vec![
@@ -1644,12 +1659,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Not(Box::new(Expr::Equal(
                     Box::new(Expr::Factor(2)),
                     Box::new(Expr::Factor(3)),
@@ -1663,11 +1678,11 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result[0], Expr::BitReverse(Box::new(Expr::Factor(2))))
+            assert_eq!(result.get_tree()[0], Expr::BitReverse(Box::new(Expr::Factor(2))))
         }
     }
 
@@ -1680,12 +1695,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LeftShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
             )
         }
@@ -1696,12 +1711,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::RightShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
             )
         }
@@ -1714,12 +1729,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::RightShift(
                     Box::new(Expr::Plus(
                         Box::new(Expr::Factor(2)),
@@ -1738,12 +1753,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::LessThan(
                     Box::new(Expr::Factor(2)),
                     Box::new(Expr::RightShift(
@@ -1765,12 +1780,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::BitAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1781,12 +1796,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::BitOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1797,12 +1812,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::BitXor(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
             )
         }
@@ -1815,12 +1830,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::BitOr(
                     Box::new(Expr::BitAnd(
                         Box::new(Expr::Factor(2)),
@@ -1841,12 +1856,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Factor(3)),
@@ -1862,12 +1877,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Plus(
@@ -1886,12 +1901,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::LogicalAnd(
@@ -1910,12 +1925,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Multiple(
@@ -1934,12 +1949,12 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::BitOr(
@@ -1960,12 +1975,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::CallFunc(Box::new(Expr::Variable("a".to_string())), Box::new(Expr::Argment(vec![])))
             )
         }
@@ -1977,12 +1992,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::CallFunc(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string())]))
@@ -1999,12 +2014,12 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
             ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::CallFunc(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string()), Expr::Variable('c'.to_string())]))
@@ -2028,19 +2043,19 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
              ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Factor(3)),
                 )
             );
             assert_eq!(
-                result[1],
+                result.get_tree()[1],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Plus(
@@ -2063,19 +2078,19 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
              ];
-            let mut ast = Ast::new(&data);
+            let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
-                result[0],
+                result.get_tree()[0],
                 Expr::Assign(
                     Box::new(Expr::Variable("a".to_string())),
                     Box::new(Expr::Factor(3)),
                 )
             );
             assert_eq!(
-                result[1],
+                result.get_tree()[1],
                 Expr::Plus(
                     Box::new(Expr::Multiple(
                         Box::new(Expr::Variable("a".to_string())),

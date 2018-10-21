@@ -1,5 +1,6 @@
 use std::process;
 use ast::Expr;
+use ast::AstTree;
 use config::Config;
 use symbol::SymbolTable;
 
@@ -42,8 +43,9 @@ impl<'a> Asm<'a> {
     }
 
     // アセンブラ生成開始.
-    pub fn exec(&mut self, ast_vec: &Vec<Expr>) {
-        ast_vec.iter()
+    pub fn exec(&mut self, tree: &AstTree) {
+        tree.get_tree()
+            .iter()
             .enumerate()
             .for_each(|(i, ast)| {
                 if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
