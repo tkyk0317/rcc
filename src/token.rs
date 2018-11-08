@@ -28,6 +28,8 @@ pub enum Token {
     Remainder, // 余り演算子.
     LeftBracket, // 左括弧.
     RightBracket, // 右括弧.
+    LeftBrace, // 左波括弧.
+    RightBrace, // 右波括弧.
     Not, // 否定演算子.
     SemiColon, // セミコロン.
     Assign, // 代入演算子.

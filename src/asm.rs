@@ -14,19 +14,8 @@ pub struct Asm<'a> {
 impl<'a> Asm<'a> {
     // コンストラクタ.
     pub fn new(symbol_table: &'a SymbolTable) -> Asm {
-        // スタート部分設定.
-        let main = if Config::is_mac() {
-            "_main".to_string()
-        } else {
-            "main".to_string()
-        };
-
-        let mut start = format!(".global {}\n{}:\n", main, main);
-        start = format!("{}{}", start, "  push %rbp\n");
-        start = format!("{}{}", start, "  mov %rsp, %rbp\n");
-
         Asm {
-            inst: start,
+            inst: "".to_string(),
             label_no: 0,
             symbol_table: symbol_table,
         }
@@ -34,12 +23,7 @@ impl<'a> Asm<'a> {
 
     // アセンブラ取得
     pub fn get_inst(&self) -> String {
-        // 終了部分を結合し、返却.
-        let mut end = format!("  movl 0(%rsp), %eax\n");
-        end = format!("{}{}", end, "  add $4, %rsp\n");
-        end = format!("{}{}", end, "  pop %rbp\n");
-        end = format!("{}{}", end, "  ret\n");
-        format!("{}{}", self.inst, end)
+        self.inst.clone()
     }
 
     // アセンブラ生成開始.
@@ -56,6 +40,7 @@ impl<'a> Asm<'a> {
     // アセンブラ生成.
     fn generate(&mut self, ast: &Expr) {
         match *ast {
+            Expr::FuncDef(ref a) => self.generate_funcdef(a),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -84,6 +69,45 @@ impl<'a> Asm<'a> {
             Expr::BitOr(ref a, ref b) |
             Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
             _ => panic!("asm.rs(generate): not support expression"),
+        }
+    }
+
+    // スタートアセンブラ生成.
+    fn generate_start(&mut self) {
+        // スタート部分設定.
+        let main = if Config::is_mac() {
+            "_main".to_string()
+        } else {
+            "main".to_string()
+        };
+
+        let mut start = format!(".global {}\n{}:\n", main, main);
+        start = format!("{}{}", start, "  push %rbp\n");
+        start = format!("{}{}", start, "  mov %rsp, %rbp\n");
+        self.inst = format!("{}", start);
+    }
+
+    // 終了部分アセンブラ生成
+    fn generate_end(&mut self) {
+        let mut end = format!("  movl 0(%rsp), %eax\n");
+        end = format!("{}{}", end, "  add $4, %rsp\n");
+        end = format!("{}{}", end, "  pop %rbp\n");
+        end = format!("{}{}", end, "  ret\n");
+        self.inst = format!("{}{}", self.inst, end);
+    }
+
+    // 関数定義.
+    fn generate_funcdef(&mut self, a: &Expr) {
+        match *a {
+            Expr::Statement(ref a) => {
+                self.generate_start();
+                a.iter().enumerate().for_each(|(i, ast)| {
+                    if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
+                    self.generate(ast);
+                });
+                self.generate_end();
+            }
+            _ => panic!("asm.rs(generate_funcdef): not support expr"),
         }
     }
 

@@ -4,8 +4,9 @@ use token::Token;
 use symbol::SymbolTable;
 
 // 文法.
-//   <Expression> ::= <Block>
-//   <Block> ::=  <Assign> ';'
+//   <FuncDef> ::= VARIABLE '()' <FuncBody>
+//   <FuncBody> ::= '{' <Statement> '}'
+//   <Statement> ::= <Assign>* ';'
 //   <Assign> ::= VARIABLE '=' <Condition>
 //   <CallFunc> ::= VARIABLE '(' <Argment> ')'
 //   <Argment> ::= [ '' |  <Expression> ',']
@@ -29,6 +30,8 @@ use symbol::SymbolTable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    FuncDef(Box<Expr>),
+    Statement(Vec<Expr>),
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
@@ -63,6 +66,8 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expr::FuncDef(ref a) => write!(f, "{}", *a),
+            Expr::Statement(ref a) => write!(f, "{:?}", a),
             Expr::Condition(ref a, ref b, ref c) => write!(f, "{} ? {} : {}", *a, *b, *c),
             Expr::LogicalAnd(ref a, ref b) => write!(f, "{} && {}", *a, *b),
             Expr::LogicalOr(ref a, ref b) => write!(f, "{} || {}", *a, *b),
@@ -137,23 +142,53 @@ impl<'a> AstGen<'a> {
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> AstTree {
-        AstTree::new(self.compound(&vec![]))
+        AstTree::new(
+            vec![self.func_def()]
+        )
     }
 
-    // compound.
-    fn compound(&mut self, expr: &Vec<Expr>) -> Vec<Expr> {
+    // func def.
+    fn func_def(&mut self) -> Expr {
+        // 関数定義から始まらないとだめ.
+        let token= self.next_consume();
+        match token.get_token_type() {
+            Token::Variable => {
+                if Token::LeftBracket != self.next_consume().get_token_type() {
+                    panic!("ast.rs(func_def): Not Exists Left Bracket")
+                }
+                if Token::RightBracket != self.next_consume().get_token_type() {
+                    panic!("ast.rs(func_def): Not Exists Right Bracket")
+                }
+                Expr::FuncDef(Box::new(self.statement()))
+            }
+            _ => panic!("ast.rs(func_def): Not Exists Function def")
+        }
+    }
+
+    // statement.
+    fn statement(&mut self) -> Expr {
+        Expr::Statement(self.sub_statement(&vec![]))
+    }
+
+    // sub statement.
+    fn sub_statement(&mut self, expr: &Vec<Expr>) -> Vec<Expr> {
         // トークンがなくなるまで、構文木生成.
         let mut stmt = expr.clone();
         let token = self.next();
         match token.get_token_type() {
+            Token::LeftBrace => {
+                self.consume();
+                self.sub_statement(&stmt)
+            }
+            Token::RightBrace => expr.clone(),
             Token::SemiColon => {
                 self.consume();
-                self.compound(&stmt)
+                self.sub_statement(&stmt)
             }
             Token::Unknown => expr.clone(),
             _ => {
                 stmt.push(self.assign());
-                self.compound(&stmt)
+                self.sub_statement(&stmt)
             }
         }
     }
@@ -500,10 +535,15 @@ mod tests {
         // 単純な加算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -511,37 +551,58 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
-            )
-        }
-        // 複数の加算テスト.
-        {
-            let data = vec![
-                TokenInfo::new(Token::Number, '1'.to_string()),
-                TokenInfo::new(Token::Plus, '+'.to_string()),
-                TokenInfo::new(Token::Number, '2'.to_string()),
-                TokenInfo::new(Token::Plus, '+'.to_string()),
-                TokenInfo::new(Token::Number, '3'.to_string()),
-                TokenInfo::new(Token::SemiColon, ";".to_string()),
-            ];
-            let mut ast = AstGen::new(&data);
-            let result = ast.parse();
-
-            // 期待値確認.
-            assert_eq!(
-                result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
+                        ]
+                    ))
                 )
             )
         }
         // 複数の加算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, '('.to_string()),
+                TokenInfo::new(Token::RightBracket, ')'.to_string()),
+                TokenInfo::new(Token::LeftBrace, '{'.to_string()),
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Plus, '+'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Plus, '+'.to_string()),
+                TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, '}'.to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Factor(3))
+                            )
+                        ]
+                    ))
+                )
+            )
+        }
+        // 複数の加算テスト.
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
@@ -550,6 +611,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -557,15 +619,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(4)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(4)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -576,10 +644,15 @@ mod tests {
         // 単純な減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -587,18 +660,27 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Minus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::Minus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))]
+                    )
+                ))
             )
         }
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "100".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -606,18 +688,28 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Minus(
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(100)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Minus(
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(100)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
@@ -626,6 +718,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "{".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -633,15 +726,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Minus(
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Minus(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(4)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Minus(
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Minus(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(4)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -652,10 +751,15 @@ mod tests {
         // 単純な乗算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -663,37 +767,56 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Multiple(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
-            )
-        }
-        // 複数の減算テスト.
-        {
-            let data = vec![
-                TokenInfo::new(Token::Number, '1'.to_string()),
-                TokenInfo::new(Token::Multi, '*'.to_string()),
-                TokenInfo::new(Token::Number, '2'.to_string()),
-                TokenInfo::new(Token::Multi, '*'.to_string()),
-                TokenInfo::new(Token::Number, '3'.to_string()),
-                TokenInfo::new(Token::SemiColon, ";".to_string()),
-            ];
-            let mut ast = AstGen::new(&data);
-            let result = ast.parse();
-
-            // 期待値確認.
-            assert_eq!(
-                result.get_tree()[0],
-                Expr::Multiple(
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::Multiple(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))]
+                    ))
                 )
             )
         }
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Multi, '*'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Multi, '*'.to_string()),
+                TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Multiple(
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
+                )
+           )
+        }
+        // 複数の減算テスト.
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
@@ -702,6 +825,7 @@ mod tests {
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -709,15 +833,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Multiple(
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(4)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Multiple(
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(4)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -728,10 +858,15 @@ mod tests {
         // 単純な乗算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -739,37 +874,56 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Division(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
-            )
-        }
-        // 複数の減算テスト.
-        {
-            let data = vec![
-                TokenInfo::new(Token::Number, '1'.to_string()),
-                TokenInfo::new(Token::Division, '/'.to_string()),
-                TokenInfo::new(Token::Number, '2'.to_string()),
-                TokenInfo::new(Token::Division, '/'.to_string()),
-                TokenInfo::new(Token::Number, '3'.to_string()),
-                TokenInfo::new(Token::SemiColon, ";".to_string()),
-            ];
-            let mut ast = AstGen::new(&data);
-            let result = ast.parse();
-
-            // 期待値確認.
-            assert_eq!(
-                result.get_tree()[0],
-                Expr::Division(
-                    Box::new(Expr::Division(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::Division(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))]
+                    ))
                 )
             )
         }
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, '1'.to_string()),
+                TokenInfo::new(Token::Division, '/'.to_string()),
+                TokenInfo::new(Token::Number, '2'.to_string()),
+                TokenInfo::new(Token::Division, '/'.to_string()),
+                TokenInfo::new(Token::Number, '3'.to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Division(
+                                Box::new(Expr::Division(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
+                )
+            )
+        }
+        // 複数の減算テスト.
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
@@ -778,6 +932,7 @@ mod tests {
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '4'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -785,15 +940,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Division(
-                    Box::new(Expr::Division(
-                        Box::new(Expr::Division(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(4)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Division(
+                                Box::new(Expr::Division(
+                                    Box::new(Expr::Division(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(4)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -804,12 +965,17 @@ mod tests {
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -817,24 +983,35 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "{".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -842,24 +1019,35 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Factor(1)),
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Factor(1)),
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::LeftBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -867,24 +1055,35 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Division(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Division(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, '2'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
                 TokenInfo::new(Token::Number, '3'.to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -892,17 +1091,27 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Factor(1)),
-                    Box::new(Expr::Division(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Factor(1)),
+                                Box::new(Expr::Division(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LessThan, "<".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -911,6 +1120,7 @@ mod tests {
                 TokenInfo::new(Token::GreaterThanEqual, ">=".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -918,15 +1128,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::GreaterThanEqual(
-                    Box::new(Expr::Equal(
-                        Box::new(Expr::LessThan(
-                            Box::new(Expr::Factor(2)),
-                            Box::new(Expr::Factor(3)),
-                        )),
-                        Box::new(Expr::Factor(4)),
-                    )),
-                    Box::new(Expr::Factor(5)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::GreaterThanEqual(
+                                Box::new(Expr::Equal(
+                                    Box::new(Expr::LessThan(
+                                        Box::new(Expr::Factor(2)),
+                                        Box::new(Expr::Factor(3)),
+                                    )),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                                Box::new(Expr::Factor(5)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -937,12 +1153,17 @@ mod tests {
         // カッコのテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -950,11 +1171,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
+                        ]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
@@ -963,6 +1194,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -970,12 +1202,18 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Plus(
-                    Box::new(Expr::Factor(1)),
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Plus(
+                                Box::new(Expr::Factor(1)),
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -986,6 +1224,10 @@ mod tests {
         // 等価演算子テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -994,6 +1236,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1001,20 +1244,30 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Equal(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Equal(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1023,6 +1276,7 @@ mod tests {
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1030,20 +1284,31 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Equal(
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(1)),
-                        Box::new(Expr::Factor(2)),
-                    )),
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Equal(
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Factor(1)),
+                                    Box::new(Expr::Factor(2)),
+                                )),
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
+
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1054,6 +1319,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1061,18 +1327,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Equal(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(1)),
-                    )),
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Equal(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1082,6 +1354,10 @@ mod tests {
     fn test_not_equal_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1092,6 +1368,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1099,18 +1376,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::NotEqual(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(1)),
-                    )),
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::NotEqual(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1120,6 +1403,10 @@ mod tests {
     fn test_less_than_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1130,6 +1417,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1137,23 +1425,33 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LessThan(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(1)),
-                    )),
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LessThan(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1164,6 +1462,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1171,18 +1470,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LessThanEqual(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(1)),
-                    )),
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LessThanEqual(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1192,6 +1497,10 @@ mod tests {
     fn test_greater_than_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1202,6 +1511,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1209,23 +1519,33 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::GreaterThan(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(1)),
-                    )),
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::GreaterThan(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1236,6 +1556,7 @@ mod tests {
                 TokenInfo::new(Token::Minus, '-'.to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1243,18 +1564,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::GreaterThanEqual(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Multiple(
-                            Box::new(Expr::Factor(1)),
-                            Box::new(Expr::Factor(2)),
-                        )),
-                        Box::new(Expr::Factor(1)),
-                    )),
-                    Box::new(Expr::Minus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(4)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::GreaterThanEqual(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Multiple(
+                                        Box::new(Expr::Factor(1)),
+                                        Box::new(Expr::Factor(2)),
+                                    )),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                                Box::new(Expr::Minus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1265,10 +1592,15 @@ mod tests {
         // &&演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1276,11 +1608,19 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::LogicalAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1289,6 +1629,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1296,20 +1637,30 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalAnd(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(4)),
-                        Box::new(Expr::Factor(5)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LogicalAnd(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(4)),
+                                    Box::new(Expr::Factor(5)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1326,6 +1677,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1333,37 +1685,48 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalAnd(
-                    Box::new(Expr::Equal(
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(2)),
-                            Box::new(Expr::Factor(3)),
-                        )),
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(4)),
-                            Box::new(Expr::Factor(5)),
-                        )),
-                    )),
-                    Box::new(Expr::NotEqual(
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(6)),
-                            Box::new(Expr::Factor(7)),
-                        )),
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(8)),
-                            Box::new(Expr::Factor(9)),
-                        )),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LogicalAnd(
+                                Box::new(Expr::Equal(
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(2)),
+                                        Box::new(Expr::Factor(3)),
+                                    )),
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(4)),
+                                        Box::new(Expr::Factor(5)),
+                                    )),
+                                )),
+                                Box::new(Expr::NotEqual(
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(6)),
+                                        Box::new(Expr::Factor(7)),
+                                    )),
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(8)),
+                                        Box::new(Expr::Factor(9)),
+                                    )),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         // ||演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1371,11 +1734,19 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::LogicalOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1384,6 +1755,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1391,20 +1763,30 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalOr(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(4)),
-                        Box::new(Expr::Factor(5)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LogicalOr(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(4)),
+                                    Box::new(Expr::Factor(5)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1421,6 +1803,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "9".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1428,27 +1811,33 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalOr(
-                    Box::new(Expr::Equal(
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(2)),
-                            Box::new(Expr::Factor(3)),
-                        )),
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(4)),
-                            Box::new(Expr::Factor(5)),
-                        )),
-                    )),
-                    Box::new(Expr::NotEqual(
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(6)),
-                            Box::new(Expr::Factor(7)),
-                        )),
-                        Box::new(Expr::Plus(
-                            Box::new(Expr::Factor(8)),
-                            Box::new(Expr::Factor(9)),
-                        )),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LogicalOr(
+                                Box::new(Expr::Equal(
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(2)),
+                                        Box::new(Expr::Factor(3)),
+                                    )),
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(4)),
+                                        Box::new(Expr::Factor(5)),
+                                    )),
+                                )),
+                                Box::new(Expr::NotEqual(
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(6)),
+                                        Box::new(Expr::Factor(7)),
+                                    )),
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Factor(8)),
+                                        Box::new(Expr::Factor(9)),
+                                    )),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1458,6 +1847,10 @@ mod tests {
     fn test_mix_logical_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1466,6 +1859,7 @@ mod tests {
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1473,15 +1867,21 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LogicalOr(
-                    Box::new(Expr::LogicalAnd(
-                        Box::new(Expr::LogicalOr(
-                            Box::new(Expr::Factor(2)),
-                            Box::new(Expr::Factor(3)),
-                        )),
-                        Box::new(Expr::Factor(4)),
-                    )),
-                    Box::new(Expr::Factor(5)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LogicalOr(
+                                Box::new(Expr::LogicalAnd(
+                                    Box::new(Expr::LogicalOr(
+                                        Box::new(Expr::Factor(2)),
+                                        Box::new(Expr::Factor(3)),
+                                    )),
+                                    Box::new(Expr::Factor(4)),
+                                )),
+                                Box::new(Expr::Factor(5)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1491,6 +1891,10 @@ mod tests {
     fn test_condition_expression() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1499,6 +1903,7 @@ mod tests {
                 TokenInfo::new(Token::Colon, ":".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1506,18 +1911,28 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Condition(
-                    Box::new(Expr::Equal(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(1)),
-                    Box::new(Expr::Factor(5)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Condition(
+                                Box::new(Expr::Equal(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(1)),
+                                Box::new(Expr::Factor(5)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -1534,6 +1949,7 @@ mod tests {
                 TokenInfo::new(Token::Colon, ":".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1541,20 +1957,26 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Condition(
-                    Box::new(Expr::Equal(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Condition(
-                        Box::new(Expr::Equal(
-                            Box::new(Expr::Factor(10)),
-                            Box::new(Expr::Factor(11)),
-                        )),
-                        Box::new(Expr::Factor(12)),
-                        Box::new(Expr::Factor(13)),
-                    )),
-                    Box::new(Expr::Factor(5)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Condition(
+                                Box::new(Expr::Equal(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Condition(
+                                    Box::new(Expr::Equal(
+                                        Box::new(Expr::Factor(10)),
+                                        Box::new(Expr::Factor(11)),
+                                    )),
+                                    Box::new(Expr::Factor(12)),
+                                    Box::new(Expr::Factor(13)),
+                                )),
+                                Box::new(Expr::Factor(5)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1564,23 +1986,39 @@ mod tests {
     fn test_unary_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result.get_tree()[0], Expr::UnPlus(Box::new(Expr::Factor(2))))
+            assert_eq!(result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::UnPlus(Box::new(Expr::Factor(2)))]
+                    ))
+                )
+            )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Minus, "-".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1588,14 +2026,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Minus(
-                    Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
-                    Box::new(Expr::Factor(1)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Minus(
+                                Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
+                                Box::new(Expr::Factor(1)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1603,6 +2051,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1610,19 +2059,30 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Minus(
-                    Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
-                    Box::new(Expr::Factor(1)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Minus(
+                                Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
+                                Box::new(Expr::Factor(1)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Multi, "*".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1630,27 +2090,49 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Multiple(
-                    Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
-                    Box::new(Expr::Factor(1)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Multiple(
+                                Box::new(Expr::UnPlus(Box::new(Expr::Factor(2)))),
+                                Box::new(Expr::Factor(1)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         // 否定演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Not, "!".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result.get_tree()[0], Expr::Not(Box::new(Expr::Factor(2))))
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::Not(Box::new(Expr::Factor(2)))]
+                    ))
+                )
+            )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Not, "!".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -1658,6 +2140,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1665,24 +2148,42 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Not(Box::new(Expr::Equal(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::Factor(3)),
-                )))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Not(Box::new(Expr::Equal(
+                                Box::new(Expr::Factor(2)),
+                                Box::new(Expr::Factor(3)),
+                            )))
+                        ]
+                    ))
+                )
             )
         }
         // ビット反転演算子.
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::BitReverse, "~".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
-            assert_eq!(result.get_tree()[0], Expr::BitReverse(Box::new(Expr::Factor(2))))
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::BitReverse(Box::new(Expr::Factor(2)))]
+                    ))
+                )
+            )
         }
     }
 
@@ -1690,10 +2191,15 @@ mod tests {
     fn test_shift_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LeftShift, "<<".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1701,15 +2207,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LeftShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![ Expr::LeftShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1))) ]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1717,17 +2232,26 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::RightShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::RightShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1735,23 +2259,34 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::RightShift(
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(1)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::RightShift(
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(1)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LessThan, "<".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1759,12 +2294,18 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::LessThan(
-                    Box::new(Expr::Factor(2)),
-                    Box::new(Expr::RightShift(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::LessThan(
+                                Box::new(Expr::Factor(2)),
+                                Box::new(Expr::RightShift(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1775,10 +2316,15 @@ mod tests {
     fn test_bit_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitAnd, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1786,15 +2332,24 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::BitAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![Expr::BitAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitOr, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1802,15 +2357,26 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::BitOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::BitOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+                        ]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitXor, "^".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1818,17 +2384,26 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::BitXor(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![ Expr::BitXor(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))) ]
+                    ))
+                )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitAnd, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1836,12 +2411,18 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::BitOr(
-                    Box::new(Expr::BitAnd(
-                        Box::new(Expr::Factor(2)),
-                        Box::new(Expr::Factor(3)),
-                    )),
-                    Box::new(Expr::Factor(4)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::BitOr(
+                                Box::new(Expr::BitAnd(
+                                    Box::new(Expr::Factor(2)),
+                                    Box::new(Expr::Factor(3)),
+                                )),
+                                Box::new(Expr::Factor(4)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1851,10 +2432,15 @@ mod tests {
     fn test_assign_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1862,20 +2448,31 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Factor(3)),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1883,23 +2480,34 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1907,23 +2515,34 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::LogicalAnd(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::LogicalAnd(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Multi, "*".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1931,23 +2550,34 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1955,12 +2585,18 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::BitOr(
-                        Box::new(Expr::Factor(3)),
-                        Box::new(Expr::Factor(1)),
-                    )),
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::BitOr(
+                                    Box::new(Expr::Factor(3)),
+                                    Box::new(Expr::Factor(1)),
+                                )),
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -1970,10 +2606,15 @@ mod tests {
     fn test_call_func() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -1981,31 +2622,52 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::CallFunc(Box::new(Expr::Variable("a".to_string())), Box::new(Expr::Argment(vec![])))
-            )
-        }
-        {
-            let data = vec![
-                TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::Variable, "b".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
-                TokenInfo::new(Token::SemiColon, ";".to_string()),
-            ];
-            let mut ast = AstGen::new(&data);
-            let result = ast.parse();
-
-            // 期待値確認.
-            assert_eq!(
-                result.get_tree()[0],
-                Expr::CallFunc(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string())]))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::CallFunc(Box::new(Expr::Variable("a".to_string())), Box::new(Expr::Argment(vec![])))
+                        ]
+                    ))
                 )
             )
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::CallFunc(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string())]))
+                            )
+                        ]
+                    ))
+                )
+            )
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
@@ -2013,6 +2675,7 @@ mod tests {
                 TokenInfo::new(Token::Variable, "c".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
             ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -2020,9 +2683,15 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::CallFunc(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string()), Expr::Variable('c'.to_string())]))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::CallFunc(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Argment(vec![Expr::Variable('b'.to_string()), Expr::Variable('c'.to_string())]))
+                            )
+                        ]
+                    ))
                 )
             )
         }
@@ -2032,6 +2701,10 @@ mod tests {
     fn test_compound() {
         {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -2042,6 +2715,7 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "{".to_string()),
              ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
@@ -2049,24 +2723,31 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Factor(3)),
-                )
-            );
-            assert_eq!(
-                result.get_tree()[1],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Plus(
-                        Box::new(Expr::Variable("a".to_string())),
-                        Box::new(Expr::Factor(3))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Factor(3)),
+                            ),
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Plus(
+                                    Box::new(Expr::Variable("a".to_string())),
+                                    Box::new(Expr::Factor(3))
+                                ))
+                            )
+                        ]
                     ))
                 )
-            )
+            );
          }
          {
             let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -2077,26 +2758,30 @@ mod tests {
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
-             ];
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+            ];
             let mut ast = AstGen::new(&data);
             let result = ast.parse();
 
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
-                Expr::Assign(
-                    Box::new(Expr::Variable("a".to_string())),
-                    Box::new(Expr::Factor(3)),
-                )
-            );
-            assert_eq!(
-                result.get_tree()[1],
-                Expr::Plus(
-                    Box::new(Expr::Multiple(
-                        Box::new(Expr::Variable("a".to_string())),
-                        Box::new(Expr::Variable("a".to_string()))
-                    )),
-                    Box::new(Expr::Factor(1))
+                Expr::FuncDef(
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Factor(3)),
+                            ),
+                            Expr::Plus(
+                                Box::new(Expr::Multiple(
+                                    Box::new(Expr::Variable("a".to_string())),
+                                    Box::new(Expr::Variable("a".to_string()))
+                                )),
+                                Box::new(Expr::Factor(1))
+                            )
+                        ]
+                    ))
                 )
             )
          }

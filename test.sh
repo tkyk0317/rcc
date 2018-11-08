@@ -87,114 +87,114 @@ test_call_func() {
 # ビルドを実行してからテスト
 cargo b
 
-test "1+2;" 3 1
-test "10+20;" 30 2
-test "100+101;" 201 3
-test "20-1;" 19 4
-test "20-10;" 10 5
-test "20-19;" 1 6
-test "1+2+3;" 6 7
-test "1+2-3;" 0 8
-test "100-2-3;" 95 9
-test "2*4;" 8 10
-test "3*4;" 12 11
-test "5*2*3;" 30 12
-test "5*2*3-10;" 20 13
-test "5+2*3;" 11 14
-test "2*3+3*4;" 18 15
-test "(12+16);" 28 16
-test "(29-16);" 13 17
-test "(12+16)+3;" 31 18
-test "3+(12+16);" 31 19
-test "(10+4)*10;" 140 20
-test "10*(10+4);" 140 21
-test "10/5;" 2 22
-test "20/5/2;" 2 23
-test "20/3;" 6 24
-test "2+20/3;" 8 25
-test "20/3+3;" 9 26
-test "20%3;" 2 27
-test "10+20%3;" 12 28
-test "2==2;" 1 29
-test "2+2==2*2;" 1 30
-test "20/10==2;" 1 31
-test "1==2;" 0 32
-test "2!=2;" 0 33
-test "2+2!=2*2;" 0 34
-test "20/10!=2;" 0 35
-test "1!=2;" 1 36
-test "1>2;" 0 37
-test "1<2;" 1 38
-test "1+3-1>2*4;" 0 39
-test "1*3+20>4*2/2;" 1 40
-test "1>=2;" 0 41
-test "1>=1;" 1 42
-test "2>=1;" 1 43
-test "1<=2;" 1 44
-test "2<=2;" 1 45
-test "2<=3;" 1 46
-test "1+3-1>=2*4;" 0 47
-test "1+3-1+5>=2*4;" 1 48
-test "1*3+20>=4*2/2;" 1 49
-test "1*3+20>=23;" 1 50
-test "1+3-1<=2*4;" 1 51
-test "1+3-1+5<=2*4;" 1 52
-test "1*3+20<=4*2/2;" 0 53
-test "1*3+20<=23;" 1 54
-test "3*(2+2) >= 4+(3*1);" 1 55
-test "1&&1;" 1 56
-test "0&&1;" 0 57
-test "(1 + 1) && (2 * 1);" 1 58
-test "1 == 1 && 2 < 1;" 0 59
-test "4 / 2 == 0 + 2 && 2 > 1;" 1 60
-test "1||1;" 1 61
-test "0||0;" 0 62
-test "(1 + 1) || (2 * 1);" 1 63
-test "1 != 1 || 2 < 1;" 0 64
-test "4 / 2 == 0 + 2 || 2 < 1;" 1 65
-test "(1 == 0 && 1) && (2 < 1 || 0);" 0 66
-test "2 ? 1 : 3;" 1 67
-test "2 > 1 ? 1 : 3;" 1 68
-test "2 < 1 ? 1 : 3;" 3 69
-test "2 > 1 ? (2 ? 10 : 100) : 3;" 10 70
-test "2 == 1 ? (2 == 2 ? 9 : 99) : (0 ? 10 : 100);" 100 71
-test "+2;" 2 72
-test "5 + (-5);" 0 73
-test  "3 - + - + - + - 2;" 5 73
-test "!2;" 0 74
-test "!(2 + 2 == 3 * 4);" 1 75
-test "!(2 != 3);" 0 76
-test "2<<1;" 4 77
-test "2>>1;" 1 78
-test "2<<1<<1;" 8 79
-test "8>>1>>1;" 2 80
-test "2<<3;" 16 81
-test "16>>2;" 4 82
-test "5>>1;" 2 83
-test "1&1;" 1 84
-test "1&0;" 0 85
-test "1|0;" 1 86
-test "1|1;" 1 87
-test "1^1;" 0 88
-test "0^1;" 1 89
-test "0^0;" 0 90
-test "1&0|1;" 1 91
-test "183&109;" 37 92
-test "183|109;" 255 93
-test "183^109;" 218 94
-test "~183 & 255;" 72 96
-test "2+2; 1+2;" 3 97
-test "5>>1; 1 != 2" 1 98
-test "x = 4; x = x * x + 1; x + 3;" 20 99
-test "x = 2 * 3 * 4;" 24 100
-test "x = x = x = 3;" 3 101
+test "main() { 1+2; }" 3 1
+test "main() { 10+20; }" 30 2
+test "main() { 100+101; }" 201 3
+test "main() { 20-1; }" 19 4
+test "main() { 20-10; }" 10 5
+test "main() { 20-19; }" 1 6
+test "main() { 1+2+3; }" 6 7
+test "main() { 1+2-3; }" 0 8
+test "main() { 100-2-3; }" 95 9
+test "main() { 2*4; }" 8 10
+test "main() { 3*4; }" 12 11
+test "main() { 5*2*3; }" 30 12
+test "main() { 5*2*3-10; }" 20 13
+test "main() { 5+2*3; }" 11 14
+test "main() { 2*3+3*4; }" 18 15
+test "main() { (12+16); }" 28 16
+test "main() { (29-16); }" 13 17
+test "main() { (12+16)+3; }" 31 18
+test "main() { 3+(12+16); }" 31 19
+test "main() { (10+4)*10; }" 140 20
+test "main() { 10*(10+4); }" 140 21
+test "main() { 10/5; }" 2 22
+test "main() { 20/5/2; }" 2 23
+test "main() { 20/3; }" 6 24
+test "main() { 2+20/3; }" 8 25
+test "main() { 20/3+3; }" 9 26
+test "main() { 20%3; }" 2 27
+test "main() { 10+20%3; }" 12 28
+test "main() { 2==2; }" 1 29
+test "main() { 2+2==2*2; }" 1 30
+test "main() { 20/10==2; }" 1 31
+test "main() { 1==2; }" 0 32
+test "main() { 2!=2; }" 0 33
+test "main() { 2+2!=2*2; }" 0 34
+test "main() { 20/10!=2; }" 0 35
+test "main() { 1!=2; }" 1 36
+test "main() { 1>2; }" 0 37
+test "main() { 1<2; }" 1 38
+test "main() { 1+3-1>2*4; }" 0 39
+test "main() { 1*3+20>4*2/2; }" 1 40
+test "main() { 1>=2; }" 0 41
+test "main() { 1>=1; }" 1 42
+test "main() { 2>=1; }" 1 43
+test "main() { 1<=2; }" 1 44
+test "main() { 2<=2; }" 1 45
+test "main() { 2<=3; }" 1 46
+test "main() { 1+3-1>=2*4; }" 0 47
+test "main() { 1+3-1+5>=2*4; }" 1 48
+test "main() { 1*3+20>=4*2/2; }" 1 49
+test "main() { 1*3+20>=23; }" 1 50
+test "main() { 1+3-1<=2*4; }" 1 51
+test "main() { 1+3-1+5<=2*4; }" 1 52
+test "main() { 1*3+20<=4*2/2; }" 0 53
+test "main() { 1*3+20<=23; }" 1 54
+test "main() { 3*(2+2) >= 4+(3*1); }" 1 55
+test "main() { 1&&1; }" 1 56
+test "main() { 0&&1; }" 0 57
+test "main() { (1 + 1) && (2 * 1); }" 1 58
+test "main() { 1 == 1 && 2 < 1; }" 0 59
+test "main() { 4 / 2 == 0 + 2 && 2 > 1; }" 1 60
+test "main() { 1||1; }" 1 61
+test "main() { 0||0; }" 0 62
+test "main() { (1 + 1) || (2 * 1); }" 1 63
+test "main() { 1 != 1 || 2 < 1; }" 0 64
+test "main() { 4 / 2 == 0 + 2 || 2 < 1; }" 1 65
+test "main() { (1 == 0 && 1) && (2 < 1 || 0); }" 0 66
+test "main() { 2 ? 1 : 3; }" 1 67
+test "main() { 2 > 1 ? 1 : 3; }" 1 68
+test "main() { 2 < 1 ? 1 : 3; }" 3 69
+test "main() { 2 > 1 ? (2 ? 10 : 100) : 3; }" 10 70
+test "main() { 2 == 1 ? (2 == 2 ? 9 : 99) : (0 ? 10 : 100); }" 100 71
+test "main() { +2; }" 2 72
+test "main() { 5 + (-5); }" 0 73
+test "main() { 3 - + - + - + - 2; }" 5 73
+test "main() { !2; }" 0 74
+test "main() { !(2 + 2 == 3 * 4); }" 1 75
+test "main() { !(2 != 3); }" 0 76
+test "main() { 2<<1; }" 4 77
+test "main() { 2>>1; }" 1 78
+test "main() { 2<<1<<1; }" 8 79
+test "main() { 8>>1>>1; }" 2 80
+test "main() { 2<<3; }" 16 81
+test "main() { 16>>2; }" 4 82
+test "main() { 5>>1; }" 2 83
+test "main() { 1&1; }" 1 84
+test "main() { 1&0; }" 0 85
+test "main() { 1|0; }" 1 86
+test "main() { 1|1; }" 1 87
+test "main() { 1^1; }" 0 88
+test "main() { 0^1; }" 1 89
+test "main() { 0^0; }" 0 90
+test "main() { 1&0|1; }" 1 91
+test "main() { 183&109; }" 37 92
+test "main() { 183|109; }" 255 93
+test "main() { 183^109; }" 218 94
+test "main() { ~183 & 255; }" 72 96
+test "main() { 2+2; 1+2; }" 3 97
+test "main() { 5>>1; 1 != 2; }" 1 98
+test "main() { x = 4; x = x * x + 1; x + 3; }" 20 99
+test "main() { x = 2 * 3 * 4; }" 24 100
+test "main() { x = x = x = 3; }" 3 101
 #test 256 256 # 255までしか数値を扱うことができない
 
 # 関数コールテスト.
-test_call_func "test_func();" "./tests/stub.c" "function for test"
-test_call_func "func_arg1(10);" "./tests/stub.c" "10"
-test_call_func "func_arg2(10, 9);" "./tests/stub.c" "19"
-test_call_func "func_arg3(1, 2, 3);" "./tests/stub.c" "1, 2, 3"
-test_call_func "func_arg4(1, 2, 3, 4);" "./tests/stub.c" "24"
-test_call_func "func_arg5(1, 2, 3, 4, 5);" "./tests/stub.c" "1, 2, 3, 4, 5"
-test_call_func "func_arg6(1, 1, 1, 1, 1, 1);" "./tests/stub.c" "6"
+test_call_func "main() { test_func(); }" "./tests/stub.c" "function for test"
+test_call_func "main() { func_arg1(10); }" "./tests/stub.c" "10"
+test_call_func "main() { func_arg2(10, 9); }" "./tests/stub.c" "19"
+test_call_func "main() { func_arg3(1, 2, 3); }" "./tests/stub.c" "1, 2, 3"
+test_call_func "main() { func_arg4(1, 2, 3, 4); }" "./tests/stub.c" "24"
+test_call_func "main() { func_arg5(1, 2, 3, 4, 5); }" "./tests/stub.c" "1, 2, 3, 4, 5"
+test_call_func "main() { func_arg6(1, 1, 1, 1, 1, 1); }" "./tests/stub.c" "6"

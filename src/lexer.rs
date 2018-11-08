@@ -124,6 +124,12 @@ impl<'a> LexicalAnalysis<'a> {
                         ')' => {
                             token = TokenInfo::new(Token::RightBracket, v.to_string());
                         }
+                        '{' => {
+                            token = TokenInfo::new(Token::LeftBrace, v.to_string());
+                        }
+                        '}' => {
+                            token = TokenInfo::new(Token::RightBrace, v.to_string());
+                        }
                         '?' => {
                             token = TokenInfo::new(Token::Question, v.to_string());
                         }
@@ -572,6 +578,37 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Variable, "b".to_string()),
                 lexer.get_tokens()[2]
+            );
+        }
+        {
+            let input = "{ a = b; }".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                lexer.get_tokens()[5]
             );
         }
     }
