@@ -40,7 +40,7 @@ impl<'a> Asm<'a> {
     // アセンブラ生成.
     fn generate(&mut self, ast: &Expr) {
         match *ast {
-            Expr::FuncDef(ref a) => self.generate_funcdef(a),
+            Expr::FuncDef(ref a, ref b) => self.generate_funcdef(a, b),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -72,23 +72,23 @@ impl<'a> Asm<'a> {
         }
     }
 
-    // スタートアセンブラ生成.
-    fn generate_start(&mut self) {
+    // 関数開始アセンブラ出力.
+    fn generate_func_start(&mut self, a: &String) {
         // スタート部分設定.
-        let main = if Config::is_mac() {
-            "_main".to_string()
-        } else {
-            "main".to_string()
-        };
+        let mut start = if a == "main" {
+            let main = if Config::is_mac() { "_main".to_string() } else { "main".to_string() };
+            format!(".global {}\n", main)
+        }
+        else { "".to_string() };
 
-        let mut start = format!(".global {}\n{}:\n", main, main);
+        start = format!("{}{}:\n", start, a);
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
         self.inst = format!("{}", start);
     }
 
-    // 終了部分アセンブラ生成
-    fn generate_end(&mut self) {
+    // 関数終了部分アセンブラ生成
+    fn generate_func_end(&mut self) {
         let mut end = format!("  movl 0(%rsp), %eax\n");
         end = format!("{}{}", end, "  add $4, %rsp\n");
         end = format!("{}{}", end, "  pop %rbp\n");
@@ -97,15 +97,15 @@ impl<'a> Asm<'a> {
     }
 
     // 関数定義.
-    fn generate_funcdef(&mut self, a: &Expr) {
-        match *a {
-            Expr::Statement(ref a) => {
-                self.generate_start();
-                a.iter().enumerate().for_each(|(i, ast)| {
+    fn generate_funcdef(&mut self, a: &String, b: &Expr) {
+        match *b {
+            Expr::Statement(ref s) => {
+                self.generate_func_start(a);
+                s.iter().enumerate().for_each(|(i, ast)| {
                     if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
                     self.generate(ast);
                 });
-                self.generate_end();
+                self.generate_func_end();
             }
             _ => panic!("asm.rs(generate_funcdef): not support expr"),
         }
