@@ -32,9 +32,7 @@ impl<'a> Asm<'a> {
     pub fn exec(&mut self, tree: &AstTree) {
         tree.get_tree()
             .iter()
-            .enumerate()
-            .for_each(|(i, ast)| {
-                //if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
+            .for_each(|ast| {
                 self.generate(&ast);
             });
     }
