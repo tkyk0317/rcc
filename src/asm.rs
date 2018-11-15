@@ -74,14 +74,14 @@ impl<'a> Asm<'a> {
 
     // 関数開始アセンブラ出力.
     fn generate_func_start(&mut self, a: &String) {
-        // スタート部分設定.
-        let mut start = if a == "main" {
-            let main = if Config::is_mac() { "_main".to_string() } else { "main".to_string() };
-            format!(".global {}\n", main)
-        }
-        else { "".to_string() };
+        let func_name = |n: &String| {
+            if Config::is_mac() { format!("_{}", n) } else { n.to_string() }
+        };
 
-        start = format!("{}{}:\n", start, a);
+        // スタート部分設定.
+        let mut start = if a == "main" { format!(".global {}\n", func_name(a)) } else { "".to_string() };
+
+        start = format!("{}{}:\n", start, func_name(a));
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
         self.inst = format!("{}", start);
