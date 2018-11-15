@@ -33,7 +33,7 @@ pub enum Token {
     Not, // 否定演算子.
     SemiColon, // セミコロン.
     Assign, // 代入演算子.
-    Unknown, // 不明.
+    End, // 終了.
 }
 
 // トークンデータ.

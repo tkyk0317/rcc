@@ -143,7 +143,7 @@ impl<'a> LexicalAnalysis<'a> {
                             token = TokenInfo::new(Token::Comma, v.to_string());
                         }
                         _ => {
-                            token = TokenInfo::new(Token::Unknown, v.to_string());
+                            panic!("Not Support Lexer {}", v)
                         }
                     }
                     self.tokens.push(token);
@@ -151,6 +151,7 @@ impl<'a> LexicalAnalysis<'a> {
                 _ => {}
             }
         }
+        self.tokens.push(TokenInfo::new(Token::End, "End".to_string()));
     }
 
     // 文字を読み出す.
@@ -319,6 +320,10 @@ mod tests {
                 TokenInfo::new(Token::Number, "7".to_string()),
                 lexer.get_tokens()[6]
             );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[7]
+            );
         }
         {
             let input = "2 >= 1".to_string();
@@ -337,6 +342,10 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
             );
         }
         {
@@ -357,6 +366,10 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[2]
             );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
+            );
         }
         {
             let input = "2 == 1".to_string();
@@ -375,6 +388,10 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
             );
         }
         {
@@ -395,6 +412,10 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[2]
             );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
+            );
         }
         {
             let input = "2 << 1".to_string();
@@ -413,6 +434,10 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
             );
         }
         {
@@ -433,6 +458,10 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[2]
             );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
+            );
         }
         {
             let input = "~1".to_string();
@@ -447,6 +476,10 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Number, "1".to_string()),
                 lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[2]
             );
         }
         {
@@ -470,6 +503,10 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[4]
             );
         }
         {
@@ -506,6 +543,10 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 lexer.get_tokens()[6]
             );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[7]
+            );
         }
         {
             let input = "a = 1 + 2;".to_string();
@@ -532,6 +573,14 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Number, "2".to_string()),
                 lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[6]
             );
         }
         {
@@ -560,6 +609,14 @@ mod tests {
                 TokenInfo::new(Token::Number, "2".to_string()),
                 lexer.get_tokens()[4]
             );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[6]
+            );
         }
         {
             let input = "a, b;".to_string();
@@ -578,6 +635,14 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::Variable, "b".to_string()),
                 lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[4]
             );
         }
         {
@@ -609,6 +674,10 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[6]
             );
         }
     }
