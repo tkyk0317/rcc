@@ -104,7 +104,8 @@ impl fmt::Display for Expr {
 pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize, // 現在読み取り位置.
-    s_table: SymbolTable, // シンボルテーブル.
+    var_table: SymbolTable, // シンボルテーブル.
+    func_table: SymbolTable, // 関数シンボルテーブル.
 }
 
 pub struct AstTree {
@@ -131,13 +132,19 @@ impl<'a> AstGen<'a> {
         AstGen {
             current_pos: 0,
             tokens: tokens,
-            s_table: SymbolTable::new(),
+            var_table: SymbolTable::new(),
+            func_table: SymbolTable::new(),
         }
     }
 
     // シンボルテーブル取得.
-    pub fn get_symbol_table(&self) -> &SymbolTable {
-        &self.s_table
+    pub fn get_var_symbol_table(&self) -> &SymbolTable {
+        &self.var_table
+    }
+
+    // 関数シンボルテーブル取得.
+    pub fn get_func_symbol_table(&self) -> &SymbolTable {
+        &self.func_table
     }
 
     // トークン列を受け取り、抽象構文木を返す.
@@ -162,6 +169,8 @@ impl<'a> AstGen<'a> {
                 if Token::RightBracket != self.next_consume().get_token_type() {
                     panic!("ast.rs(func_def): Not Exists Right Bracket")
                 }
+                // 関数シンボルを登録.
+                self.func_table.push(token.get_token_value(), token.get_token_value().to_string());
                 Expr::FuncDef(token.get_token_value(), Box::new(self.statement()))
             }
             _ => panic!("ast.rs(func_def): Not Exists Function def {:?}", token)
@@ -488,7 +497,7 @@ impl<'a> AstGen<'a> {
             }
             Token::Variable => {
                 // シンボルテーブルへ保存.
-                self.s_table.push(token.get_token_value(), "".to_string());
+                self.var_table.push(token.get_token_value(), "".to_string());
                 self.consume();
                 Expr::Variable(token.get_token_value())
             }

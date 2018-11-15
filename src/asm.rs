@@ -8,16 +8,18 @@ use symbol::SymbolTable;
 pub struct Asm<'a> {
     inst: String,
     label_no: u64,
-    symbol_table: &'a SymbolTable,
+    var_table: &'a SymbolTable,
+    func_table: &'a SymbolTable,
 }
 
 impl<'a> Asm<'a> {
     // コンストラクタ.
-    pub fn new(symbol_table: &'a SymbolTable) -> Asm {
+    pub fn new(var_table: &'a SymbolTable, func_table: &'a SymbolTable) -> Asm<'a> {
         Asm {
             inst: "".to_string(),
             label_no: 0,
-            symbol_table: symbol_table,
+            var_table: var_table,
+            func_table: func_table,
         }
     }
 
@@ -32,7 +34,7 @@ impl<'a> Asm<'a> {
             .iter()
             .enumerate()
             .for_each(|(i, ast)| {
-                if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
+                //if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
                 self.generate(&ast);
             });
     }
@@ -81,16 +83,18 @@ impl<'a> Asm<'a> {
         // スタート部分設定.
         let mut start = if a == "main" { format!(".global {}\n", func_name(a)) } else { "".to_string() };
 
-        start = format!("{}{}:\n", start, func_name(a));
+        let pos = self.func_table.search(a).unwrap().pos * 4 + 4;
+        start = format!("{}{}{}:\n", self.inst, start, func_name(a));
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
+        start = format!("{}  sub ${}, %rsp\n", start, pos);
         self.inst = format!("{}", start);
     }
 
     // 関数終了部分アセンブラ生成
-    fn generate_func_end(&mut self) {
-        let mut end = format!("  movl 0(%rsp), %eax\n");
-        end = format!("{}{}", end, "  add $4, %rsp\n");
+    fn generate_func_end(&mut self, a: &String) {
+        let pos = self.func_table.search(a).unwrap().pos * 4 + 4;
+        let mut end = format!("{}  add ${}, %rsp\n", self.pop_stack("eax"), pos);
         end = format!("{}{}", end, "  pop %rbp\n");
         end = format!("{}{}", end, "  ret\n");
         self.inst = format!("{}{}", self.inst, end);
@@ -105,7 +109,7 @@ impl<'a> Asm<'a> {
                     if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
                     self.generate(ast);
                 });
-                self.generate_func_end();
+                self.generate_func_end(a);
             }
             _ => panic!("asm.rs(generate_funcdef): not support expr"),
         }
@@ -115,7 +119,7 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &Expr, b: &Expr) {
         match *a {
             Expr::Variable(ref a) => {
-                let pos = self.symbol_table.search(a).unwrap().pos * 4 + 4;
+                let pos = self.var_table.search(a).unwrap().pos * 4 + 4;
                 self.generate(b);
                 self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                 self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
@@ -127,7 +131,7 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, v: &String) {
-        let pos = self.symbol_table.search(v).unwrap().pos * 4 + 4;
+        let pos = self.var_table.search(v).unwrap().pos * 4 + 4;
         self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }

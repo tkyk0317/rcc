@@ -23,8 +23,9 @@ fn main() {
     let ast_tree = ast_gen.parse();
 
     // アセンブラへ変換.
-    let table = ast_gen.get_symbol_table();
-    let mut asm = Asm::new(&table);
+    let var_table = ast_gen.get_var_symbol_table();
+    let func_table = ast_gen.get_func_symbol_table();
+    let mut asm = Asm::new(&var_table, &func_table);
     asm.exec(&ast_tree);
     println!("{}", asm.get_inst());
 }
