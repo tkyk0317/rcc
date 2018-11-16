@@ -189,6 +189,8 @@ test "main() { x = 4; x = x * x + 1; x + 3; }" 20 99
 test "main() { x = 2 * 3 * 4; }" 24 100
 test "main() { x = x = x = 3; }" 3 101
 test "test() { 1; } main() { test(); }" 1 102
+test "test() { a = 1;  a + 19;} main() { test(); }" 20 103
+test "test() { a = 1; } main() { test(); 10; }" 10 104
 #test 256 256 # 255までしか数値を扱うことができない
 
 # 関数コールテスト.
