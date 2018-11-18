@@ -10,8 +10,10 @@ pub struct Asm<'a> {
     label_no: u64,
     var_table: &'a SymbolTable,
     func_table: &'a SymbolTable,
-    regs: Vec<&'a str>,
 }
+
+// 関数引数レジスタ.
+const REGS: &'static [&str] = &["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"];
 
 impl<'a> Asm<'a> {
     // コンストラクタ.
@@ -21,7 +23,6 @@ impl<'a> Asm<'a> {
             label_no: 0,
             var_table: var_table,
             func_table: func_table,
-            regs: vec!["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"],
         }
     }
 
@@ -133,7 +134,7 @@ impl<'a> Asm<'a> {
         match *a {
             Expr::Argment(ref args) => {
                 args.iter().enumerate().for_each(|(i, arg)| {
-                    self.inst = each_args(&self.inst, arg, self.regs[i], i * 4 + 4)
+                    self.inst = each_args(&self.inst, arg, REGS[i], i * 4 + 4)
                 });
             }
             _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
@@ -174,7 +175,7 @@ impl<'a> Asm<'a> {
                         // 関数引数をレジスタへ.
                         v.iter().enumerate().for_each(|(i, _d)| {
                             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                            self.inst = format!("{}  mov %rax, {}\n", self.inst, self.regs[i]);
+                            self.inst = format!("{}  mov %rax, {}\n", self.inst, REGS[i]);
                         });
                     }
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment"),
