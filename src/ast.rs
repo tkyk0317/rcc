@@ -163,6 +163,11 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::Variable => {
+                // 既に同じシンボルが登録されていればエラー.
+                if None != self.func_table.search(&token.get_token_value()) {
+                    panic!("ast.rs(func_def): already define {}", token.get_token_value());
+                }
+
                 // 関数シンボルを登録.
                 self.func_table.push(
                     token.get_token_value(),
