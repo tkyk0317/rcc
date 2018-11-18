@@ -194,9 +194,7 @@ impl<'a> AstGen<'a> {
 
                 // 閉じ括弧.
                 let next_token = self.next_consume();
-                if Token::RightBracket != next_token.get_token_type() {
-                    panic!("ast.rs(func_arg): Not Exists RightBracket {:?}", next_token)
-                }
+                self.panic_token(&next_token, Token::RightBracket, format!("ast.rs(func_arg): Not Exists RightBracket {:?}", next_token));
                 args
             }
             _ => panic!("ast.rs(func_arg): Not Exists LeftBracket {:?}", token),
@@ -282,15 +280,16 @@ impl<'a> AstGen<'a> {
 
     // func call.
     fn call_func(&mut self, acc: Expr) -> Expr {
-        if Token::LeftBracket == self.next_consume().get_token_type() {
-            let call_func =
-                Expr::CallFunc(Box::new(acc), Box::new(self.argment(Expr::Argment(vec![]))));
-            if Token::RightBracket != self.next_consume().get_token_type() {
-                panic!("ast.rs(call_func): Not exists RightBracket")
+        let token = self.next_consume();
+        match token.get_token_type() {
+            Token::LeftBracket => {
+                let call_func = Expr::CallFunc(Box::new(acc), Box::new(self.argment(Expr::Argment(vec![]))));
+                let next = self.next_consume();
+                self.panic_token(&next, Token::RightBracket, format!("ast.rs(call_func): Not exists RightBracket {:?}", next));
+                call_func
             }
-            return call_func;
+            _ => panic!("ast.rs(call_func): Not exists LeftBracket")
         }
-        panic!("ast.rs(call_func): Not exists LeftBracket")
     }
 
     // argment.
@@ -341,13 +340,12 @@ impl<'a> AstGen<'a> {
                 let middle = self.logical();
 
                 // コロンがない場合、終了.
-                if self.next_consume().get_token_type() != Token::Colon {
-                    panic!("Not Exists Colon")
-                } else {
-                    let right = self.logical();
-                    let tree = Expr::Condition(Box::new(acc), Box::new(middle), Box::new(right));
-                    self.sub_condition(tree)
-                }
+                let colon = self.next_consume();
+                self.panic_token(&colon, Token::Colon, format!("ast.rs(sub_condition): Not exists Colon {:?}", colon));
+
+                let right = self.logical();
+                let tree = Expr::Condition(Box::new(acc), Box::new(middle), Box::new(right));
+                self.sub_condition(tree)
             }
             _ => acc,
         }
@@ -520,9 +518,8 @@ impl<'a> AstGen<'a> {
                 let tree = self.assign();
 
                 // 閉じカッコがあるかどうかチェック.
-                if Token::RightBracket != self.next_consume().get_token_type() {
-                    panic!("Not Exists Right Bracket")
-                }
+                let bracket = self.next_consume();
+                self.panic_token(&bracket, Token::RightBracket, format!("ast.rs(factor): Not exists RightBracket {:?}", bracket));
                 tree
             }
             Token::Plus => {
@@ -577,6 +574,11 @@ impl<'a> AstGen<'a> {
     // 読み取り位置巻き戻し.
     fn back(&mut self, i: usize) {
         self.current_pos = self.current_pos - i;
+    }
+
+    // 指定されたトークンでない場合、panicメッセージ表示.
+    fn panic_token(&self, d: &TokenInfo, t: Token, m: String) {
+        if d.get_token_type() != t { panic!(m) }
     }
 }
 
