@@ -142,16 +142,16 @@ impl<'a> LexicalAnalysis<'a> {
                         ',' => {
                             token = TokenInfo::new(Token::Comma, v.to_string());
                         }
-                        _ => {
-                            panic!("Not Support Lexer {}", v)
-                        }
+                        _ => panic!("Not Support Lexer {}", v),
                     }
                     self.tokens.push(token);
                 }
                 _ => {}
             }
         }
-        self.tokens.push(TokenInfo::new(Token::End, "End".to_string()));
+        self.tokens.push(
+            TokenInfo::new(Token::End, "End".to_string()),
+        );
     }
 
     // 文字を読み出す.
@@ -206,9 +206,8 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() &&
-            (true == self.read().unwrap().is_alphabetic() ||
-             '_' == self.read().unwrap() ||
-             true == self.read().unwrap().is_digit(10))
+            (true == self.read().unwrap().is_alphabetic() || '_' == self.read().unwrap() ||
+                 true == self.read().unwrap().is_digit(10))
         {
             s.push(self.next().unwrap());
         }

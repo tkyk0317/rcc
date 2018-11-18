@@ -32,11 +32,9 @@ impl<'a> Asm<'a> {
 
     // アセンブラ生成開始.
     pub fn exec(&mut self, tree: &AstTree) {
-        tree.get_tree()
-            .iter()
-            .for_each(|ast| {
-                self.generate(&ast);
-            });
+        tree.get_tree().iter().for_each(
+            |ast| { self.generate(&ast); },
+        );
     }
 
     // アセンブラ生成.
@@ -95,7 +93,11 @@ impl<'a> Asm<'a> {
     // 関数開始アセンブラ出力.
     fn generate_func_start(&mut self, a: &String) {
         // スタート部分設定.
-        let mut start = if a == "main" { format!(".global {}\n", self.generate_func_symbol(a)) } else { "".to_string() };
+        let mut start = if a == "main" {
+            format!(".global {}\n", self.generate_func_symbol(a))
+        } else {
+            "".to_string()
+        };
 
         let pos = self.func_table.search(a).unwrap().pos * 4 + 4;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
@@ -123,16 +125,16 @@ impl<'a> Asm<'a> {
                     let mut t = format!("{}  mov {}, %rax\n", inst, r);
                     format!("{}  movl %eax, -{}(%rbp)\n", t, p)
                 }
-                _ => panic!("asm.rs(generate_each_args): not variable {:?}", a)
+                _ => panic!("asm.rs(generate_each_args): not variable {:?}", a),
             }
         };
 
         // レジスタから引数を取り出す.
         match *a {
             Expr::Argment(ref args) => {
-                args.iter()
-                    .enumerate()
-                    .for_each(|(i, arg)| self.inst = each_args(&self.inst, arg, self.regs[i], i * 4 + 4));
+                args.iter().enumerate().for_each(|(i, arg)| {
+                    self.inst = each_args(&self.inst, arg, self.regs[i], i * 4 + 4)
+                });
             }
             _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
         }
@@ -170,20 +172,18 @@ impl<'a> Asm<'a> {
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
                         // 関数引数をレジスタへ.
-                        v.iter()
-                         .enumerate()
-                         .for_each(|(i, _d)| {
+                        v.iter().enumerate().for_each(|(i, _d)| {
                             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                             self.inst = format!("{}  mov %rax, {}\n", self.inst, self.regs[i]);
                         });
                     }
-                    _ => panic!("asm.rs(generate_call_func): Not Function Argment")
+                    _ => panic!("asm.rs(generate_call_func): Not Function Argment"),
                 }
 
                 self.inst = format!("{}  call {}\n", self.inst, self.generate_func_symbol(n));
                 self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
-            _ => panic!("asm.rs(generate_call_func): Not Exists Function name")
+            _ => panic!("asm.rs(generate_call_func): Not Exists Function name"),
         }
     }
 
@@ -194,7 +194,7 @@ impl<'a> Asm<'a> {
         } else {
             s.to_string()
         }
-     }
+    }
 
     // bit反転演算子生成.
     fn generate_bit_reverse(&mut self, a: &Expr) {
