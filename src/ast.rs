@@ -30,7 +30,7 @@ use symbol::SymbolTable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    FuncDef(String, Box<Expr>),
+    FuncDef(String, Box<Expr>, Box<Expr>),
     Statement(Vec<Expr>),
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
@@ -66,7 +66,7 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expr::FuncDef(ref a, ref b) => write!(f, "{}{}", *a, *b),
+            Expr::FuncDef(ref a, ref b, ref c) => write!(f, "{}({}) {}", *a, *b, *c),
             Expr::Statement(ref a) => write!(f, "{:?}", a),
             Expr::Condition(ref a, ref b, ref c) => write!(f, "{} ? {} : {}", *a, *b, *c),
             Expr::LogicalAnd(ref a, ref b) => write!(f, "{} && {}", *a, *b),
@@ -163,17 +163,58 @@ impl<'a> AstGen<'a> {
         let token= self.next_consume();
         match token.get_token_type() {
             Token::Variable => {
-                if Token::LeftBracket != self.next_consume().get_token_type() {
-                    panic!("ast.rs(func_def): Not Exists Left Bracket")
-                }
-                if Token::RightBracket != self.next_consume().get_token_type() {
-                    panic!("ast.rs(func_def): Not Exists Right Bracket")
-                }
                 // 関数シンボルを登録.
                 self.func_table.push(token.get_token_value(), token.get_token_value().to_string());
-                Expr::FuncDef(token.get_token_value(), Box::new(self.statement()))
+                Expr::FuncDef(
+                    token.get_token_value(),
+                    Box::new(self.func_args()),
+                    Box::new(self.statement())
+                )
             }
             _ => panic!("ast.rs(func_def): Not Exists Function def {:?}", token)
+        }
+    }
+
+    // func argment.
+    fn func_args(&mut self) -> Expr {
+        let token = self.next_consume();
+        match token.get_token_type() {
+            Token::LeftBracket => {
+                // 引数を処理.
+                let tmp = vec![];
+                let args = Expr::Argment(self.recur_func_args(tmp));
+
+                // 閉じ括弧.
+                let next_token = self.next_consume();
+                if Token::RightBracket != next_token.get_token_type() {
+                    panic!("ast.rs(func_arg): Not Exists RightBracket {:?}", next_token)
+                }
+                args
+            }
+            _ => panic!("ast.rs(func_arg): Not Exists LeftBracket {:?}", token)
+        }
+    }
+
+    // recur func argment.
+    fn recur_func_args(&mut self, a: Vec<Expr>) -> Vec<Expr> {
+        let token = self.next();
+        match token.get_token_type() {
+            Token::Variable => {
+                // シンボルを登録し、引数vec生成.
+                self.consume();
+                self.var_table.push(token.get_token_value(), "".to_string());
+                let mut args = a;
+                args.push(Expr::Variable(token.get_token_value()));
+
+                // カンマがあれば引き続き.
+                let comma = self.next();
+                if Token::Comma == comma.get_token_type() {
+                    self.consume();
+                    return self.recur_func_args(args);
+                }
+                return args.clone()
+            }
+            _ => a.clone()
         }
     }
 
@@ -561,6 +602,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
@@ -592,6 +634,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -631,6 +674,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -673,6 +717,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::Minus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))]
                     )
@@ -702,6 +747,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Minus(
@@ -741,6 +787,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Minus(
@@ -783,6 +830,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::Multiple(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))]
                     ))
@@ -812,6 +860,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Multiple(
@@ -851,6 +900,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Multiple(
@@ -893,6 +943,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::Division(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))]
                     ))
@@ -922,6 +973,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Division(
@@ -961,6 +1013,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Division(
@@ -1005,6 +1058,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -1042,6 +1096,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -1079,6 +1134,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -1116,6 +1172,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -1154,6 +1211,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::GreaterThanEqual(
@@ -1198,6 +1256,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(Box::new(Expr::Factor(1)), Box::new(Expr::Factor(2)))
@@ -1230,6 +1289,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Plus(
@@ -1273,6 +1333,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Equal(
@@ -1314,6 +1375,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Equal(
@@ -1358,6 +1420,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Equal(
@@ -1408,6 +1471,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::NotEqual(
@@ -1458,6 +1522,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LessThan(
@@ -1504,6 +1569,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LessThanEqual(
@@ -1554,6 +1620,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::GreaterThan(
@@ -1600,6 +1667,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::GreaterThanEqual(
@@ -1645,6 +1713,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::LogicalAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))]
                     ))
@@ -1675,6 +1744,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LogicalAnd(
@@ -1724,6 +1794,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LogicalAnd(
@@ -1774,6 +1845,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::LogicalOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))]
                     ))
@@ -1804,6 +1876,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LogicalOr(
@@ -1853,6 +1926,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LogicalOr(
@@ -1910,6 +1984,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LogicalOr(
@@ -1955,6 +2030,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Condition(
@@ -2002,6 +2078,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Condition(
@@ -2046,6 +2123,7 @@ mod tests {
             // 期待値確認.
             assert_eq!(result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::UnPlus(Box::new(Expr::Factor(2)))]
                     ))
@@ -2073,6 +2151,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Minus(
@@ -2107,6 +2186,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Minus(
@@ -2139,6 +2219,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Multiple(
@@ -2170,6 +2251,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::Not(Box::new(Expr::Factor(2)))]
                     ))
@@ -2199,6 +2281,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Not(Box::new(Expr::Equal(
@@ -2230,6 +2313,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::BitReverse(Box::new(Expr::Factor(2)))]
                     ))
@@ -2260,6 +2344,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![ Expr::LeftShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1))) ]
                     ))
@@ -2286,6 +2371,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::RightShift(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(1)))]
                     ))
@@ -2314,6 +2400,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::RightShift(
@@ -2350,6 +2437,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::LessThan(
@@ -2389,6 +2477,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![Expr::BitAnd(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))]
                     ))
@@ -2415,6 +2504,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::BitOr(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3)))
@@ -2443,6 +2533,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![ Expr::BitXor(Box::new(Expr::Factor(2)), Box::new(Expr::Factor(3))) ]
                     ))
@@ -2471,6 +2562,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::BitOr(
@@ -2509,6 +2601,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2542,6 +2635,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2578,6 +2672,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2614,6 +2709,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2650,6 +2746,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2688,6 +2785,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::CallFunc(Box::new(Expr::Variable("a".to_string())), Box::new(Expr::Argment(vec![])))
@@ -2717,6 +2815,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::CallFunc(
@@ -2751,6 +2850,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::CallFunc(
@@ -2792,6 +2892,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2836,6 +2937,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
                     Box::new(Expr::Statement(
                         vec![
                             Expr::Assign(
@@ -2887,29 +2989,74 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 Expr::FuncDef("main".to_string(),
-                Box::new(Expr::Statement(
+                    Box::new(Expr::Argment(vec![])),
+                    Box::new(Expr::Statement(
                         vec![
                         Expr::Assign(
                             Box::new(Expr::Variable("a".to_string())),
                             Box::new(Expr::Factor(3)),
                             ),
                         ]
-                        ))
+                    ))
                 )
             );
             assert_eq!(
                 result.get_tree()[1],
                 Expr::FuncDef("test".to_string(),
-                Box::new(Expr::Statement(
+                    Box::new(Expr::Argment(vec![])),
+                    Box::new(Expr::Statement(
                         vec![
                         Expr::Assign(
                             Box::new(Expr::Variable("b".to_string())),
                             Box::new(Expr::Factor(1)),
                             ),
                         ]
-                        ))
+                   ))
                 )
             );
         }
+    }
+
+    #[test]
+    fn test_func_def_with_args() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Comma, ",".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Variable, "c".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+             ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef("main".to_string(),
+                    Box::new(
+                        Expr::Argment(
+                            vec![Expr::Variable("a".to_string()), Expr::Variable("b".to_string())]
+                        )
+                    ),
+                    Box::new(Expr::Statement(
+                        vec![
+                            Expr::Assign(
+                                Box::new(Expr::Variable("c".to_string())),
+                                Box::new(Expr::Factor(3)),
+                            )
+                        ]
+                    ))
+                )
+            );
+         }
     }
 }

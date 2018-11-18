@@ -10,6 +10,7 @@ pub struct Asm<'a> {
     label_no: u64,
     var_table: &'a SymbolTable,
     func_table: &'a SymbolTable,
+    regs: Vec<&'a str>,
 }
 
 impl<'a> Asm<'a> {
@@ -20,6 +21,7 @@ impl<'a> Asm<'a> {
             label_no: 0,
             var_table: var_table,
             func_table: func_table,
+            regs: vec!["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"],
         }
     }
 
@@ -40,7 +42,7 @@ impl<'a> Asm<'a> {
     // アセンブラ生成.
     fn generate(&mut self, ast: &Expr) {
         match *ast {
-            Expr::FuncDef(ref a, ref b) => self.generate_funcdef(a, b),
+            Expr::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -72,17 +74,31 @@ impl<'a> Asm<'a> {
         }
     }
 
+    // 関数定義.
+    fn generate_funcdef(&mut self, a: &String, b: &Expr, c: &Expr) {
+        match *c {
+            Expr::Statement(ref s) => {
+                self.generate_func_start(a);
+                self.generate_func_args(b);
+                s.iter().enumerate().for_each(|(i, ast)| {
+                    if i > 0 {
+                        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                    }
+                    self.generate(ast);
+                });
+                self.generate_func_end(a);
+            }
+            _ => panic!("asm.rs(generate_funcdef): not support expr"),
+        }
+    }
+
     // 関数開始アセンブラ出力.
     fn generate_func_start(&mut self, a: &String) {
-        let func_name = |n: &String| {
-            if Config::is_mac() { format!("_{}", n) } else { n.to_string() }
-        };
-
         // スタート部分設定.
-        let mut start = if a == "main" { format!(".global {}\n", func_name(a)) } else { "".to_string() };
+        let mut start = if a == "main" { format!(".global {}\n", self.generate_func_symbol(a)) } else { "".to_string() };
 
         let pos = self.func_table.search(a).unwrap().pos * 4 + 4;
-        start = format!("{}{}{}:\n", self.inst, start, func_name(a));
+        start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
         start = format!("{}  sub ${}, %rsp\n", start, pos);
@@ -98,18 +114,27 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}{}", self.inst, end);
     }
 
-    // 関数定義.
-    fn generate_funcdef(&mut self, a: &String, b: &Expr) {
-        match *b {
-            Expr::Statement(ref s) => {
-                self.generate_func_start(a);
-                s.iter().enumerate().for_each(|(i, ast)| {
-                    if i > 0 { self.inst = format!("{}{}", self.inst, self.pop_stack("eax")); }
-                    self.generate(ast);
-                });
-                self.generate_func_end(a);
+    // 関数引数生成.
+    fn generate_func_args(&mut self, a: &Expr) {
+        // 各引数生成.
+        let each_args = |inst: &str, a: &Expr, r: &str, p: usize| -> String {
+            match a {
+                Expr::Variable(_) => {
+                    let mut t = format!("{}  mov {}, %rax\n", inst, r);
+                    format!("{}  movl %eax, -{}(%rbp)\n", t, p)
+                }
+                _ => panic!("asm.rs(generate_each_args): not variable {:?}", a)
             }
-            _ => panic!("asm.rs(generate_funcdef): not support expr"),
+        };
+
+        // レジスタから引数を取り出す.
+        match *a {
+            Expr::Argment(ref args) => {
+                args.iter()
+                    .enumerate()
+                    .for_each(|(i, arg)| self.inst = each_args(&self.inst, arg, self.regs[i], i * 4 + 4));
+            }
+            _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
         }
     }
 
@@ -145,12 +170,11 @@ impl<'a> Asm<'a> {
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
                         // 関数引数をレジスタへ.
-                        let regs = vec!["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"];
                         v.iter()
                          .enumerate()
                          .for_each(|(i, _d)| {
                             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                            self.inst = format!("{}  mov %rax, {}\n", self.inst, regs[i]);
+                            self.inst = format!("{}  mov %rax, {}\n", self.inst, self.regs[i]);
                         });
                     }
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment")
