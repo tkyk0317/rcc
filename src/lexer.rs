@@ -44,8 +44,15 @@ impl<'a> LexicalAnalysis<'a> {
                             token = self.generate_number_token(v);
                         }
                         s if true == s.is_alphabetic() || s == '_' => {
-                            // アルファベットか数値が続くまで抜き出し、トークン生成.
-                            token = self.generate_variable_token(v);
+                            if true == self.is_statement_else(s) {
+                                // lse文をスキップし、トークン設定.
+                                (0..3).for_each(|_| self.skip());
+                                token = TokenInfo::new(Token::Else, "else".to_string());
+                            }
+                            else {
+                                // アルファベットか数値が続くまで抜き出し、トークン生成.
+                                token = self.generate_variable_token(s);
+                            }
                         }
                         '=' => {
                             if true == self.is_equal(v) {
@@ -163,6 +170,16 @@ impl<'a> LexicalAnalysis<'a> {
         self.input.chars().nth(self.pos)
     }
 
+    // 文字列を取得.
+    fn read_string(&mut self, n: usize) -> String {
+        let mut s = String::new();
+
+        // 指定文字数をread.
+        (0..n).for_each(|_| s.push(self.next().unwrap()));
+        self.back(n);
+        s
+    }
+
     // 文字を読み出して次へ進める.
     fn next(&mut self) -> Option<char> {
         if true == self.is_eof() {
@@ -177,6 +194,11 @@ impl<'a> LexicalAnalysis<'a> {
     // 文字をスキップ.
     fn skip(&mut self) {
         self.pos = self.pos + 1;
+    }
+
+    // 文字読み取り位置を戻す.
+    fn back(&mut self, n: usize) {
+        self.pos = self.pos - n;
     }
 
     // 文字列終端チェック.
@@ -280,6 +302,13 @@ impl<'a> LexicalAnalysis<'a> {
             Some(a) if a == '>' && v == '>' => true,
             _ => false,
         }
+    }
+
+    // else statementチェック.
+    fn is_statement_else(&mut self, v: char) -> bool {
+        if v != 'e' { return false; }
+        let s = self.read_string(3); // 残りの文字3文字を読み込む.
+        "lse" == s
     }
 }
 
@@ -720,6 +749,73 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string()),
                 lexer.get_tokens()[7]
+            );
+        }
+        {
+            let input = "if { i = 2; } else { a = 3; }".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::If, "if".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "i".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                lexer.get_tokens()[6]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Else, "else".to_string()),
+                lexer.get_tokens()[7]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                lexer.get_tokens()[8]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                lexer.get_tokens()[9]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[10]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "3".to_string()),
+                lexer.get_tokens()[11]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[12]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                lexer.get_tokens()[13]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[14]
             );
         }
     }

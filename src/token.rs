@@ -3,6 +3,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     If, // if命令.
+    Else, // else命令.
     BitReverse, // ビット反転演算子.
     BitAnd, // ビットAND演算子
     BitOr, // ビットOR演算子
