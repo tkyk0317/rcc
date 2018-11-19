@@ -193,6 +193,10 @@ test "test() { a = 1;  a + 19;} main() { test(); }" 20 103
 test "test() { a = 1; } main() { test(); 10; }" 10 104
 test "test(a) { a + 1; } main() { test(1); }" 2 105
 test "test(a) { a = a * 2; a + 10; } main() { b = 10; test(b); }" 30 106
+test "main() { if (10 == 10) { a = 2; a * 9; } }" 18 107
+test "main() { if (10 != 10) { a = 2; a * 9; } 2; }" 2 108
+test "main() { if (2 == 10) { a = 2; a * 9; } 11; }" 11 109
+test "main() { if (1 != 10) { a = 3; a + 9; } }" 12 110
 #test 256 256 # 255までしか数値を扱うことができない
 
 # 関数コールテスト.

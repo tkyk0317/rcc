@@ -35,6 +35,10 @@ impl<'a> LexicalAnalysis<'a> {
                 Some(v) => {
                     let mut token;
                     match v {
+                        'i' if 'f' == self.read().unwrap() => {
+                            self.skip();
+                            token = TokenInfo::new(Token::If, "if".to_string());
+                        }
                         '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                             // 数値が続く部分まで抜き出し、トークン生成.
                             token = self.generate_number_token(v);
@@ -677,6 +681,45 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string()),
                 lexer.get_tokens()[6]
+            );
+        }
+        {
+            let input = "if { i = 2; }".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::If, "if".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "i".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                lexer.get_tokens()[6]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[7]
             );
         }
     }

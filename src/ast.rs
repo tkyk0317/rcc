@@ -32,6 +32,7 @@ use symbol::SymbolTable;
 pub enum Expr {
     FuncDef(String, Box<Expr>, Box<Expr>),
     Statement(Vec<Expr>),
+    If(Box<Expr>, Box<Expr>),
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
@@ -66,6 +67,7 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expr::If(ref a, ref b) => write!(f, "{}{}", *a, *b),
             Expr::FuncDef(ref a, ref b, ref c) => write!(f, "{}({}) {}", *a, *b, *c),
             Expr::Statement(ref a) => write!(f, "{:?}", a),
             Expr::Condition(ref a, ref b, ref c) => write!(f, "{} ? {} : {}", *a, *b, *c),
@@ -243,6 +245,11 @@ impl<'a> AstGen<'a> {
                 self.consume();
                 expr.clone()
             }
+            Token::If => {
+                self.consume();
+                stmt.push(self.statement_if());
+                self.sub_statement(&stmt)
+            }
             Token::SemiColon => {
                 self.consume();
                 self.sub_statement(&stmt)
@@ -253,6 +260,23 @@ impl<'a> AstGen<'a> {
             }
         }
     }
+
+    // if statement.
+    fn statement_if(&mut self) -> Expr {
+        let next_l = self.next();
+        self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(sub_statement): Not Exists LeftBracket {:?}", next_l));
+        self.consume();
+
+        // 条件式を解析.
+        let condition = self.assign();
+        let next_r = self.next();
+        self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(sub_statement): Not Exists RightBracket {:?}", next_r));
+
+        // ifブロック内を解析.
+        self.consume();
+        let stmt = self.statement();
+        Expr::If(Box::new(condition), Box::new(stmt))
+     }
 
     // assign.
     fn assign(&mut self) -> Expr {
@@ -3063,6 +3087,62 @@ mod tests {
                             Box::new(Expr::Factor(3))
                         ),
                     ])),
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_statement_if() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::If, "if".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    "main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
+                    Box::new(Expr::Statement(vec![
+                        Expr::If(
+                            Box::new(Expr::Equal(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Factor(3))
+                            )),
+                            Box::new(Expr::Statement(
+                                vec![
+                                    Expr::Factor(1),
+                                    Expr::Assign(
+                                        Box::new(Expr::Variable("b".to_string())),
+                                        Box::new(Expr::Factor(10))
+                                    )
+                                ],
+                            ))
+                        )
+                    ]))
                 )
             );
         }

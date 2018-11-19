@@ -42,6 +42,8 @@ impl<'a> Asm<'a> {
     fn generate(&mut self, ast: &Expr) {
         match *ast {
             Expr::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
+            Expr::Statement(_) => self.generate_statement(ast),
+            Expr::If(ref a, ref b) => self.generate_statement_if(a, b),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -75,19 +77,24 @@ impl<'a> Asm<'a> {
 
     // 関数定義.
     fn generate_funcdef(&mut self, a: &String, b: &Expr, c: &Expr) {
-        match *c {
+        self.generate_func_start(a);
+        self.generate_func_args(b);
+        self.generate_statement(c);
+        self.generate_func_end(a);
+    }
+
+    // statement生成.
+    fn generate_statement(&mut self, a: &Expr) {
+        match *a {
             Expr::Statement(ref s) => {
-                self.generate_func_start(a);
-                self.generate_func_args(b);
                 s.iter().enumerate().for_each(|(i, ast)| {
                     if i > 0 {
                         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                     }
                     self.generate(ast);
                 });
-                self.generate_func_end(a);
             }
-            _ => panic!("asm.rs(generate_funcdef): not support expr"),
+            _ => panic!("asm.rs(generate_statement): not support expr"),
         }
     }
 
@@ -139,6 +146,22 @@ impl<'a> Asm<'a> {
             }
             _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
         }
+    }
+
+    // if statement生成.
+    fn generate_statement_if(&mut self, a: &Expr, b: &Expr) {
+        self.label_no = self.label_no + 1;
+        let label_end = self.label_no;
+
+        // 条件式部分生成.
+        self.generate(a);
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.inst = format!("{}  je .L{}\n", self.inst, label_end);
+
+        // ブロック部生成.
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate(b);
     }
 
     // assign生成.
