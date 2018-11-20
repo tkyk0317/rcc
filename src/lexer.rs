@@ -35,22 +35,20 @@ impl<'a> LexicalAnalysis<'a> {
                 Some(v) => {
                     let mut token;
                     match v {
-                        'i' if 'f' == self.read().unwrap() => {
-                            self.skip();
-                            token = TokenInfo::new(Token::If, "if".to_string());
-                        }
                         '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                             // 数値が続く部分まで抜き出し、トークン生成.
                             token = self.generate_number_token(v);
                         }
                         s if true == s.is_alphabetic() || s == '_' => {
-                            if true == self.is_statement_else(s) {
-                                // lse文をスキップし、トークン設定.
+                            if true == self.is_statement_if(s) {
+                                self.skip();
+                                token = TokenInfo::new(Token::If, "if".to_string());
+                            }
+                            else if true == self.is_statement_else(s) {
                                 (0..3).for_each(|_| self.skip());
                                 token = TokenInfo::new(Token::Else, "else".to_string());
                             }
                             else {
-                                // アルファベットか数値が続くまで抜き出し、トークン生成.
                                 token = self.generate_variable_token(s);
                             }
                         }
@@ -175,8 +173,14 @@ impl<'a> LexicalAnalysis<'a> {
         let mut s = String::new();
 
         // 指定文字数をread.
-        (0..n).for_each(|_| s.push(self.next().unwrap()));
-        self.back(n);
+        let mut skip_count = 0;
+        (0..n).for_each(|_| {
+            if let Some(c) = self.next() {
+                s.push(c);
+                skip_count = skip_count + 1;
+            }
+        });
+        self.back(skip_count);
         s
     }
 
@@ -232,8 +236,7 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() &&
-            (true == self.read().unwrap().is_alphabetic() || '_' == self.read().unwrap() ||
-                 true == self.read().unwrap().is_digit(10))
+              (true == self.read().unwrap().is_alphabetic() || '_' == self.read().unwrap() || true == self.read().unwrap().is_digit(10))
         {
             s.push(self.next().unwrap());
         }
@@ -304,9 +307,17 @@ impl<'a> LexicalAnalysis<'a> {
         }
     }
 
+    // if statementチェック.
+    fn is_statement_if(&mut self, v: char) -> bool {
+        v == 'i' && 'f' == self.read().unwrap()
+    }
+
     // else statementチェック.
     fn is_statement_else(&mut self, v: char) -> bool {
-        if v != 'e' { return false; }
+        if v != 'e' {
+            return false;
+        }
+
         let s = self.read_string(3); // 残りの文字3文字を読み込む.
         "lse" == s
     }
@@ -752,7 +763,7 @@ mod tests {
             );
         }
         {
-            let input = "if { i = 2; } else { a = 3; }".to_string();
+            let input = "if { i = 2; } else { e = 3; }".to_string();
             let mut lexer = LexicalAnalysis::new(&input);
 
             lexer.read_token();
@@ -794,7 +805,7 @@ mod tests {
                 lexer.get_tokens()[8]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Variable, "e".to_string()),
                 lexer.get_tokens()[9]
             );
             assert_eq!(

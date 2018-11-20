@@ -197,13 +197,6 @@ test "main() { if (10 == 10) { a = 2; a * 9; } }" 18 107
 test "main() { if (10 != 10) { a = 2; a * 9; } 2; }" 2 108
 test "main() { if (2 == 10) { a = 2; a * 9; } 11; }" 11 109
 test "main() { if (1 != 10) { a = 3; a + 9; } }" 12 110
+test "main() { if (1 == 10) { 9; } else { 4; } }" 4 111
 #test 256 256 # 255までしか数値を扱うことができない
 
-# 関数コールテスト.
-test_call_func "main() { test_func(); }" "./tests/stub.c" "function for test"
-test_call_func "main() { func_arg1(10); }" "./tests/stub.c" "10"
-test_call_func "main() { func_arg2(10, 9); }" "./tests/stub.c" "19"
-test_call_func "main() { func_arg3(1, 2, 3); }" "./tests/stub.c" "1, 2, 3"
-test_call_func "main() { func_arg4(1, 2, 3, 4); }" "./tests/stub.c" "24"
-test_call_func "main() { func_arg5(1, 2, 3, 4, 5); }" "./tests/stub.c" "1, 2, 3, 4, 5"
-test_call_func "main() { func_arg6(1, 1, 1, 1, 1, 1); }" "./tests/stub.c" "6"

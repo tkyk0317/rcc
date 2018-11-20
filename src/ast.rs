@@ -1,4 +1,3 @@
-use std::fmt;
 use token::TokenInfo;
 use token::Token;
 use symbol::SymbolTable;
@@ -32,7 +31,7 @@ use symbol::SymbolTable;
 pub enum Expr {
     FuncDef(String, Box<Expr>, Box<Expr>),
     Statement(Vec<Expr>),
-    If(Box<Expr>, Box<Expr>),
+    If(Box<Expr>, Box<Expr>, Box<Option<Expr>>), // 条件式、真ブロック、偽ブロック.
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
@@ -61,45 +60,6 @@ pub enum Expr {
     Variable(String),
     CallFunc(Box<Expr>, Box<Expr>),
     Argment(Vec<Expr>),
-}
-
-// 出力フォーマット定義.
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Expr::If(ref a, ref b) => write!(f, "{}{}", *a, *b),
-            Expr::FuncDef(ref a, ref b, ref c) => write!(f, "{}({}) {}", *a, *b, *c),
-            Expr::Statement(ref a) => write!(f, "{:?}", a),
-            Expr::Condition(ref a, ref b, ref c) => write!(f, "{} ? {} : {}", *a, *b, *c),
-            Expr::LogicalAnd(ref a, ref b) => write!(f, "{} && {}", *a, *b),
-            Expr::LogicalOr(ref a, ref b) => write!(f, "{} || {}", *a, *b),
-            Expr::Equal(ref a, ref b) => write!(f, "{} == {}", *a, *b),
-            Expr::NotEqual(ref a, ref b) => write!(f, "{} != {}", *a, *b),
-            Expr::LessThan(ref a, ref b) => write!(f, "{} < {}", *a, *b),
-            Expr::LessThanEqual(ref a, ref b) => write!(f, "{} <= {}", *a, *b),
-            Expr::GreaterThan(ref a, ref b) => write!(f, "{} > {}", *a, *b),
-            Expr::GreaterThanEqual(ref a, ref b) => write!(f, "{} >= {}", *a, *b),
-            Expr::LeftShift(ref a, ref b) => write!(f, "{} << {}", *a, *b),
-            Expr::RightShift(ref a, ref b) => write!(f, "{} >> {}", *a, *b),
-            Expr::Plus(ref a, ref b) => write!(f, "{} + {}", *a, *b),
-            Expr::Minus(ref a, ref b) => write!(f, "{} - {}", *a, *b),
-            Expr::Multiple(ref a, ref b) => write!(f, "{} * {}", *a, *b),
-            Expr::Division(ref a, ref b) => write!(f, "{} / {}", *a, *b),
-            Expr::Remainder(ref a, ref b) => write!(f, "{} % {}", *a, *b),
-            Expr::BitAnd(ref a, ref b) => write!(f, "{} & {}", *a, *b),
-            Expr::BitOr(ref a, ref b) => write!(f, "{} | {}", *a, *b),
-            Expr::BitXor(ref a, ref b) => write!(f, "{} ^ {}", *a, *b),
-            Expr::UnPlus(ref a) => write!(f, "+{}", *a),
-            Expr::UnMinus(ref a) => write!(f, "-{}", *a),
-            Expr::Not(ref a) => write!(f, "!{}", *a),
-            Expr::BitReverse(ref a) => write!(f, "~{}", *a),
-            Expr::Assign(ref a, ref b) => write!(f, "{} = {}", *a, *b),
-            Expr::Variable(ref v) => write!(f, "{}", v.clone()),
-            Expr::Factor(v) => write!(f, "{}", v),
-            Expr::CallFunc(ref v, ref a) => write!(f, "{}({})", v, *a),
-            Expr::Argment(ref v) => write!(f, "{:?}", v),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -235,26 +195,17 @@ impl<'a> AstGen<'a> {
     fn sub_statement(&mut self, expr: &Vec<Expr>) -> Vec<Expr> {
         // トークンがなくなるまで、構文木生成.
         let mut stmt = expr.clone();
-        let token = self.next();
+        let token = self.next_consume();
         match token.get_token_type() {
-            Token::LeftBrace => {
-                self.consume();
-                self.sub_statement(&stmt)
-            }
-            Token::RightBrace => {
-                self.consume();
-                expr.clone()
-            }
             Token::If => {
-                self.consume();
                 stmt.push(self.statement_if());
                 self.sub_statement(&stmt)
             }
-            Token::SemiColon => {
-                self.consume();
-                self.sub_statement(&stmt)
-            }
+            Token::SemiColon => self.sub_statement(&stmt),
+            Token::LeftBrace => self.sub_statement(&stmt),
+            Token::RightBrace =>  stmt,
             _ => {
+                self.back(1);
                 stmt.push(self.assign());
                 self.sub_statement(&stmt)
             }
@@ -264,19 +215,27 @@ impl<'a> AstGen<'a> {
     // if statement.
     fn statement_if(&mut self) -> Expr {
         let next_l = self.next();
-        self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(sub_statement): Not Exists LeftBracket {:?}", next_l));
+        self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(statement_if): Not Exists LeftBracket {:?}", next_l));
         self.consume();
 
         // 条件式を解析.
         let condition = self.assign();
         let next_r = self.next();
-        self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(sub_statement): Not Exists RightBracket {:?}", next_r));
+        self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(statement_if): Not Exists RightBracket {:?}", next_r));
 
         // ifブロック内を解析.
         self.consume();
         let stmt = self.statement();
-        Expr::If(Box::new(condition), Box::new(stmt))
-     }
+
+        // else部分解析.
+        if Token::Else == self.next().get_token_type() {
+            self.consume();
+            Expr::If(Box::new(condition), Box::new(stmt), Box::new(Some(self.statement())))
+        }
+        else {
+            Expr::If(Box::new(condition), Box::new(stmt), Box::new(None))
+        }
+    }
 
     // assign.
     fn assign(&mut self) -> Expr {
@@ -3140,8 +3099,84 @@ mod tests {
                                         Box::new(Expr::Factor(10))
                                     )
                                 ],
-                            ))
+                            )),
+                            Box::new(None)
                         )
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_statement_else() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::If, "if".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+
+                TokenInfo::new(Token::Else, "else".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Variable, "e".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "9".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    "main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
+                    Box::new(Expr::Statement(vec![
+                        Expr::If(
+                            Box::new(Expr::Equal(
+                                Box::new(Expr::Variable("a".to_string())),
+                                Box::new(Expr::Factor(3))
+                            )),
+                            Box::new(Expr::Statement(
+                                vec![
+                                    Expr::Factor(1),
+                                    Expr::Assign(
+                                        Box::new(Expr::Variable("b".to_string())),
+                                        Box::new(Expr::Factor(10))
+                                    )
+                                ],
+                            )),
+                            Box::new(
+                                Some(Expr::Statement(
+                                    vec![
+                                        Expr::Assign(
+                                            Box::new(Expr::Variable("e".to_string())),
+                                            Box::new(Expr::Factor(9))
+                                        )
+                                    ],
+                                ))
+                            ),
+                        ),
                     ]))
                 )
             );

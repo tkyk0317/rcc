@@ -43,7 +43,7 @@ impl<'a> Asm<'a> {
         match *ast {
             Expr::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
             Expr::Statement(_) => self.generate_statement(ast),
-            Expr::If(ref a, ref b) => self.generate_statement_if(a, b),
+            Expr::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -149,19 +149,37 @@ impl<'a> Asm<'a> {
     }
 
     // if statement生成.
-    fn generate_statement_if(&mut self, a: &Expr, b: &Expr) {
+    fn generate_statement_if(&mut self, a: &Expr, b: &Expr, c: &Option<Expr>) {
         self.label_no = self.label_no + 1;
         let label_end = self.label_no;
 
         // 条件式部分生成.
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.inst = format!("{}  cmpl $1, %eax\n", self.inst); // 等しい場合は、1に設定されている.
         self.inst = format!("{}  je .L{}\n", self.inst, label_end);
 
-        // ブロック部生成.
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
-        self.generate(b);
+        // elseブロック生成.
+        if let Some(e) = c {
+            self.label_no = self.label_no + 1;
+            let label_else = self.label_no;
+
+            // elseブロック生成.
+            self.generate(e);
+            self.inst = format!("{}  jmp .L{}\n", self.inst, label_else);
+
+            // ifブロック部生成.
+            self.inst = format!("{}.L{}:\n", self.inst, label_end);
+            self.generate(b);
+
+            // 終端ラベル.
+            self.inst = format!("{}.L{}:\n", self.inst, label_else);
+        }
+        else {
+            // ifブロック部生成.
+            self.inst = format!("{}.L{}:\n", self.inst, label_end);
+            self.generate(b);
+        }
     }
 
     // assign生成.
