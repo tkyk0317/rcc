@@ -107,7 +107,7 @@ impl<'a> Asm<'a> {
             "".to_string()
         };
 
-        let pos = self.func_table.search(a).unwrap().pos * 4 + 4;
+        let pos = self.var_table.count() * 4;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!("{}{}", start, "  push %rbp\n");
         start = format!("{}{}", start, "  mov %rsp, %rbp\n");
@@ -117,7 +117,7 @@ impl<'a> Asm<'a> {
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self, a: &String) {
-        let pos = self.func_table.search(a).unwrap().pos * 4 + 4;
+        let pos = self.var_table.count() * 4;
         let mut end = format!("{}  add ${}, %rsp\n", self.pop_stack("eax"), pos);
         end = format!("{}{}", end, "  pop %rbp\n");
         end = format!("{}{}", end, "  ret\n");
