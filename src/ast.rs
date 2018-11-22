@@ -63,6 +63,18 @@ pub enum Expr {
     Argment(Vec<Expr>),
 }
 
+impl Expr {
+
+    // 式判定.
+    pub fn is_expr(&self) -> bool {
+        match self {
+            Expr::If(_, _, _) |
+            Expr::While(_, _) => false,
+            _ => true,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.

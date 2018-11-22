@@ -81,32 +81,25 @@ impl<'a> Asm<'a> {
         self.generate_func_start(a);
         self.generate_func_args(b);
         self.generate_statement(c);
-        self.generate_func_end(a);
+        self.generate_func_end();
     }
 
     // statement生成.
     fn generate_statement(&mut self, a: &Expr) {
-        match *a {
-            Expr::Statement(ref s) => {
-                s.iter().for_each(|ast| {
-                    self.generate(ast);
-                    if self.is_expr(ast) {
-                        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                    }
-                });
+        // アセンブリ生成.
+        let mut gen = move |ast| {
+            self.generate(ast);
+            if ast.is_expr() {
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
             }
+        };
+
+        // 各Exprを処理.
+        match *a {
+            Expr::Statement(ref s) => s.iter().for_each(|ast| gen(ast)),
             _ => panic!("asm.rs(generate_statement): not support expr"),
         }
     }
-
-    // 演算命令チェック.
-    fn is_expr(&self, a: &Expr) -> bool {
-        match *a {
-            Expr::If(_, _, _) |
-            Expr::While(_, _) => false,
-            _ => true,
-        }
-     }
 
     // 関数開始アセンブラ出力.
     fn generate_func_start(&mut self, a: &String) {
@@ -126,7 +119,7 @@ impl<'a> Asm<'a> {
     }
 
     // 関数終了部分アセンブラ生成
-    fn generate_func_end(&mut self, a: &String) {
+    fn generate_func_end(&mut self) {
         let pos = self.var_table.count() * 4;
         let mut end = format!("  add ${}, %rsp\n", pos);
         end = format!("{}{}", end, "  pop %rbp\n");
