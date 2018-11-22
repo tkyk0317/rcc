@@ -198,5 +198,9 @@ test "main() { if (10 != 10) { a = 2; a * 9; } 2; }" 2 108
 test "main() { if (2 == 10) { a = 2; a * 9; } 11; }" 11 109
 test "main() { if (1 != 10) { a = 3; a + 9; } }" 12 110
 test "main() { if (1 == 10) { 9; } else { 4; } }" 4 111
+test "main() { a = 0; while (a < 1) { a = a + 1; } a; }" 1 112
+test "main() { a = 0; while (a < 2) { a = a + 1; } a; }" 2 113
+test "main() { a = 0; while (a <= 2) { a = a + 1; } a; }" 3 114
+test "main() { a = 8; b = 1; a = a + b; a; }" 9 115
 #test 256 256 # 255までしか数値を扱うことができない
 

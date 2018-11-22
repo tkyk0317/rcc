@@ -43,6 +43,7 @@ impl<'a> Asm<'a> {
         match *ast {
             Expr::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
             Expr::Statement(_) => self.generate_statement(ast),
+            Expr::While(ref a, ref b) => self.generate_statement_while(a, b),
             Expr::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
@@ -87,16 +88,25 @@ impl<'a> Asm<'a> {
     fn generate_statement(&mut self, a: &Expr) {
         match *a {
             Expr::Statement(ref s) => {
-                s.iter().enumerate().for_each(|(i, ast)| {
-                    if i > 0 {
+                s.iter().for_each(|ast| {
+                    self.generate(ast);
+                    if self.is_expr(ast) {
                         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                     }
-                    self.generate(ast);
                 });
             }
             _ => panic!("asm.rs(generate_statement): not support expr"),
         }
     }
+
+    // 演算命令チェック.
+    fn is_expr(&self, a: &Expr) -> bool {
+        match *a {
+            Expr::If(_, _, _) |
+            Expr::While(_, _) => false,
+            _ => true,
+        }
+     }
 
     // 関数開始アセンブラ出力.
     fn generate_func_start(&mut self, a: &String) {
@@ -118,7 +128,7 @@ impl<'a> Asm<'a> {
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self, a: &String) {
         let pos = self.var_table.count() * 4;
-        let mut end = format!("{}  add ${}, %rsp\n", self.pop_stack("eax"), pos);
+        let mut end = format!("  add ${}, %rsp\n", pos);
         end = format!("{}{}", end, "  pop %rbp\n");
         end = format!("{}{}", end, "  ret\n");
         self.inst = format!("{}{}", self.inst, end);
@@ -165,10 +175,12 @@ impl<'a> Asm<'a> {
             let label_else = self.label_no;
 
             // elseブロック生成.
+            // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
             self.generate(e);
             self.inst = format!("{}  jmp .L{}\n", self.inst, label_else);
 
             // ifブロック部生成.
+            // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
             self.inst = format!("{}.L{}:\n", self.inst, label_end);
             self.generate(b);
 
@@ -177,9 +189,34 @@ impl<'a> Asm<'a> {
         }
         else {
             // ifブロック部生成.
+            // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
             self.inst = format!("{}.L{}:\n", self.inst, label_end);
             self.generate(b);
         }
+    }
+
+    // while statement生成.
+    fn generate_statement_while(&mut self, a: &Expr, b: &Expr) {
+        let label_begin = self.label_no + 1;
+        self.label_no = label_begin;
+        let label_end = self.label_no + 1;
+        self.label_no = label_end;
+
+        // condition部生成.
+        self.inst = format!("{}.L{}:\n", self.inst, label_begin);
+        self.generate(a);
+        // conditionが偽であれば、ブロック終端へジャンプ.
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.inst = format!("{}  je .L{}\n", self.inst, label_end);
+
+        // ブロック部生成.
+        // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
+        self.generate(b);
+        self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
+
+        // endラベル.
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
     }
 
     // assign生成.
