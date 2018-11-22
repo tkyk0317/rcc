@@ -33,6 +33,7 @@ pub enum Expr {
     Statement(Vec<Expr>),
     While(Box<Expr>, Box<Expr>), // 条件式、ブロック部.
     If(Box<Expr>, Box<Expr>, Box<Option<Expr>>), // 条件式、真ブロック、偽ブロック.
+    For(Box<Option<Expr>>, Box<Option<Expr>>, Box<Option<Expr>>, Box<Expr>), // 初期条件、終了条件、更新部、ブロック部.
     Condition(Box<Expr>, Box<Expr>, Box<Expr>),
     LogicalAnd(Box<Expr>, Box<Expr>),
     LogicalOr(Box<Expr>, Box<Expr>),
@@ -64,11 +65,11 @@ pub enum Expr {
 }
 
 impl Expr {
-
     // 式判定.
     pub fn is_expr(&self) -> bool {
         match self {
             Expr::If(_, _, _) |
+            Expr::For(_, _, _, _) |
             Expr::While(_, _) => false,
             _ => true,
         }
@@ -218,6 +219,10 @@ impl<'a> AstGen<'a> {
                 stmt.push(self.statement_while());
                 self.sub_statement(&stmt)
             }
+            Token::For => {
+                stmt.push(self.statement_for());
+                self.sub_statement(&stmt)
+            }
             Token::SemiColon => self.sub_statement(&stmt),
             Token::LeftBrace => self.sub_statement(&stmt),
             Token::RightBrace =>  stmt,
@@ -231,17 +236,15 @@ impl<'a> AstGen<'a> {
 
     // if statement.
     fn statement_if(&mut self) -> Expr {
-        let next_l = self.next();
+        let next_l = self.next_consume();
         self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(statement_if): Not Exists LeftBracket {:?}", next_l));
-        self.consume();
 
         // 条件式を解析.
         let condition = self.assign();
-        let next_r = self.next();
+        let next_r = self.next_consume();
         self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(statement_if): Not Exists RightBracket {:?}", next_r));
 
         // ifブロック内を解析.
-        self.consume();
         let stmt = self.statement();
 
         // else部分解析.
@@ -256,20 +259,36 @@ impl<'a> AstGen<'a> {
 
     // while statement.
     fn statement_while(&mut self) -> Expr {
-        let next_l = self.next();
+        let next_l = self.next_consume();
         self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(statement_while): Not Exists LeftBracket {:?}", next_l));
-        self.consume();
 
         // 条件式を解析.
         let condition = self.assign();
-        let next_r = self.next();
+        let next_r = self.next_consume();
         self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(statement_while): Not Exists RightBracket {:?}", next_r));
 
-        // ブロック部評価.
-        self.consume();
-        let stmt = self.statement();
+        Expr::While(Box::new(condition), Box::new(self.statement()))
+    }
 
-        Expr::While(Box::new(condition), Box::new(stmt))
+    // for statement.
+    fn statement_for(&mut self) -> Expr {
+        let l_bracket = self.next_consume();
+        self.panic_token(&l_bracket, Token::LeftBracket, format!("ast.rs(statement_for): Not Exists LeftBracket {:?}", l_bracket));
+
+        // 各種条件を解析.
+        let begin = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
+        let mut semi_colon = self.next_consume();
+        self.panic_token(&semi_colon, Token::SemiColon, format!("ast.rs(statement_for): Not Exists Semicolon {:?}", semi_colon));
+
+        let condition = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
+        semi_colon = self.next_consume();
+        self.panic_token(&semi_colon, Token::SemiColon, format!("ast.rs(statement_for): Not Exists Semicolon {:?}", semi_colon));
+
+        let end = if Token::RightBracket == self.next().get_token_type() { None } else { Some(self.assign()) };
+        let r_bracket = self.next_consume();
+        self.panic_token(&r_bracket, Token::RightBracket, format!("ast.rs(statement_for): Not Exists RightBracket {:?}", r_bracket));
+
+        Expr::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
     }
 
     // assign.
@@ -3329,5 +3348,138 @@ mod tests {
                 )
             );
         }
-     }
+    }
+
+    #[test]
+    fn test_statement_for() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::For, "for".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    "main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
+                    Box::new(Expr::Statement(vec![
+                        Expr::For(
+                            Box::new(None),
+                            Box::new(None),
+                            Box::new(None),
+                            Box::new(Expr::Statement(
+                                vec![
+                                    Expr::Factor(1),
+                                    Expr::Assign(
+                                        Box::new(Expr::Variable("b".to_string())),
+                                        Box::new(Expr::Factor(10))
+                                    )
+                                ],
+                            ))
+                        )
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::For, "for".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "i".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "0".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "i".to_string()),
+                TokenInfo::new(Token::LessThan, "<".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "i".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Variable, "i".to_string()),
+                TokenInfo::new(Token::Plus, "+".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                Expr::FuncDef(
+                    "main".to_string(),
+                    Box::new(Expr::Argment(vec![])),
+                    Box::new(Expr::Statement(vec![
+                        Expr::For(
+                            Box::new(Some(
+                                Expr::Assign(
+                                    Box::new(Expr::Variable("i".to_string())),
+                                    Box::new(Expr::Factor(0))
+                                ),
+                            )),
+                            Box::new(Some(
+                                Expr::LessThan(
+                                    Box::new(Expr::Variable("i".to_string())),
+                                    Box::new(Expr::Factor(10))
+                                ),
+                            )),
+                            Box::new(Some(
+                                Expr::Assign(
+                                    Box::new(Expr::Variable("i".to_string())),
+                                    Box::new(Expr::Plus(
+                                        Box::new(Expr::Variable("i".to_string())),
+                                        Box::new(Expr::Factor(1))
+                                    ))
+                                )
+                            )),
+                            Box::new(Expr::Statement(
+                                vec![
+                                    Expr::Factor(1),
+                                    Expr::Assign(
+                                        Box::new(Expr::Variable("b".to_string())),
+                                        Box::new(Expr::Factor(10))
+                                    )
+                                ],
+                            ))
+                        )
+                    ]))
+                )
+            );
+        }
+    }
 }

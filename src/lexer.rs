@@ -52,6 +52,10 @@ impl<'a> LexicalAnalysis<'a> {
                                 (0..4).for_each(|_| self.skip());
                                 token = TokenInfo::new(Token::While, "while".to_string());
                             }
+                            else if true == self.is_statement_for(s) {
+                                (0..2).for_each(|_| self.skip());
+                                token = TokenInfo::new(Token::For, "for".to_string());
+                            }
                             else {
                                 token = self.generate_variable_token(s);
                             }
@@ -335,7 +339,17 @@ impl<'a> LexicalAnalysis<'a> {
         let s = self.read_string(4);
         "hile" == s
     }
- }
+
+    // for statementチェック.
+    fn is_statement_for(&mut self, v: char) -> bool {
+        if v != 'f' {
+            return false;
+        }
+
+        let s = self.read_string(2);
+        "or" == s
+    }
+}
 
 #[cfg(test)]
 mod tests {

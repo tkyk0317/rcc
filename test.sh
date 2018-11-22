@@ -202,5 +202,7 @@ test "main() { a = 0; while (a < 1) { a = a + 1; } a; }" 1 112
 test "main() { a = 0; while (a < 2) { a = a + 1; } a; }" 2 113
 test "main() { a = 0; while (a <= 2) { a = a + 1; } a; }" 3 114
 test "main() { a = 8; b = 1; a = a + b; a; }" 9 115
+test "main() { for (i = 0 ; i < 2 ; i = i + 1) {;} 11; }" 11 116
+test "main() { a = 0; for (i = 0 ; i < 10 ; i = i + 1) { a = a + 1;} a; }" 10 117
 #test 256 256 # 255までしか数値を扱うことができない
 

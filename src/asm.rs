@@ -45,6 +45,7 @@ impl<'a> Asm<'a> {
             Expr::Statement(_) => self.generate_statement(ast),
             Expr::While(ref a, ref b) => self.generate_statement_while(a, b),
             Expr::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
+            Expr::For(ref a, ref b, ref c, ref d) => self.generate_statement_for(a, b, c, d),
             Expr::Factor(a) => self.generate_factor(a),
             Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -209,6 +210,40 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
 
         // endラベル.
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+    }
+
+    // for statement生成.
+    fn generate_statement_for(&mut self, a: &Option<Expr>, b: &Option<Expr>, c: &Option<Expr>, d: &Expr) {
+        self.label_no = self.label_no + 1;
+        let label_begin = self.label_no;
+        self.label_no = self.label_no + 1;
+        let label_end = self.label_no;
+
+        // 初期条件.
+        if let Some(init) = a {
+            self.generate(init);
+            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        }
+        self.inst = format!("{}.L{}:\n", self.inst, label_begin);
+
+        // 終了条件.
+        if let Some(cond) = b {
+            self.generate(cond);
+            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+            self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+            self.inst = format!("{}  je .L{}\n", self.inst, label_end);
+        }
+
+        // ブロック部.
+        self.generate(d);
+
+        // 変数変化部分生成
+        if let Some(end) = c {
+            self.generate(end);
+            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        }
+        self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
         self.inst = format!("{}.L{}:\n", self.inst, label_end);
     }
 

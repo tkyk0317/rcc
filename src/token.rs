@@ -2,9 +2,10 @@
 // トークン識別子.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    If, // if命令.
-    Else, // else命令.
-    While, // while命令.
+    If, // if文.
+    Else, // else文.
+    While, // while文.
+    For, // For文.
     BitReverse, // ビット反転演算子.
     BitAnd, // ビットAND演算子
     BitOr, // ビットOR演算子
