@@ -1,5 +1,5 @@
 use std::process;
-use ast::Expr;
+use ast::AstType;
 use ast::AstTree;
 use config::Config;
 use symbol::SymbolTable;
@@ -39,46 +39,46 @@ impl<'a> Asm<'a> {
     }
 
     // アセンブラ生成.
-    fn generate(&mut self, ast: &Expr) {
+    fn generate(&mut self, ast: &AstType) {
         match *ast {
-            Expr::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
-            Expr::Statement(_) => self.generate_statement(ast),
-            Expr::While(ref a, ref b) => self.generate_statement_while(a, b),
-            Expr::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
-            Expr::For(ref a, ref b, ref c, ref d) => self.generate_statement_for(a, b, c, d),
-            Expr::Factor(a) => self.generate_factor(a),
-            Expr::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
-            Expr::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
-            Expr::Condition(ref a, ref b, ref c) => self.generate_condition(a, b, c),
-            Expr::UnPlus(ref a) => self.generate_unplus(a),
-            Expr::UnMinus(ref a) => self.generate_unminus(a),
-            Expr::Not(ref a) => self.generate_not(a),
-            Expr::BitReverse(ref a) => self.generate_bit_reverse(a),
-            Expr::Assign(ref a, ref b) => self.generate_assign(a, b),
-            Expr::Variable(ref a) => self.generate_variable(a),
-            Expr::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
-            Expr::Plus(ref a, ref b) |
-            Expr::Minus(ref a, ref b) |
-            Expr::Multiple(ref a, ref b) |
-            Expr::Division(ref a, ref b) |
-            Expr::Remainder(ref a, ref b) |
-            Expr::Equal(ref a, ref b) |
-            Expr::NotEqual(ref a, ref b) |
-            Expr::LessThan(ref a, ref b) |
-            Expr::GreaterThan(ref a, ref b) |
-            Expr::LessThanEqual(ref a, ref b) |
-            Expr::GreaterThanEqual(ref a, ref b) |
-            Expr::LeftShift(ref a, ref b) |
-            Expr::RightShift(ref a, ref b) |
-            Expr::BitAnd(ref a, ref b) |
-            Expr::BitOr(ref a, ref b) |
-            Expr::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
+            AstType::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
+            AstType::Statement(_) => self.generate_statement(ast),
+            AstType::While(ref a, ref b) => self.generate_statement_while(a, b),
+            AstType::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
+            AstType::For(ref a, ref b, ref c, ref d) => self.generate_statement_for(a, b, c, d),
+            AstType::Factor(a) => self.generate_factor(a),
+            AstType::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
+            AstType::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
+            AstType::Condition(ref a, ref b, ref c) => self.generate_condition(a, b, c),
+            AstType::UnPlus(ref a) => self.generate_unplus(a),
+            AstType::UnMinus(ref a) => self.generate_unminus(a),
+            AstType::Not(ref a) => self.generate_not(a),
+            AstType::BitReverse(ref a) => self.generate_bit_reverse(a),
+            AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
+            AstType::Variable(ref a) => self.generate_variable(a),
+            AstType::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
+            AstType::Plus(ref a, ref b) |
+            AstType::Minus(ref a, ref b) |
+            AstType::Multiple(ref a, ref b) |
+            AstType::Division(ref a, ref b) |
+            AstType::Remainder(ref a, ref b) |
+            AstType::Equal(ref a, ref b) |
+            AstType::NotEqual(ref a, ref b) |
+            AstType::LessThan(ref a, ref b) |
+            AstType::GreaterThan(ref a, ref b) |
+            AstType::LessThanEqual(ref a, ref b) |
+            AstType::GreaterThanEqual(ref a, ref b) |
+            AstType::LeftShift(ref a, ref b) |
+            AstType::RightShift(ref a, ref b) |
+            AstType::BitAnd(ref a, ref b) |
+            AstType::BitOr(ref a, ref b) |
+            AstType::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
             _ => panic!("asm.rs(generate): not support expression"),
         }
     }
 
     // 関数定義.
-    fn generate_funcdef(&mut self, a: &String, b: &Expr, c: &Expr) {
+    fn generate_funcdef(&mut self, a: &String, b: &AstType, c: &AstType) {
         self.generate_func_start(a);
         self.generate_func_args(b);
         self.generate_statement(c);
@@ -86,7 +86,7 @@ impl<'a> Asm<'a> {
     }
 
     // statement生成.
-    fn generate_statement(&mut self, a: &Expr) {
+    fn generate_statement(&mut self, a: &AstType) {
         // アセンブリ生成.
         let mut gen = move |ast| {
             self.generate(ast);
@@ -95,9 +95,9 @@ impl<'a> Asm<'a> {
             }
         };
 
-        // 各Exprを処理.
+        // 各AstTypeを処理.
         match *a {
-            Expr::Statement(ref s) => s.iter().for_each(|ast| gen(ast)),
+            AstType::Statement(ref s) => s.iter().for_each(|ast| gen(ast)),
             _ => panic!("asm.rs(generate_statement): not support expr"),
         }
     }
@@ -129,11 +129,11 @@ impl<'a> Asm<'a> {
     }
 
     // 関数引数生成.
-    fn generate_func_args(&mut self, a: &Expr) {
+    fn generate_func_args(&mut self, a: &AstType) {
         // 各引数生成.
-        let each_args = |inst: &str, a: &Expr, r: &str, p: usize| -> String {
+        let each_args = |inst: &str, a: &AstType, r: &str, p: usize| -> String {
             match a {
-                Expr::Variable(_) => {
+                AstType::Variable(_) => {
                     let mut t = format!("{}  mov {}, %rax\n", inst, r);
                     format!("{}  movl %eax, -{}(%rbp)\n", t, p)
                 }
@@ -143,7 +143,7 @@ impl<'a> Asm<'a> {
 
         // レジスタから引数を取り出す.
         match *a {
-            Expr::Argment(ref args) => {
+            AstType::Argment(ref args) => {
                 args.iter().enumerate().for_each(|(i, arg)| {
                     self.inst = each_args(&self.inst, arg, REGS[i], i * 4 + 4)
                 });
@@ -153,7 +153,7 @@ impl<'a> Asm<'a> {
     }
 
     // if statement生成.
-    fn generate_statement_if(&mut self, a: &Expr, b: &Expr, c: &Option<Expr>) {
+    fn generate_statement_if(&mut self, a: &AstType, b: &AstType, c: &Option<AstType>) {
         self.label_no = self.label_no + 1;
         let label_end = self.label_no;
 
@@ -169,12 +169,12 @@ impl<'a> Asm<'a> {
             let label_else = self.label_no;
 
             // elseブロック生成.
-            // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
+            // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
             self.generate(e);
             self.inst = format!("{}  jmp .L{}\n", self.inst, label_else);
 
             // ifブロック部生成.
-            // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
+            // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
             self.inst = format!("{}.L{}:\n", self.inst, label_end);
             self.generate(b);
 
@@ -183,14 +183,14 @@ impl<'a> Asm<'a> {
         }
         else {
             // ifブロック部生成.
-            // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
+            // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
             self.inst = format!("{}.L{}:\n", self.inst, label_end);
             self.generate(b);
         }
     }
 
     // while statement生成.
-    fn generate_statement_while(&mut self, a: &Expr, b: &Expr) {
+    fn generate_statement_while(&mut self, a: &AstType, b: &AstType) {
         let label_begin = self.label_no + 1;
         self.label_no = label_begin;
         let label_end = self.label_no + 1;
@@ -205,7 +205,7 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  je .L{}\n", self.inst, label_end);
 
         // ブロック部生成.
-        // block部はExpr::Statementなので、演算結果に対するスタック操作は行わない.
+        // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
         self.generate(b);
         self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
 
@@ -214,7 +214,7 @@ impl<'a> Asm<'a> {
     }
 
     // for statement生成.
-    fn generate_statement_for(&mut self, a: &Option<Expr>, b: &Option<Expr>, c: &Option<Expr>, d: &Expr) {
+    fn generate_statement_for(&mut self, a: &Option<AstType>, b: &Option<AstType>, c: &Option<AstType>, d: &AstType) {
         self.label_no = self.label_no + 1;
         let label_begin = self.label_no;
         self.label_no = self.label_no + 1;
@@ -248,9 +248,9 @@ impl<'a> Asm<'a> {
     }
 
     // assign生成.
-    fn generate_assign(&mut self, a: &Expr, b: &Expr) {
+    fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            Expr::Variable(ref a) => {
+            AstType::Variable(ref a) => {
                 let pos = self.var_table.search(a).unwrap().pos * 4 + 4;
                 self.generate(b);
                 self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
@@ -269,12 +269,12 @@ impl<'a> Asm<'a> {
     }
 
     // 関数コール生成.
-    fn generate_call_func(&mut self, a: &Expr, b: &Expr) {
+    fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
         match *a {
             // 関数名.
-            Expr::Variable(ref n) => {
+            AstType::Variable(ref n) => {
                 match *b {
-                    Expr::Argment(ref v) => {
+                    AstType::Argment(ref v) => {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
@@ -304,7 +304,7 @@ impl<'a> Asm<'a> {
     }
 
     // bit反転演算子生成.
-    fn generate_bit_reverse(&mut self, a: &Expr) {
+    fn generate_bit_reverse(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  notl %eax\n", self.inst);
@@ -312,7 +312,7 @@ impl<'a> Asm<'a> {
     }
 
     // Not演算子生成.
-    fn generate_not(&mut self, a: &Expr) {
+    fn generate_not(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
@@ -322,7 +322,7 @@ impl<'a> Asm<'a> {
     }
 
     // マイナス単項演算子生成.
-    fn generate_unminus(&mut self, a: &Expr) {
+    fn generate_unminus(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  negl %eax\n", self.inst);
@@ -330,12 +330,12 @@ impl<'a> Asm<'a> {
     }
 
     // プラス単項演算子生成.
-    fn generate_unplus(&mut self, a: &Expr) {
+    fn generate_unplus(&mut self, a: &AstType) {
         self.generate(a);
     }
 
     // 三項演算子生成.
-    fn generate_condition(&mut self, a: &Expr, b: &Expr, c: &Expr) {
+    fn generate_condition(&mut self, a: &AstType, b: &AstType, c: &AstType) {
         let label_false = self.label_no;
         self.label_no = self.label_no + 1;
         let label_end = self.label_no;
@@ -355,7 +355,7 @@ impl<'a> Asm<'a> {
     }
 
     // &&演算子生成.
-    fn generate_logical_and(&mut self, a: &Expr, b: &Expr) {
+    fn generate_logical_and(&mut self, a: &AstType, b: &AstType) {
         let label_false = self.label_no;
         self.label_no = self.label_no + 1;
         let label_end = self.label_no;
@@ -377,7 +377,7 @@ impl<'a> Asm<'a> {
     }
 
     // ||演算子生成.
-    fn generate_logical_or(&mut self, a: &Expr, b: &Expr) {
+    fn generate_logical_or(&mut self, a: &AstType, b: &AstType) {
         let label_true = self.label_no;
         self.label_no = self.label_no + 1;
         let label_end = self.label_no;
@@ -406,7 +406,7 @@ impl<'a> Asm<'a> {
     }
 
     // 演算子生成.
-    fn generate_operator(&mut self, ast: &Expr, a: &Expr, b: &Expr) {
+    fn generate_operator(&mut self, ast: &AstType, a: &AstType, b: &AstType) {
         self.generate(a);
         self.generate(b);
 
@@ -421,7 +421,7 @@ impl<'a> Asm<'a> {
 
         // 演算子に応じて退避するレジスタを変更.
         match *ast {
-            Expr::Remainder(_, _) => self.inst = format!("{}{}", self.inst, self.push_stack("edx")),
+            AstType::Remainder(_, _) => self.inst = format!("{}{}", self.inst, self.push_stack("edx")),
             _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
         }
     }
@@ -437,34 +437,34 @@ impl<'a> Asm<'a> {
     }
 
     // 演算子アセンブラ生成.
-    fn operator(&self, ope: &Expr) -> String {
+    fn operator(&self, ope: &AstType) -> String {
         match *ope {
-            Expr::Multiple(_, _) => "  imull %ecx\n".to_string(),
-            Expr::Plus(_, _) => "  addl %ecx, %eax\n".to_string(),
-            Expr::Minus(_, _) => "  subl %ecx, %eax\n".to_string(),
-            Expr::Division(_, _) |
-            Expr::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
-            Expr::Equal(_, _) => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
-            Expr::NotEqual(_, _) => {
+            AstType::Multiple(_, _) => "  imull %ecx\n".to_string(),
+            AstType::Plus(_, _) => "  addl %ecx, %eax\n".to_string(),
+            AstType::Minus(_, _) => "  subl %ecx, %eax\n".to_string(),
+            AstType::Division(_, _) |
+            AstType::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            AstType::Equal(_, _) => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::NotEqual(_, _) => {
                 "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string()
             }
-            Expr::LessThan(_, _) => {
+            AstType::LessThan(_, _) => {
                 "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string()
             }
-            Expr::GreaterThan(_, _) => {
+            AstType::GreaterThan(_, _) => {
                 "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string()
             }
-            Expr::LessThanEqual(_, _) => {
+            AstType::LessThanEqual(_, _) => {
                 "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string()
             }
-            Expr::GreaterThanEqual(_, _) => {
+            AstType::GreaterThanEqual(_, _) => {
                 "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
             }
-            Expr::LeftShift(_, _) => "  sall %cl, %eax\n".to_string(),
-            Expr::RightShift(_, _) => "  sarl %cl, %eax\n".to_string(),
-            Expr::BitAnd(_, _) => "  andl %ecx, %eax\n".to_string(),
-            Expr::BitOr(_, _) => "  orl %ecx, %eax\n".to_string(),
-            Expr::BitXor(_, _) => "  xorl %ecx, %eax\n".to_string(),
+            AstType::LeftShift(_, _) => "  sall %cl, %eax\n".to_string(),
+            AstType::RightShift(_, _) => "  sarl %cl, %eax\n".to_string(),
+            AstType::BitAnd(_, _) => "  andl %ecx, %eax\n".to_string(),
+            AstType::BitOr(_, _) => "  orl %ecx, %eax\n".to_string(),
+            AstType::BitXor(_, _) => "  xorl %ecx, %eax\n".to_string(),
             _ => process::abort(),
         }
     }
