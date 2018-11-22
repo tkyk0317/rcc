@@ -33,9 +33,7 @@ impl<'a> Asm<'a> {
 
     // アセンブラ生成開始.
     pub fn exec(&mut self, tree: &AstTree) {
-        tree.get_tree().iter().for_each(
-            |ast| { self.generate(&ast); },
-        );
+        tree.get_tree().iter().for_each(|a| self.generate(a));
     }
 
     // アセンブラ生成.
@@ -131,7 +129,7 @@ impl<'a> Asm<'a> {
     // 関数引数生成.
     fn generate_func_args(&mut self, a: &AstType) {
         // 各引数生成.
-        let each_args = |inst: &str, a: &AstType, r: &str, p: usize| -> String {
+        let gen = |inst: &str, a: &AstType, r: &str, p: usize| -> String {
             match a {
                 AstType::Variable(_) => {
                     let mut t = format!("{}  mov {}, %rax\n", inst, r);
@@ -141,12 +139,16 @@ impl<'a> Asm<'a> {
             }
         };
 
-        // レジスタから引数を取り出す.
+        // レジスタからスタックへ引数を移動(SPを4バイトずつ移動しながら).
+        let st = 4;
         match *a {
             AstType::Argment(ref args) => {
-                args.iter().enumerate().for_each(|(i, arg)| {
-                    self.inst = each_args(&self.inst, arg, REGS[i], i * 4 + 4)
-                });
+                args.iter()
+                    .zip(REGS.iter())
+                    .fold(st, |p, d| {
+                        self.inst = gen(&self.inst, d.0, d.1, p);
+                        p + 4
+                    });
             }
             _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
         }
@@ -278,11 +280,10 @@ impl<'a> Asm<'a> {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
-                        // 関数引数をレジスタへ.
-                        v.iter().enumerate().for_each(|(i, _d)| {
-                            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                            self.inst = format!("{}  mov %rax, {}\n", self.inst, REGS[i]);
-                        });
+                        // 関数引数をスタックからレジスタへ.
+                        self.inst = v.iter()
+                                     .zip(REGS.iter())
+                                     .fold(self.inst.clone(), |s, d| s + &self.pop_stack("eax") + &format!("  mov %rax, {}\n", d.1));
                     }
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment"),
                 }
@@ -442,29 +443,19 @@ impl<'a> Asm<'a> {
             AstType::Multiple(_, _) => "  imull %ecx\n".to_string(),
             AstType::Plus(_, _) => "  addl %ecx, %eax\n".to_string(),
             AstType::Minus(_, _) => "  subl %ecx, %eax\n".to_string(),
-            AstType::Division(_, _) |
-            AstType::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             AstType::Equal(_, _) => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
-            AstType::NotEqual(_, _) => {
-                "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::LessThan(_, _) => {
-                "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::GreaterThan(_, _) => {
-                "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::LessThanEqual(_, _) => {
-                "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::GreaterThanEqual(_, _) => {
-                "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
-            }
+            AstType::NotEqual(_, _) => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::LessThan(_, _) => "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::GreaterThan(_, _) => "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::LessThanEqual(_, _) => "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::GreaterThanEqual(_, _) => "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string(),
             AstType::LeftShift(_, _) => "  sall %cl, %eax\n".to_string(),
             AstType::RightShift(_, _) => "  sarl %cl, %eax\n".to_string(),
             AstType::BitAnd(_, _) => "  andl %ecx, %eax\n".to_string(),
             AstType::BitOr(_, _) => "  orl %ecx, %eax\n".to_string(),
             AstType::BitXor(_, _) => "  xorl %ecx, %eax\n".to_string(),
+            AstType::Division(_, _) |
+            AstType::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             _ => process::abort(),
         }
     }
