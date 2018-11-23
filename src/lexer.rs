@@ -178,29 +178,22 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 文字列を取得.
     fn read_string(&mut self, n: usize) -> String {
-        let mut s = String::new();
-
         // 指定文字数をread.
-        let mut skip_count = 0;
-        (0..n).for_each(|_| {
+        let (s, c) = (0..n).fold((String::new(), 0), |d, _| {
             if let Some(c) = self.next() {
-                s.push(c);
-                skip_count = skip_count + 1;
+                return (d.0 + &c.to_string(), d.1 + 1);
             }
+            return (d.0, d.1);
         });
-        self.back(skip_count);
+        self.back(c);
         s
     }
 
     // 文字を読み出して次へ進める.
     fn next(&mut self) -> Option<char> {
-        if true == self.is_eof() {
-            None
-        } else {
-            let s = self.input.chars().nth(self.pos);
-            self.pos = self.pos + 1;
-            s
-        }
+        let s = self.input.chars().nth(self.pos);
+        self.skip();
+        s
     }
 
     // 文字をスキップ.
@@ -221,8 +214,7 @@ impl<'a> LexicalAnalysis<'a> {
     // 空白読み飛ばし.
     fn skip_space(&mut self) {
         while false == self.is_eof() &&
-            true == self.input.chars().nth(self.pos).unwrap().is_whitespace()
-        {
+              true == self.input.chars().nth(self.pos).unwrap().is_whitespace() {
             self.skip();
         }
     }
