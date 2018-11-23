@@ -170,7 +170,7 @@ impl<'a> AstGen<'a> {
 
                 // 閉じ括弧.
                 let next_token = self.next_consume();
-                self.panic_token(&next_token, Token::RightBracket, format!("ast.rs(func_arg): Not Exists RightBracket {:?}", next_token));
+                self.panic_token(next_token, Token::RightBracket, format!("ast.rs(func_arg): Not Exists RightBracket {:?}", next_token));
                 args
             }
             _ => panic!("ast.rs(func_arg): Not Exists LeftBracket {:?}", token),
@@ -237,12 +237,12 @@ impl<'a> AstGen<'a> {
     // if statement.
     fn statement_if(&mut self) -> AstType {
         let next_l = self.next_consume();
-        self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(statement_if): Not Exists LeftBracket {:?}", next_l));
+        self.panic_token(next_l, Token::LeftBracket, format!("ast.rs(statement_if): Not Exists LeftBracket {:?}", next_l));
 
         // 条件式を解析.
         let condition = self.assign();
         let next_r = self.next_consume();
-        self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(statement_if): Not Exists RightBracket {:?}", next_r));
+        self.panic_token(next_r, Token::RightBracket, format!("ast.rs(statement_if): Not Exists RightBracket {:?}", next_r));
 
         // ifブロック内を解析.
         let stmt = self.statement();
@@ -260,12 +260,12 @@ impl<'a> AstGen<'a> {
     // while statement.
     fn statement_while(&mut self) -> AstType {
         let next_l = self.next_consume();
-        self.panic_token(&next_l, Token::LeftBracket, format!("ast.rs(statement_while): Not Exists LeftBracket {:?}", next_l));
+        self.panic_token(next_l, Token::LeftBracket, format!("ast.rs(statement_while): Not Exists LeftBracket {:?}", next_l));
 
         // 条件式を解析.
         let condition = self.assign();
         let next_r = self.next_consume();
-        self.panic_token(&next_r, Token::RightBracket, format!("ast.rs(statement_while): Not Exists RightBracket {:?}", next_r));
+        self.panic_token(next_r, Token::RightBracket, format!("ast.rs(statement_while): Not Exists RightBracket {:?}", next_r));
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
     }
@@ -273,20 +273,20 @@ impl<'a> AstGen<'a> {
     // for statement.
     fn statement_for(&mut self) -> AstType {
         let l_bracket = self.next_consume();
-        self.panic_token(&l_bracket, Token::LeftBracket, format!("ast.rs(statement_for): Not Exists LeftBracket {:?}", l_bracket));
+        self.panic_token(l_bracket, Token::LeftBracket, format!("ast.rs(statement_for): Not Exists LeftBracket {:?}", l_bracket));
 
         // 各種条件を解析.
         let begin = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
         let mut semi_colon = self.next_consume();
-        self.panic_token(&semi_colon, Token::SemiColon, format!("ast.rs(statement_for): Not Exists Semicolon {:?}", semi_colon));
+        self.panic_token(semi_colon, Token::SemiColon, format!("ast.rs(statement_for): Not Exists Semicolon {:?}", semi_colon));
 
         let condition = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
         semi_colon = self.next_consume();
-        self.panic_token(&semi_colon, Token::SemiColon, format!("ast.rs(statement_for): Not Exists Semicolon {:?}", semi_colon));
+        self.panic_token(semi_colon, Token::SemiColon, format!("ast.rs(statement_for): Not Exists Semicolon {:?}", semi_colon));
 
         let end = if Token::RightBracket == self.next().get_token_type() { None } else { Some(self.assign()) };
         let r_bracket = self.next_consume();
-        self.panic_token(&r_bracket, Token::RightBracket, format!("ast.rs(statement_for): Not Exists RightBracket {:?}", r_bracket));
+        self.panic_token(r_bracket, Token::RightBracket, format!("ast.rs(statement_for): Not Exists RightBracket {:?}", r_bracket));
 
         AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
     }
@@ -322,7 +322,7 @@ impl<'a> AstGen<'a> {
             Token::LeftBracket => {
                 let call_func = AstType::CallFunc(Box::new(acc), Box::new(self.argment(AstType::Argment(vec![]))));
                 let next = self.next_consume();
-                self.panic_token(&next, Token::RightBracket, format!("ast.rs(call_func): Not exists RightBracket {:?}", next));
+                self.panic_token(next, Token::RightBracket, format!("ast.rs(call_func): Not exists RightBracket {:?}", next));
                 call_func
             }
             _ => panic!("ast.rs(call_func): Not exists LeftBracket")
@@ -378,7 +378,7 @@ impl<'a> AstGen<'a> {
 
                 // コロンがない場合、終了.
                 let colon = self.next_consume();
-                self.panic_token(&colon, Token::Colon, format!("ast.rs(sub_condition): Not exists Colon {:?}", colon));
+                self.panic_token(colon, Token::Colon, format!("ast.rs(sub_condition): Not exists Colon {:?}", colon));
 
                 let right = self.logical();
                 let tree = AstType::Condition(Box::new(acc), Box::new(middle), Box::new(right));
@@ -544,63 +544,45 @@ impl<'a> AstGen<'a> {
 
     // factor.
     fn factor(&mut self) -> AstType {
-        let token = self.next();
+        let token = self.next_consume();
         match token.get_token_type() {
-            Token::Number => {
-                self.consume();
-                self.number(token)
-            }
-            Token::LeftBracket => {
-                self.consume();
-                let tree = self.assign();
-
-                // 閉じカッコがあるかどうかチェック.
-                let bracket = self.next_consume();
-                self.panic_token(&bracket, Token::RightBracket, format!("ast.rs(factor): Not exists RightBracket {:?}", bracket));
-                tree
-            }
-            Token::Plus => {
-                self.consume();
-                AstType::UnPlus(Box::new(self.factor()))
-            }
-            Token::Minus => {
-                self.consume();
-                AstType::UnMinus(Box::new(self.factor()))
-            }
-            Token::Not => {
-                self.consume();
-                AstType::Not(Box::new(self.factor()))
-            }
-            Token::BitReverse => {
-                self.consume();
-                AstType::BitReverse(Box::new(self.factor()))
-            }
+            Token::Number => self.number(token),
+            Token::Plus => AstType::UnPlus(Box::new(self.factor())),
+            Token::Minus => AstType::UnMinus(Box::new(self.factor())),
+            Token::Not => AstType::Not(Box::new(self.factor())),
+            Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
                 if None == self.var_table.search(&token.get_token_value()) {
                     self.var_table.push(token.get_token_value(), "".to_string());
                 }
-                self.consume();
                 AstType::Variable(token.get_token_value())
+            }
+            Token::LeftBracket => {
+                let tree = self.assign();
+
+                // 閉じカッコがあるかどうかチェック.
+                let bracket = self.next_consume();
+                self.panic_token(bracket, Token::RightBracket, format!("ast.rs(factor): Not exists RightBracket {:?}", bracket));
+                tree
             }
             _ => panic!("ast.rs: failed in factor {:?}", token),
         }
     }
 
     // number
-    fn number(&self, token: TokenInfo) -> AstType {
+    fn number(&self, token: &TokenInfo) -> AstType {
         AstType::Factor(token.get_token_value().parse::<i64>().unwrap())
     }
 
     // トークン読み取り.
-    fn next(&mut self) -> TokenInfo {
-        self.tokens[self.current_pos].clone()
+    fn next(&mut self) -> &'a TokenInfo {
+        self.tokens.get(self.current_pos).unwrap()
     }
 
     // 読み取り位置更新.
-    #[allow(dead_code)]
-    fn next_consume(&mut self) -> TokenInfo {
-        let token = self.tokens[self.current_pos].clone();
+    fn next_consume(&mut self) -> &'a TokenInfo {
+        let token = self.tokens.get(self.current_pos).unwrap();
         self.current_pos = self.current_pos + 1;
         token
     }
