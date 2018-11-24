@@ -171,7 +171,7 @@ impl<'a> AstGen<'a> {
                 let args = AstType::Argment(self.recur_func_args(tmp));
 
                 // 閉じ括弧.
-                self.panic_token(Token::RightBracket, "ast.rs(func_arg): Not Exists RightBracket");
+                self.must_next(Token::RightBracket, "ast.rs(func_arg): Not Exists RightBracket");
                 args
             }
             _ => panic!("ast.rs(func_arg): Not Exists LeftBracket {:?}", token),
@@ -241,11 +241,11 @@ impl<'a> AstGen<'a> {
 
     // if statement.
     fn statement_if(&mut self) -> AstType {
-        self.panic_token(Token::LeftBracket, "ast.rs(statement_if): Not Exists LeftBracket");
+        self.must_next(Token::LeftBracket, "ast.rs(statement_if): Not Exists LeftBracket");
 
         // 条件式を解析.
         let condition = self.assign();
-        self.panic_token(Token::RightBracket, "ast.rs(statement_if): Not Exists RightBracket");
+        self.must_next(Token::RightBracket, "ast.rs(statement_if): Not Exists RightBracket");
 
         // ifブロック内を解析.
         let stmt = self.statement();
@@ -262,11 +262,11 @@ impl<'a> AstGen<'a> {
 
     // while statement.
     fn statement_while(&mut self) -> AstType {
-        self.panic_token(Token::LeftBracket, "ast.rs(statement_while): Not Exists LeftBracket");
+        self.must_next(Token::LeftBracket, "ast.rs(statement_while): Not Exists LeftBracket");
 
         // 条件式を解析.
         let condition = self.assign();
-        self.panic_token(Token::RightBracket, "ast.rs(statement_while): Not Exists RightBracket");
+        self.must_next(Token::RightBracket, "ast.rs(statement_while): Not Exists RightBracket");
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
     }
@@ -275,29 +275,29 @@ impl<'a> AstGen<'a> {
     fn statement_do(&mut self) -> AstType {
         // ブロック部.
         let stmt = self.statement();
-        self.panic_token(Token::While, "ast.rs(statement_do): Not Exists while token");
+        self.must_next(Token::While, "ast.rs(statement_do): Not Exists while token");
 
         // 条件式を解析.
-        self.panic_token(Token::LeftBracket, "ast.rs(statement_do): Not Exists LeftBracket");
+        self.must_next(Token::LeftBracket, "ast.rs(statement_do): Not Exists LeftBracket");
         let condition = self.assign();
-        self.panic_token(Token::RightBracket, "ast.rs(statement_while): Not Exists RightBracket");
+        self.must_next(Token::RightBracket, "ast.rs(statement_while): Not Exists RightBracket");
 
         AstType::Do(Box::new(stmt), Box::new(condition))
     }
 
     // for statement.
     fn statement_for(&mut self) -> AstType {
-        self.panic_token(Token::LeftBracket, "ast.rs(statement_for): Not Exists LeftBracket");
+        self.must_next(Token::LeftBracket, "ast.rs(statement_for): Not Exists LeftBracket");
 
         // 各種条件を解析.
         let begin = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
-        self.panic_token(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
+        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
 
         let condition = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
-        self.panic_token(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
+        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
 
         let end = if Token::RightBracket == self.next().get_token_type() { None } else { Some(self.assign()) };
-        self.panic_token(Token::RightBracket, "ast.rs(statement_for): Not Exists RightBracket");
+        self.must_next(Token::RightBracket, "ast.rs(statement_for): Not Exists RightBracket");
 
         AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
     }
@@ -332,7 +332,7 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::LeftBracket => {
                 let call_func = AstType::CallFunc(Box::new(acc), Box::new(self.argment(AstType::Argment(vec![]))));
-                self.panic_token(Token::RightBracket, "ast.rs(call_func): Not exists RightBracket");
+                self.must_next(Token::RightBracket, "ast.rs(call_func): Not exists RightBracket");
                 call_func
             }
             _ => panic!("ast.rs(call_func): Not exists LeftBracket")
@@ -387,7 +387,7 @@ impl<'a> AstGen<'a> {
                 let middle = self.logical();
 
                 // コロンがない場合、終了.
-                self.panic_token(Token::Colon, "ast.rs(sub_condition): Not exists Colon");
+                self.must_next(Token::Colon, "ast.rs(sub_condition): Not exists Colon");
 
                 let right = self.logical();
                 let tree = AstType::Condition(Box::new(acc), Box::new(middle), Box::new(right));
@@ -571,7 +571,7 @@ impl<'a> AstGen<'a> {
                 let tree = self.assign();
 
                 // 閉じカッコがあるかどうかチェック.
-                self.panic_token(Token::RightBracket, "ast.rs(factor): Not exists RightBracket");
+                self.must_next(Token::RightBracket, "ast.rs(factor): Not exists RightBracket");
                 tree
             }
             _ => panic!("ast.rs: failed in factor {:?}", token),
@@ -606,7 +606,7 @@ impl<'a> AstGen<'a> {
     }
 
     // 指定されたトークンでない場合、panicメッセージ表示.
-    fn panic_token(&mut self, t: Token, m: &str) {
+    fn must_next(&mut self, t: Token, m: &str) {
         let token = self.next_consume();
         if token.get_token_type() != t {
             panic!("{} {:?}", m, token)
