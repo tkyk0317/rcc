@@ -151,6 +151,9 @@ impl<'a> LexicalAnalysis<'a> {
     fn read_string(&mut self, n: usize) -> String {
         // 指定文字数をread.
         let (s, c) = (0..n).fold((String::new(), 0), |d, _| {
+            if self.is_eof() {
+                return (d.0, d.1);
+            }
             if let Some(c) = self.next() {
                 return (d.0 + &c.to_string(), d.1 + 1);
             }
