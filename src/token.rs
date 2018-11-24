@@ -4,6 +4,7 @@
 pub enum Token {
     If, // if文.
     Else, // else文.
+    Do, // do-while文.
     While, // while文.
     For, // For文.
     BitReverse, // ビット反転演算子.

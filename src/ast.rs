@@ -32,6 +32,7 @@ pub enum AstType {
     FuncDef(String, Box<AstType>, Box<AstType>),
     Statement(Vec<AstType>),
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
+    Do(Box<AstType>, Box<AstType>), // ブロック部、条件式.
     If(Box<AstType>, Box<AstType>, Box<Option<AstType>>), // 条件式、真ブロック、偽ブロック.
     For(Box<Option<AstType>>, Box<Option<AstType>>, Box<Option<AstType>>, Box<AstType>), // 初期条件、終了条件、更新部、ブロック部.
     Condition(Box<AstType>, Box<AstType>, Box<AstType>),
@@ -70,6 +71,7 @@ impl AstType {
         match self {
             AstType::If(_, _, _) |
             AstType::For(_, _, _, _) |
+            AstType::Do(_, _) |
             AstType::While(_, _) => false,
             _ => true,
         }
@@ -223,6 +225,10 @@ impl<'a> AstGen<'a> {
                 stmt.push(self.statement_for());
                 self.sub_statement(&stmt)
             }
+            Token::Do => {
+                stmt.push(self.statement_do());
+                self.sub_statement(&stmt)
+            }
             Token::SemiColon => self.sub_statement(&stmt),
             Token::LeftBrace => self.sub_statement(&stmt),
             Token::RightBrace =>  stmt,
@@ -268,6 +274,23 @@ impl<'a> AstGen<'a> {
         self.panic_token(next_r, Token::RightBracket, format!("ast.rs(statement_while): Not Exists RightBracket {:?}", next_r));
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
+    }
+
+    // do-while statement.
+    fn statement_do(&mut self) -> AstType {
+        // ブロック部.
+        let stmt = self.statement();
+        let stmt_while = self.next_consume();
+        self.panic_token(stmt_while, Token::While, format!("ast.rs(statement_do): Not Exists while token {:?}", stmt_while));
+
+        // 条件式を解析.
+        let next_l = self.next_consume();
+        self.panic_token(next_l, Token::LeftBracket, format!("ast.rs(statement_do): Not Exists LeftBracket {:?}", next_l));
+        let condition = self.assign();
+        let next_r = self.next_consume();
+        self.panic_token(next_r, Token::RightBracket, format!("ast.rs(statement_while): Not Exists RightBracket {:?}", next_r));
+
+        AstType::Do(Box::new(stmt), Box::new(condition))
     }
 
     // for statement.
@@ -3459,6 +3482,63 @@ mod tests {
                                 ],
                             ))
                         )
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_statement_do_while() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Do, "do".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::While, "while".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Do(
+                            Box::new(AstType::Statement(
+                                vec![
+                                    AstType::Factor(1),
+                                    AstType::Assign(
+                                        Box::new(AstType::Variable("b".to_string())),
+                                        Box::new(AstType::Factor(10))
+                                    )
+                                ],
+                            )),
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable("a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                       )
                     ]))
                 )
             );

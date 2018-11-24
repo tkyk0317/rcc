@@ -56,6 +56,10 @@ impl<'a> LexicalAnalysis<'a> {
                                 (0..2).for_each(|_| self.skip());
                                 token = TokenInfo::new(Token::For, "for".to_string());
                             }
+                            else if true == self.is_statement_do(s) {
+                                self.skip();
+                                token = TokenInfo::new(Token::Do, "do".to_string());
+                            }
                             else {
                                 token = self.generate_variable_token(s);
                             }
@@ -309,37 +313,27 @@ impl<'a> LexicalAnalysis<'a> {
 
     // if statementチェック.
     fn is_statement_if(&mut self, v: char) -> bool {
-        v == 'i' && 'f' == self.read().unwrap()
+        v == 'i' && "f" == self.read_string(1)
     }
 
     // else statementチェック.
     fn is_statement_else(&mut self, v: char) -> bool {
-        if v != 'e' {
-            return false;
-        }
-
-        let s = self.read_string(3); // 残りの文字3文字を読み込む.
-        "lse" == s
+        v == 'e' && "lse" == self.read_string(3)
     }
 
     // while statementチェック.
     fn is_statement_while(&mut self, v: char) -> bool {
-        if v != 'w' {
-            return false;
-        }
+        v == 'w' && "hile" == self.read_string(4)
+    }
 
-        let s = self.read_string(4);
-        "hile" == s
+    // do-while statementチェック.
+    fn is_statement_do(&mut self, v: char) -> bool {
+        v == 'd' && "o" == self.read_string(1)
     }
 
     // for statementチェック.
     fn is_statement_for(&mut self, v: char) -> bool {
-        if v != 'f' {
-            return false;
-        }
-
-        let s = self.read_string(2);
-        "or" == s
+        v == 'f' && "or" == self.read_string(2)
     }
 }
 

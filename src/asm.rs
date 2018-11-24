@@ -42,6 +42,7 @@ impl<'a> Asm<'a> {
             AstType::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
             AstType::Statement(_) => self.generate_statement(ast),
             AstType::While(ref a, ref b) => self.generate_statement_while(a, b),
+            AstType::Do(ref a, ref b) => self.generate_statement_do(a, b),
             AstType::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
             AstType::For(ref a, ref b, ref c, ref d) => self.generate_statement_for(a, b, c, d),
             AstType::Factor(a) => self.generate_factor(a),
@@ -212,6 +213,26 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
 
         // endラベル.
+        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+    }
+
+    // do-while statement生成.
+    fn generate_statement_do(&mut self, a: &AstType, b: &AstType) {
+        let label_begin = self.label_no + 1;
+        self.label_no = label_begin;
+        let label_end = self.label_no + 1;
+        self.label_no = label_end;
+
+        // ブロック部生成.
+        self.inst = format!("{}.L{}:\n", self.inst, label_begin);
+        self.generate(a);
+
+        // condition部生成.
+        self.generate(b);
+        // conditionが真であれば、ブロック先頭へジャンプ.
+        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.inst = format!("{}  jne .L{}\n", self.inst, label_begin);
         self.inst = format!("{}.L{}:\n", self.inst, label_end);
     }
 
