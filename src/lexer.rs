@@ -176,8 +176,8 @@ impl<'a> LexicalAnalysis<'a> {
     }
 
     // 文字を読み出す.
-    fn read(&self) -> Option<char> {
-        self.input.chars().nth(self.pos)
+    fn read(&self) -> char {
+        self.input.chars().nth(self.pos).unwrap()
     }
 
     // 文字列を取得.
@@ -228,7 +228,7 @@ impl<'a> LexicalAnalysis<'a> {
         let mut s = String::new();
         s.push(v);
 
-        while false == self.is_eof() && true == self.read().unwrap().is_digit(10) {
+        while false == self.is_eof() && true == self.read().is_digit(10) {
             s.push(self.next().unwrap());
         }
         TokenInfo::new(Token::Number, s)
@@ -240,7 +240,7 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() &&
-              (true == self.read().unwrap().is_alphabetic() || '_' == self.read().unwrap() || true == self.read().unwrap().is_digit(10))
+              (true == self.read().is_alphabetic() || '_' == self.read() || true == self.read().is_digit(10))
         {
             s.push(self.next().unwrap());
         }
@@ -249,71 +249,47 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 等価演算子チェック.
     fn is_equal(&mut self, v: char) -> bool {
-        match self.read() {
-            Some(a) if a == '=' && v == '=' => true,
-            _ => false,
-        }
+        v == '=' && self.read() == '='
     }
 
     // 否等価演算子チェック.
     fn is_not_equal(&mut self, v: char) -> bool {
-        match self.read() {
-            Some(a) if a == '=' && v == '!' => true,
-            _ => false,
-        }
+        v == '!' && self.read() == '='
     }
 
     // 比較演算子(>=)チェック
     fn is_greater_than_equal(&self, v: char) -> bool {
-        match self.read() {
-            Some(a) if v == '>' && a == '=' => true,
-            _ => false,
-        }
+        v == '>' && self.read() == '='
     }
 
     // 比較演算子(<=)チェック
     fn is_less_than_equal(&self, v: char) -> bool {
-        match self.read() {
-            Some(a) if v == '<' && a == '=' => true,
-            _ => false,
-        }
+        v == '<' && self.read() == '='
     }
 
     // &&演算子チェック
     fn is_logical_and(&self, v: char) -> bool {
-        match self.read() {
-            Some(a) if v == '&' && a == '&' => true,
-            _ => false,
-        }
+        v == '&' && self.read() == '&'
     }
 
     // ||演算子チェック
     fn is_logical_or(&self, v: char) -> bool {
-        match self.read() {
-            Some(a) if v == '|' && a == '|' => true,
-            _ => false,
-        }
+        v == '|' && self.read() == '|'
     }
 
     // 左シフト演算子チェック.
     fn is_left_shift(&self, v: char) -> bool {
-        match self.read() {
-            Some(a) if a == '<' && v == '<' => true,
-            _ => false,
-        }
+        v == '<' && self.read() == '<'
     }
 
     // 右シフト演算子チェック.
     fn is_right_shift(&self, v: char) -> bool {
-        match self.read() {
-            Some(a) if a == '>' && v == '>' => true,
-            _ => false,
-        }
+        v == '>' && self.read() == '>'
     }
 
     // if statementチェック.
     fn is_statement_if(&mut self, v: char) -> bool {
-        v == 'i' && "f" == self.read_string(1)
+        v == 'i' && 'f' == self.read()
     }
 
     // else statementチェック.
