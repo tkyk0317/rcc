@@ -591,18 +591,18 @@ impl<'a> AstGen<'a> {
     // 読み取り位置更新.
     fn next_consume(&mut self) -> &'a TokenInfo {
         let token = self.tokens.get(self.current_pos).unwrap();
-        self.current_pos = self.current_pos + 1;
+        self.current_pos += 1;
         token
     }
 
     // 読み取り位置更新.
     fn consume(&mut self) {
-        self.current_pos = self.current_pos + 1;
+        self.current_pos += 1;
     }
 
     // 読み取り位置巻き戻し.
     fn back(&mut self, i: usize) {
-        self.current_pos = self.current_pos - i;
+        self.current_pos -= i;
     }
 
     // 指定されたトークンでない場合、panicメッセージ表示.

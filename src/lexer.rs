@@ -35,10 +35,6 @@ impl<'a> LexicalAnalysis<'a> {
                 Some(v) => {
                     let mut token;
                     match v {
-                        '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                            // 数値が続く部分まで抜き出し、トークン生成.
-                            token = self.generate_number_token(v);
-                        }
                         s if true == s.is_alphabetic() || s == '_' => {
                             if true == self.is_statement_if(s) {
                                 self.skip();
@@ -118,51 +114,22 @@ impl<'a> LexicalAnalysis<'a> {
                                 token = TokenInfo::new(Token::BitOr, v.to_string());
                             }
                         }
-                        '^' => {
-                            token = TokenInfo::new(Token::BitXor, v.to_string());
-                        }
-                        '~' => {
-                            token = TokenInfo::new(Token::BitReverse, v.to_string());
-                        }
-                        '+' => {
-                            token = TokenInfo::new(Token::Plus, v.to_string());
-                        }
-                        '-' => {
-                            token = TokenInfo::new(Token::Minus, v.to_string());
-                        }
-                        '*' => {
-                            token = TokenInfo::new(Token::Multi, v.to_string());
-                        }
-                        '/' => {
-                            token = TokenInfo::new(Token::Division, v.to_string());
-                        }
-                        '%' => {
-                            token = TokenInfo::new(Token::Remainder, v.to_string());
-                        }
-                        '(' => {
-                            token = TokenInfo::new(Token::LeftBracket, v.to_string());
-                        }
-                        ')' => {
-                            token = TokenInfo::new(Token::RightBracket, v.to_string());
-                        }
-                        '{' => {
-                            token = TokenInfo::new(Token::LeftBrace, v.to_string());
-                        }
-                        '}' => {
-                            token = TokenInfo::new(Token::RightBrace, v.to_string());
-                        }
-                        '?' => {
-                            token = TokenInfo::new(Token::Question, v.to_string());
-                        }
-                        ':' => {
-                            token = TokenInfo::new(Token::Colon, v.to_string());
-                        }
-                        ';' => {
-                            token = TokenInfo::new(Token::SemiColon, v.to_string());
-                        }
-                        ',' => {
-                            token = TokenInfo::new(Token::Comma, v.to_string());
-                        }
+                        '^' => token = TokenInfo::new(Token::BitXor, v.to_string()),
+                        '~' => token = TokenInfo::new(Token::BitReverse, v.to_string()),
+                        '+' => token = TokenInfo::new(Token::Plus, v.to_string()),
+                        '-' => token = TokenInfo::new(Token::Minus, v.to_string()),
+                        '*' => token = TokenInfo::new(Token::Multi, v.to_string()),
+                        '/' => token = TokenInfo::new(Token::Division, v.to_string()),
+                        '%' => token = TokenInfo::new(Token::Remainder, v.to_string()),
+                        '(' => token = TokenInfo::new(Token::LeftBracket, v.to_string()),
+                        ')' => token = TokenInfo::new(Token::RightBracket, v.to_string()),
+                        '{' => token = TokenInfo::new(Token::LeftBrace, v.to_string()),
+                        '}' => token = TokenInfo::new(Token::RightBrace, v.to_string()),
+                        '?' => token = TokenInfo::new(Token::Question, v.to_string()),
+                        ':' => token = TokenInfo::new(Token::Colon, v.to_string()),
+                        ';' => token = TokenInfo::new(Token::SemiColon, v.to_string()),
+                        ',' => token = TokenInfo::new(Token::Comma, v.to_string()),
+                        '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => token = self.generate_number_token(v),
                         _ => panic!("Not Support Lexer {}", v),
                     }
                     self.tokens.push(token);
@@ -202,12 +169,12 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 文字をスキップ.
     fn skip(&mut self) {
-        self.pos = self.pos + 1;
+        self.pos += 1;
     }
 
     // 文字読み取り位置を戻す.
     fn back(&mut self, n: usize) {
-        self.pos = self.pos - n;
+        self.pos -= n;
     }
 
     // 文字列終端チェック.

@@ -6,13 +6,15 @@ pub struct Map<T: Clone> {
     values: Vec<T>,
 }
 
+const MAX_COUNT: usize = 1024;
+
 impl<T: Clone> Map<T> {
     // コンストラクタ.
     pub fn new() -> Map<T> {
         Map {
             count: 0,
-            keys: Vec::<String>::with_capacity(1024),
-            values: Vec::<T>::with_capacity(1024),
+            keys: Vec::<String>::with_capacity(MAX_COUNT),
+            values: Vec::<T>::with_capacity(MAX_COUNT),
         }
     }
 
@@ -20,30 +22,29 @@ impl<T: Clone> Map<T> {
     pub fn add(&mut self, k: String, v: T) -> bool {
         // 同じキーがある場合、上書き.
         match self.search(&k) {
-            Some(_) => true,
-            None => {
-                // 存在しない場合は、追加.
-                if self.count >= 1024 {
-                    return false;
-                } else {
-                    self.keys.push(k.clone());
-                    self.values.push(v.clone());
-                    self.count = self.count + 1;
-                    return true;
-                }
-
+            Some(_) => {
+                let i = self.keys.iter().position(|d| &k == d);
+                self.values[i.unwrap()] = v;
+                true
+            },
+            None if self.count >= MAX_COUNT => false,
+            _ => {
+                self.keys.push(k.clone());
+                self.values.push(v.clone());
+                self.count += 1;
+                true
             }
         }
     }
 
     // 検索.
     pub fn search(&self, k: &String) -> Option<T> {
-        for x in 0..self.count {
-            if *k == self.keys[x] {
-                return Some(self.values[x].clone());
-            }
+        if let Some(i) = self.keys.iter().position(|d| k == d) {
+            Some(self.values[i].clone())
         }
-        None
+        else {
+            None
+        }
     }
 }
 

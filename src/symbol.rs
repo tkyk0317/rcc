@@ -32,7 +32,7 @@ impl SymbolTable {
                 val: v,
             },
         );
-        self.count = self.count + 1;
+        self.count += 1;
         res
     }
 
