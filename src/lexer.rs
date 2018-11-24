@@ -217,8 +217,7 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 空白読み飛ばし.
     fn skip_space(&mut self) {
-        while false == self.is_eof() &&
-              true == self.input.chars().nth(self.pos).unwrap().is_whitespace() {
+        while false == self.is_eof() && true == self.read().is_whitespace() {
             self.skip();
         }
     }
@@ -236,13 +235,14 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 変数トークン生成.
     fn generate_variable_token(&mut self, v: char) -> TokenInfo {
+        let is_variable = |s: char| s.is_alphabetic() || s == '_' || s.is_digit(10);
+
         let mut s = String::new();
         s.push(v);
 
-        while false == self.is_eof() &&
-              (true == self.read().is_alphabetic() || '_' == self.read() || true == self.read().is_digit(10))
-        {
-            s.push(self.next().unwrap());
+        while false == self.is_eof() && is_variable(self.read()) {
+            s.push(self.read());
+            self.skip();
         }
         TokenInfo::new(Token::Variable, s)
     }
