@@ -130,8 +130,7 @@ impl<'a> Asm<'a> {
         self.generate_func_start(a);
         self.generate_func_args(b);
         self.generate_statement(c);
-        let label_no = return_label;
-        self.generate_label_inst(label_no);
+        self.generate_label_inst(return_label);
         self.generate_func_end();
     }
 
@@ -372,11 +371,16 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(ref a) => {
-                let pos = self.var_table.search(a).unwrap().pos * 4 + 4;
-                self.generate(b);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+                if let Some(var) = self.var_table.search(a) {
+                    let pos = var.pos * 4 + 4;
+                    self.generate(b);
+                    self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                    self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
+                    self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+                }
+                else {
+                    panic!("asm.rs(generate_assign): error if let some")
+                }
             }
             _ => self.generate(b),
         }
@@ -384,10 +388,15 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, v: &String) {
-        let pos = self.var_table.search(v).unwrap().pos * 4 + 4;
-        self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-    }
+        if let Some(var) = self.var_table.search(v) {
+            let pos = var.pos * 4 + 4;
+            self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
+            self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        }
+        else {
+            panic!("asm.rs(generate_variable): error if let some")
+        }
+   }
 
     // 関数コール生成.
     fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
