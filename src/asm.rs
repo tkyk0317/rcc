@@ -7,9 +7,11 @@ use symbol::SymbolTable;
 #[doc = "アセンブラ生成部"]
 pub struct Asm<'a> {
     inst: String,
-    label_no: u64,
+    label_no: usize,
     var_table: &'a SymbolTable,
     func_table: &'a SymbolTable,
+    continue_labels: Vec<usize>,
+    break_labels: Vec<usize>,
 }
 
 // 関数引数レジスタ.
@@ -23,6 +25,8 @@ impl<'a> Asm<'a> {
             label_no: 0,
             var_table: var_table,
             func_table: func_table,
+            continue_labels: vec![],
+            break_labels: vec![],
         }
     }
 
@@ -45,6 +49,8 @@ impl<'a> Asm<'a> {
             AstType::Do(ref a, ref b) => self.generate_statement_do(a, b),
             AstType::If(ref a, ref b, ref c) => self.generate_statement_if(a, b, c),
             AstType::For(ref a, ref b, ref c, ref d) => self.generate_statement_for(a, b, c, d),
+            AstType::Continue() => self.generate_statement_continue(),
+            AstType::Break() => self.generate_statement_break(),
             AstType::Factor(a) => self.generate_factor(a),
             AstType::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             AstType::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -199,6 +205,10 @@ impl<'a> Asm<'a> {
         let label_end = self.label_no + 1;
         self.label_no = label_end;
 
+        // continue/breakラベル生成.
+        self.continue_labels.push(label_begin);
+        self.break_labels.push(label_end);
+
         // condition部生成.
         self.inst = format!("{}.L{}:\n", self.inst, label_begin);
         self.generate(a);
@@ -214,26 +224,41 @@ impl<'a> Asm<'a> {
 
         // endラベル.
         self.inst = format!("{}.L{}:\n", self.inst, label_end);
+
+        // 生成したcontinue/breakラベルを除去.
+        self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != label_begin).collect();
+        self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != label_end).collect();
     }
 
     // do-while statement生成.
     fn generate_statement_do(&mut self, a: &AstType, b: &AstType) {
         let label_begin = self.label_no + 1;
         self.label_no = label_begin;
+        let label_condition = self.label_no + 1;
+        self.label_no = label_condition;
         let label_end = self.label_no + 1;
         self.label_no = label_end;
+
+        // continue/breakラベル生成.
+        self.continue_labels.push(label_condition);
+        self.break_labels.push(label_end);
 
         // ブロック部生成.
         self.inst = format!("{}.L{}:\n", self.inst, label_begin);
         self.generate(a);
 
         // condition部生成.
+        self.inst = format!("{}.L{}:\n", self.inst, label_condition);
         self.generate(b);
         // conditionが真であれば、ブロック先頭へジャンプ.
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
         self.inst = format!("{}  jne .L{}\n", self.inst, label_begin);
         self.inst = format!("{}.L{}:\n", self.inst, label_end);
+
+        // 生成したcontinue/breakラベルを除去.
+        self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != label_condition).collect();
+        self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != label_end).collect();
     }
 
     // for statement生成.
@@ -241,7 +266,13 @@ impl<'a> Asm<'a> {
         self.label_no = self.label_no + 1;
         let label_begin = self.label_no;
         self.label_no = self.label_no + 1;
+        let label_continue = self.label_no;
+        self.label_no = self.label_no + 1;
         let label_end = self.label_no;
+
+        // continue/breakラベル生成.
+        self.continue_labels.push(label_continue);
+        self.break_labels.push(label_end);
 
         // 初期条件.
         if let Some(init) = a {
@@ -260,6 +291,7 @@ impl<'a> Asm<'a> {
 
         // ブロック部.
         self.generate(d);
+        self.inst = format!("{}.L{}:\n", self.inst, label_continue);
 
         // 変数変化部分生成
         if let Some(end) = c {
@@ -268,7 +300,27 @@ impl<'a> Asm<'a> {
         }
         self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
         self.inst = format!("{}.L{}:\n", self.inst, label_end);
+
+        // 生成したcontinue/breakラベルを除去.
+        self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != label_continue).collect();
+        self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != label_end).collect();
     }
+
+    // continue文生成.
+    fn generate_statement_continue(&mut self) {
+        if self.continue_labels.is_empty() {
+            panic!("asm.rs(generate_statement_continue): invalid continue label")
+        }
+        self.inst = format!("{}  jmp .L{}\n", self.inst, self.continue_labels.pop().unwrap());
+    }
+
+    // break文生成.
+    fn generate_statement_break(&mut self) {
+        if self.break_labels.is_empty() {
+            panic!("asm.rs(generate_statement_break): invalid break label")
+        }
+        self.inst = format!("{}  jmp .L{}\n", self.inst, self.break_labels.pop().unwrap());
+     }
 
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {

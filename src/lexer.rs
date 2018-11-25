@@ -37,24 +37,32 @@ impl<'a> LexicalAnalysis<'a> {
                     match v {
                         s if true == s.is_alphabetic() || s == '_' => {
                             if true == self.is_statement_if(s) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::If, "if".to_string());
                             }
                             else if true == self.is_statement_else(s) {
-                                (0..3).for_each(|_| self.skip());
+                                self.skip(3);
                                 token = TokenInfo::new(Token::Else, "else".to_string());
                             }
                             else if true == self.is_statement_while(s) {
-                                (0..4).for_each(|_| self.skip());
+                                self.skip(4);
                                 token = TokenInfo::new(Token::While, "while".to_string());
                             }
                             else if true == self.is_statement_for(s) {
-                                (0..2).for_each(|_| self.skip());
+                                self.skip(2);
                                 token = TokenInfo::new(Token::For, "for".to_string());
                             }
                             else if true == self.is_statement_do(s) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::Do, "do".to_string());
+                            }
+                            else if true == self.is_statement_continue(s) {
+                                self.skip(7);
+                                token = TokenInfo::new(Token::Continue, "continue".to_string());
+                            }
+                            else if true == self.is_statement_break(s) {
+                                self.skip(4);
+                                token = TokenInfo::new(Token::Break, "break".to_string());
                             }
                             else {
                                 token = self.generate_variable_token(s);
@@ -62,7 +70,7 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '=' => {
                             if true == self.is_equal(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::Equal, "==".to_string());
                             } else {
                                 token = TokenInfo::new(Token::Assign, v.to_string());
@@ -70,7 +78,7 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '!' => {
                             if true == self.is_not_equal(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::NotEqual, "!=".to_string());
                             } else {
                                 token = TokenInfo::new(Token::Not, v.to_string());
@@ -78,10 +86,10 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '>' => {
                             if true == self.is_greater_than_equal(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::GreaterThanEqual, ">=".to_string());
                             } else if true == self.is_right_shift(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::RightShift, ">>".to_string());
                             } else {
                                 token = TokenInfo::new(Token::GreaterThan, v.to_string());
@@ -89,10 +97,10 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '<' => {
                             if true == self.is_less_than_equal(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::LessThanEqual, "<=".to_string());
                             } else if true == self.is_left_shift(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::LeftShift, "<<".to_string());
                             } else {
                                 token = TokenInfo::new(Token::LessThan, v.to_string());
@@ -100,7 +108,7 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '&' => {
                             if true == self.is_logical_and(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::LogicalAnd, "&&".to_string());
                             } else {
                                 token = TokenInfo::new(Token::BitAnd, v.to_string());
@@ -108,7 +116,7 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '|' => {
                             if true == self.is_logical_or(v) {
-                                self.skip();
+                                self.skip(1);
                                 token = TokenInfo::new(Token::LogicalOr, "||".to_string());
                             } else {
                                 token = TokenInfo::new(Token::BitOr, v.to_string());
@@ -166,13 +174,13 @@ impl<'a> LexicalAnalysis<'a> {
     // 文字を読み出して次へ進める.
     fn next(&mut self) -> Option<char> {
         let s = self.input.chars().nth(self.pos);
-        self.skip();
+        self.skip(1);
         s
     }
 
     // 文字をスキップ.
-    fn skip(&mut self) {
-        self.pos += 1;
+    fn skip(&mut self, i: usize) {
+        self.pos += i;
     }
 
     // 文字読み取り位置を戻す.
@@ -188,7 +196,7 @@ impl<'a> LexicalAnalysis<'a> {
     // 空白読み飛ばし.
     fn skip_space(&mut self) {
         while false == self.is_eof() && true == self.read().is_whitespace() {
-            self.skip();
+            self.skip(1);
         }
     }
 
@@ -212,7 +220,7 @@ impl<'a> LexicalAnalysis<'a> {
 
         while false == self.is_eof() && is_variable(self.read()) {
             s.push(self.read());
-            self.skip();
+            self.skip(1);
         }
         TokenInfo::new(Token::Variable, s)
     }
@@ -280,6 +288,16 @@ impl<'a> LexicalAnalysis<'a> {
     // for statementチェック.
     fn is_statement_for(&mut self, v: char) -> bool {
         v == 'f' && "or" == self.read_string(2)
+    }
+
+    // continue statementチェック.
+    fn is_statement_continue(&mut self, v: char) -> bool {
+        v == 'c' && "ontinue" == self.read_string(7)
+    }
+
+    // break statementチェック.
+    fn is_statement_break(&mut self, v: char) -> bool {
+        v == 'b' && "reak" == self.read_string(4)
     }
 }
 

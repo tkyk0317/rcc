@@ -7,6 +7,8 @@ pub enum Token {
     Do, // do-while文.
     While, // while文.
     For, // For文.
+    Continue, // continue文.
+    Break, // break文.
     BitReverse, // ビット反転演算子.
     BitAnd, // ビットAND演算子
     BitOr, // ビットOR演算子

@@ -35,6 +35,8 @@ pub enum AstType {
     Do(Box<AstType>, Box<AstType>), // ブロック部、条件式.
     If(Box<AstType>, Box<AstType>, Box<Option<AstType>>), // 条件式、真ブロック、偽ブロック.
     For(Box<Option<AstType>>, Box<Option<AstType>>, Box<Option<AstType>>, Box<AstType>), // 初期条件、終了条件、更新部、ブロック部.
+    Continue(),
+    Break(),
     Condition(Box<AstType>, Box<AstType>, Box<AstType>),
     LogicalAnd(Box<AstType>, Box<AstType>),
     LogicalOr(Box<AstType>, Box<AstType>),
@@ -72,6 +74,8 @@ impl AstType {
             AstType::If(_, _, _) |
             AstType::For(_, _, _, _) |
             AstType::Do(_, _) |
+            AstType::Continue() |
+            AstType::Break() |
             AstType::While(_, _) => false,
             _ => true,
         }
@@ -228,6 +232,14 @@ impl<'a> AstGen<'a> {
                 stmt.push(self.statement_do());
                 self.sub_statement(&stmt)
             }
+            Token::Continue => {
+                stmt.push(self.statement_continue());
+                self.sub_statement(&stmt)
+            }
+            Token::Break => {
+                stmt.push(self.statement_break());
+                self.sub_statement(&stmt)
+            }
             Token::SemiColon => self.sub_statement(&stmt),
             Token::LeftBrace => self.sub_statement(&stmt),
             Token::RightBrace =>  stmt,
@@ -300,6 +312,18 @@ impl<'a> AstGen<'a> {
         self.must_next(Token::RightBracket, "ast.rs(statement_for): Not Exists RightBracket");
 
         AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
+    }
+
+    // continue statement.
+    fn statement_continue(&mut self) -> AstType {
+        self.must_next(Token::SemiColon, "ast.rs(statement_continue): Not Exists SemiColon");
+        AstType::Continue()
+    }
+
+    // break statement.
+    fn statement_break(&mut self) -> AstType {
+        self.must_next(Token::SemiColon, "ast.rs(statement_break): Not Exists SemiColon");
+        AstType::Break()
     }
 
     // assign.
@@ -3520,6 +3544,122 @@ mod tests {
                                         Box::new(AstType::Variable("b".to_string())),
                                         Box::new(AstType::Factor(10))
                                     )
+                                ],
+                            )),
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable("a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                       )
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_statement_continue_and_break() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Do, "do".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Continue, "continue".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::While, "while".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Do(
+                            Box::new(AstType::Statement(
+                                vec![
+                                    AstType::Factor(1),
+                                    AstType::Assign(
+                                        Box::new(AstType::Variable("b".to_string())),
+                                        Box::new(AstType::Factor(10))
+                                    ),
+                                    AstType::Continue(),
+                                ],
+                            )),
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable("a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                       )
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Do, "do".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "10".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Break, "break".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::While, "while".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Do(
+                            Box::new(AstType::Statement(
+                                vec![
+                                    AstType::Factor(1),
+                                    AstType::Assign(
+                                        Box::new(AstType::Variable("b".to_string())),
+                                        Box::new(AstType::Factor(10))
+                                    ),
+                                    AstType::Break(),
                                 ],
                             )),
                             Box::new(AstType::Equal(
