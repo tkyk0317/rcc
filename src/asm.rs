@@ -4,15 +4,55 @@ use ast::AstTree;
 use config::Config;
 use symbol::SymbolTable;
 
-#[doc = "アセンブラ生成部"]
-pub struct Asm<'a> {
-    inst: String,
+#[doc = "ラベル管理"]
+struct Label {
     label_no: usize,
-    var_table: &'a SymbolTable,
-    func_table: &'a SymbolTable,
     continue_labels: Vec<usize>,
     break_labels: Vec<usize>,
     return_label: usize,
+}
+
+#[doc = "アセンブラ生成部"]
+pub struct Asm<'a> {
+    inst: String,
+    var_table: &'a SymbolTable,
+    func_table: &'a SymbolTable,
+    label: Label,
+}
+
+impl Label {
+    // コンストラクタ.
+    pub fn new() ->Self {
+        Label {
+            label_no: 0, continue_labels: vec![], break_labels: vec![], return_label: 0,
+        }
+    }
+
+    // ラベル番号インクリメント.
+    pub fn next_label(&mut self) -> usize {
+        self.label_no += 1;
+        self.label_no
+    }
+
+    // returnラベル取得.
+    pub fn next_return_label(&mut self) -> usize {
+        self.return_label = self.next_label();
+        self.return_label
+    }
+    pub fn get_return_label(&self) -> usize { self.return_label }
+
+    // continueラベル追加.
+    pub fn push_continue(&mut self, no: usize) { self.continue_labels.push(no); }
+    // continueラベルpop.
+    pub fn pop_continue(&mut self) -> Option<usize> { self.continue_labels.pop() }
+    // continueラベル削除.
+    pub fn remove_continue(&mut self, no: usize) { self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != no).collect(); }
+    // breakラベル追加.
+    pub fn push_break(&mut self, no: usize) { self.break_labels.push(no); }
+    // breakラベルpop.
+    pub fn pop_break(&mut self) -> Option<usize> { self.break_labels.pop() }
+    // breakラベル削除.
+    pub fn remove_break(&mut self, no: usize) { self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != no).collect(); }
 }
 
 // 関数引数レジスタ.
@@ -23,12 +63,9 @@ impl<'a> Asm<'a> {
     pub fn new(var_table: &'a SymbolTable, func_table: &'a SymbolTable) -> Asm<'a> {
         Asm {
             inst: "".to_string(),
-            label_no: 0,
             var_table: var_table,
             func_table: func_table,
-            continue_labels: vec![],
-            break_labels: vec![],
-            return_label: 0,
+            label: Label::new(),
         }
     }
 
@@ -88,13 +125,12 @@ impl<'a> Asm<'a> {
     // 関数定義.
     fn generate_funcdef(&mut self, a: &String, b: &AstType, c: &AstType) {
         // return文のラベルを生成.
-        self.return_label = self.label_no;
-        self.label_no += 1;
+        let return_label = self.label.next_return_label();
 
         self.generate_func_start(a);
         self.generate_func_args(b);
         self.generate_statement(c);
-        let label_no = self.return_label;
+        let label_no = return_label;
         self.generate_label_inst(label_no);
         self.generate_func_end();
     }
@@ -169,8 +205,7 @@ impl<'a> Asm<'a> {
 
     // if statement生成.
     fn generate_statement_if(&mut self, a: &AstType, b: &AstType, c: &Option<AstType>) {
-        self.label_no = self.label_no + 1;
-        let label_end = self.label_no;
+        let label_end = self.label.next_label();
 
         // 条件式部分生成.
         self.generate(a);
@@ -180,43 +215,40 @@ impl<'a> Asm<'a> {
 
         // elseブロック生成.
         if let Some(e) = c {
-            self.label_no = self.label_no + 1;
-            let label_else = self.label_no;
+            let label_else = self.label.next_label();
 
             // elseブロック生成.
             // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
             self.generate(e);
-            self.inst = format!("{}  jmp .L{}\n", self.inst, label_else);
+            self.generate_jmp_inst(label_else);
 
             // ifブロック部生成.
             // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-            self.inst = format!("{}.L{}:\n", self.inst, label_end);
+            self.generate_label_inst(label_end);
             self.generate(b);
 
             // 終端ラベル.
-            self.inst = format!("{}.L{}:\n", self.inst, label_else);
+            self.generate_label_inst(label_else);
         }
         else {
             // ifブロック部生成.
             // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-            self.inst = format!("{}.L{}:\n", self.inst, label_end);
+            self.generate_label_inst(label_end);
             self.generate(b);
         }
     }
 
     // while statement生成.
     fn generate_statement_while(&mut self, a: &AstType, b: &AstType) {
-        let label_begin = self.label_no + 1;
-        self.label_no = label_begin;
-        let label_end = self.label_no + 1;
-        self.label_no = label_end;
+        let label_begin = self.label.next_label();
+        let label_end = self.label.next_label();
 
         // continue/breakラベル生成.
-        self.continue_labels.push(label_begin);
-        self.break_labels.push(label_end);
+        self.label.push_continue(label_begin);
+        self.label.push_break(label_end);
 
         // condition部生成.
-        self.inst = format!("{}.L{}:\n", self.inst, label_begin);
+        self.generate_label_inst(label_begin);
         self.generate(a);
         // conditionが偽であれば、ブロック終端へジャンプ.
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
@@ -226,66 +258,60 @@ impl<'a> Asm<'a> {
         // ブロック部生成.
         // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
         self.generate(b);
-        self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
+        self.generate_jmp_inst(label_begin);
 
         // endラベル.
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate_label_inst(label_end);
 
         // 生成したcontinue/breakラベルを除去.
-        self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != label_begin).collect();
-        self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != label_end).collect();
+        self.label.remove_continue(label_begin);
+        self.label.remove_break(label_end);
     }
 
     // do-while statement生成.
     fn generate_statement_do(&mut self, a: &AstType, b: &AstType) {
-        let label_begin = self.label_no + 1;
-        self.label_no = label_begin;
-        let label_condition = self.label_no + 1;
-        self.label_no = label_condition;
-        let label_end = self.label_no + 1;
-        self.label_no = label_end;
+        let label_begin = self.label.next_label();
+        let label_condition = self.label.next_label();
+        let label_end = self.label.next_label();
 
         // continue/breakラベル生成.
-        self.continue_labels.push(label_condition);
-        self.break_labels.push(label_end);
+        self.label.push_continue(label_condition);
+        self.label.push_break(label_end);
 
         // ブロック部生成.
-        self.inst = format!("{}.L{}:\n", self.inst, label_begin);
+        self.generate_label_inst(label_begin);
         self.generate(a);
 
         // condition部生成.
-        self.inst = format!("{}.L{}:\n", self.inst, label_condition);
+        self.generate_label_inst(label_condition);
         self.generate(b);
         // conditionが真であれば、ブロック先頭へジャンプ.
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
         self.inst = format!("{}  jne .L{}\n", self.inst, label_begin);
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate_label_inst(label_end);
 
         // 生成したcontinue/breakラベルを除去.
-        self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != label_condition).collect();
-        self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != label_end).collect();
+        self.label.remove_continue(label_condition);
+        self.label.remove_break(label_end);
     }
 
     // for statement生成.
     fn generate_statement_for(&mut self, a: &Option<AstType>, b: &Option<AstType>, c: &Option<AstType>, d: &AstType) {
-        self.label_no = self.label_no + 1;
-        let label_begin = self.label_no;
-        self.label_no = self.label_no + 1;
-        let label_continue = self.label_no;
-        self.label_no = self.label_no + 1;
-        let label_end = self.label_no;
+        let label_begin = self.label.next_label();
+        let label_continue = self.label.next_label();
+        let label_end = self.label.next_label();
 
         // continue/breakラベル生成.
-        self.continue_labels.push(label_continue);
-        self.break_labels.push(label_end);
+        self.label.push_continue(label_continue);
+        self.label.push_break(label_end);
 
         // 初期条件.
         if let Some(init) = a {
             self.generate(init);
             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         }
-        self.inst = format!("{}.L{}:\n", self.inst, label_begin);
+        self.generate_label_inst(label_begin);
 
         // 終了条件.
         if let Some(cond) = b {
@@ -297,35 +323,39 @@ impl<'a> Asm<'a> {
 
         // ブロック部.
         self.generate(d);
-        self.inst = format!("{}.L{}:\n", self.inst, label_continue);
+        self.generate_label_inst(label_continue);
 
         // 変数変化部分生成
         if let Some(end) = c {
             self.generate(end);
             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         }
-        self.inst = format!("{}  jmp .L{}\n", self.inst, label_begin);
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate_jmp_inst(label_begin);
+        self.generate_label_inst(label_end);
 
         // 生成したcontinue/breakラベルを除去.
-        self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != label_continue).collect();
-        self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != label_end).collect();
+        self.label.remove_continue(label_continue);
+        self.label.remove_break(label_end);
     }
 
     // continue文生成.
     fn generate_statement_continue(&mut self) {
-        if self.continue_labels.is_empty() {
+        if let Some(no) = self.label.pop_continue() {
+            self.generate_jmp_inst(no);
+        }
+        else {
             panic!("asm.rs(generate_statement_continue): invalid continue label")
         }
-        self.inst = format!("{}  jmp .L{}\n", self.inst, self.continue_labels.pop().unwrap());
     }
 
     // break文生成.
     fn generate_statement_break(&mut self) {
-        if self.break_labels.is_empty() {
+        if let Some(no) = self.label.pop_break() {
+            self.generate_jmp_inst(no);
+        }
+        else {
             panic!("asm.rs(generate_statement_break): invalid break label")
         }
-        self.inst = format!("{}  jmp .L{}\n", self.inst, self.break_labels.pop().unwrap());
     }
 
     // return statement.
@@ -334,7 +364,7 @@ impl<'a> Asm<'a> {
         if a.is_expr() {
             self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
         }
-        let label_no = self.return_label;
+        let label_no = self.label.get_return_label();
         self.generate_jmp_inst(label_no);
     }
 
@@ -426,10 +456,8 @@ impl<'a> Asm<'a> {
 
     // 三項演算子生成.
     fn generate_condition(&mut self, a: &AstType, b: &AstType, c: &AstType) {
-        let label_false = self.label_no;
-        self.label_no = self.label_no + 1;
-        let label_end = self.label_no;
-        self.label_no = self.label_no + 1;
+        let label_false = self.label.next_label();
+        let label_end = self.label.next_label();
 
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
@@ -437,19 +465,17 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  je .L{}\n", self.inst, label_false);
 
         self.generate(b);
-        self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
-        self.inst = format!("{}.L{}:\n", self.inst, label_false);
+        self.generate_jmp_inst(label_end);
+        self.generate_label_inst(label_false);
 
         self.generate(c);
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate_label_inst(label_end);
     }
 
     // &&演算子生成.
     fn generate_logical_and(&mut self, a: &AstType, b: &AstType) {
-        let label_false = self.label_no;
-        self.label_no = self.label_no + 1;
-        let label_end = self.label_no;
-        self.label_no = self.label_no + 1;
+        let label_false = self.label.next_label();
+        let label_end = self.label.next_label();
 
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
@@ -459,19 +485,17 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, label_false);
 
         self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
-        self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
-        self.inst = format!("{}.L{}:\n", self.inst, label_false);
+        self.generate_jmp_inst(label_end);
+        self.generate_label_inst(label_false);
         self.inst = format!("{}  movl $0, %eax\n", self.inst);
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate_label_inst(label_end);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
 
     // ||演算子生成.
     fn generate_logical_or(&mut self, a: &AstType, b: &AstType) {
-        let label_true = self.label_no;
-        self.label_no = self.label_no + 1;
-        let label_end = self.label_no;
-        self.label_no = self.label_no + 1;
+        let label_true = self.label.next_label();
+        let label_end = self.label.next_label();
 
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
@@ -481,10 +505,10 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, label_true);
 
         self.inst = format!("{}{}", self.inst, "  movl $0, %eax\n");
-        self.inst = format!("{}  jmp .L{}\n", self.inst, label_end);
-        self.inst = format!("{}.L{}:\n", self.inst, label_true);
+        self.generate_jmp_inst(label_end);
+        self.generate_label_inst(label_true);
         self.inst = format!("{}  movl $1, %eax\n", self.inst);
-        self.inst = format!("{}.L{}:\n", self.inst, label_end);
+        self.generate_label_inst(label_end);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
 

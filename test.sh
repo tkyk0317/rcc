@@ -188,11 +188,11 @@ test "main() { 5>>1; return 1 != 2; }" 1 98
 test "main() { x = 4; x = x * x + 1; x = x + 3; return x; }" 20 99
 test "main() { x = 2 * 3 * 4; return x; }" 24 100
 test "main() { x = x = x = 3; return x; }" 3 101
-test "test() { 1; } main() { return test(); }" 1 102
-test "test() { a = 1;  a + 19;} main() { return test(); }" 20 103
-test "test() { a = 1; } main() { test(); return 10; }" 10 104
-test "test(a) { a + 1; } main() { return test(1); }" 2 105
-test "test(a) { a = a * 2; a + 10; } main() { b = 10; return test(b); }" 30 106
+test "test() { return 1; } main() { return test(); }" 1 102
+test "test() { a = 1; return a + 19;} main() { return test(); }" 20 103
+test "test() { return 1; } main() { test(); return 10; }" 10 104
+test "test(a) { return a + 1; } main() { return test(1); }" 2 105
+test "test(a) { a = a * 2; return a + 10; } main() { b = 10; return test(b); }" 30 106
 test "main() { a = 0; if (10 == 10) { a = 2; a = a * 9; } return a; }" 18 107
 test "main() { if (10 != 10) { a = 2; a * 9; } return 2; }" 2 108
 test "main() { if (2 == 10) { a = 2; a * 9; } return 11; }" 11 109
@@ -204,7 +204,7 @@ test "main() { a = 0; while (a <= 2) { a = a + 1; } return a; }" 3 114
 test "main() { a = 8; b = 1; a = a + b; return a; }" 9 115
 test "main() { for (i = 0 ; i < 2 ; i = i + 1) {;} return 11; }" 11 116
 test "main() { a = 0; for (i = 0 ; i < 10 ; i = i + 1) { a = a + 1;} return a; }" 10 117
-test "test(a, b) { a + b; } main() { test(1, 4); }" 5 118
+test "test(a, b) { return a + b; } main() { return test(1, 4); }" 5 118
 test "main() { a = 0; do { a = a + 1; } while (a <= 2); return a; }" 3 119
 test "main() { i = 0; while (1) { i = i + 1; if (i < 100) { continue; } else { break; } } return i; }" 100 121
 test "main() { i = 0; do { i = i + 1; if (i < 100) { continue; } else { break; } } while(1); return i; }" 100 122
