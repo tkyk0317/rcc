@@ -12,6 +12,7 @@ pub struct Asm<'a> {
     func_table: &'a SymbolTable,
     continue_labels: Vec<usize>,
     break_labels: Vec<usize>,
+    return_label: usize,
 }
 
 // 関数引数レジスタ.
@@ -27,6 +28,7 @@ impl<'a> Asm<'a> {
             func_table: func_table,
             continue_labels: vec![],
             break_labels: vec![],
+            return_label: 0,
         }
     }
 
@@ -51,6 +53,7 @@ impl<'a> Asm<'a> {
             AstType::For(ref a, ref b, ref c, ref d) => self.generate_statement_for(a, b, c, d),
             AstType::Continue() => self.generate_statement_continue(),
             AstType::Break() => self.generate_statement_break(),
+            AstType::Return(ref a) => self.generate_statement_return(a),
             AstType::Factor(a) => self.generate_factor(a),
             AstType::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             AstType::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -84,25 +87,28 @@ impl<'a> Asm<'a> {
 
     // 関数定義.
     fn generate_funcdef(&mut self, a: &String, b: &AstType, c: &AstType) {
+        // return文のラベルを生成.
+        self.return_label = self.label_no;
+        self.label_no += 1;
+
         self.generate_func_start(a);
         self.generate_func_args(b);
         self.generate_statement(c);
+        let label_no = self.return_label;
+        self.generate_label_inst(label_no);
         self.generate_func_end();
     }
 
     // statement生成.
     fn generate_statement(&mut self, a: &AstType) {
-        // アセンブリ生成.
-        let mut gen = move |ast| {
-            self.generate(ast);
-            if ast.is_expr() {
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-            }
-        };
-
         // 各AstTypeを処理.
         match *a {
-            AstType::Statement(ref s) => s.iter().for_each(|ast| gen(ast)),
+            AstType::Statement(ref s) => s.iter().for_each(|ast| {
+                self.generate(ast);
+                if ast.is_expr() {
+                    self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                }
+            }),
             _ => panic!("asm.rs(generate_statement): not support expr"),
         }
     }
@@ -320,7 +326,17 @@ impl<'a> Asm<'a> {
             panic!("asm.rs(generate_statement_break): invalid break label")
         }
         self.inst = format!("{}  jmp .L{}\n", self.inst, self.break_labels.pop().unwrap());
-     }
+    }
+
+    // return statement.
+    fn generate_statement_return(&mut self, a: &AstType) {
+        self.generate(a);
+        if a.is_expr() {
+            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        }
+        let label_no = self.return_label;
+        self.generate_jmp_inst(label_no);
+    }
 
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
@@ -531,5 +547,15 @@ impl<'a> Asm<'a> {
             AstType::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             _ => process::abort(),
         }
+    }
+
+    // ラベル命令.
+    fn generate_label_inst(&mut self, no: usize) {
+        self.inst = format!("{}.L{}:\n", self.inst, no);
+    }
+
+    // jmp命令生成.
+    fn generate_jmp_inst(&mut self, no: usize) {
+        self.inst = format!("{}  jmp .L{}\n", self.inst, no);
     }
 }

@@ -64,6 +64,10 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.skip(4);
                                 token = TokenInfo::new(Token::Break, "break".to_string());
                             }
+                            else if true == self.is_statement_return(s) {
+                                self.skip(5);
+                                token = TokenInfo::new(Token::Return, "return".to_string());
+                            }
                             else {
                                 token = self.generate_variable_token(s);
                             }
@@ -298,6 +302,11 @@ impl<'a> LexicalAnalysis<'a> {
     // break statementチェック.
     fn is_statement_break(&mut self, v: char) -> bool {
         v == 'b' && "reak" == self.read_string(4)
+    }
+
+    // return statementチェック.
+    fn is_statement_return(&mut self, v: char) -> bool {
+        v == 'r' && "eturn" == self.read_string(5)
     }
 }
 

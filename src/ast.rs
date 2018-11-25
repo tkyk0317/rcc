@@ -37,6 +37,7 @@ pub enum AstType {
     For(Box<Option<AstType>>, Box<Option<AstType>>, Box<Option<AstType>>, Box<AstType>), // 初期条件、終了条件、更新部、ブロック部.
     Continue(),
     Break(),
+    Return(Box<AstType>),
     Condition(Box<AstType>, Box<AstType>, Box<AstType>),
     LogicalAnd(Box<AstType>, Box<AstType>),
     LogicalOr(Box<AstType>, Box<AstType>),
@@ -240,6 +241,10 @@ impl<'a> AstGen<'a> {
                 stmt.push(self.statement_break());
                 self.sub_statement(&stmt)
             }
+            Token::Return => {
+                stmt.push(self.statement_return());
+                self.sub_statement(&stmt)
+            }
             Token::SemiColon => self.sub_statement(&stmt),
             Token::LeftBrace => self.sub_statement(&stmt),
             Token::RightBrace =>  stmt,
@@ -324,6 +329,13 @@ impl<'a> AstGen<'a> {
     fn statement_break(&mut self) -> AstType {
         self.must_next(Token::SemiColon, "ast.rs(statement_break): Not Exists SemiColon");
         AstType::Break()
+    }
+
+    // return statement.
+    fn statement_return(&mut self) -> AstType {
+        let expr = self.assign();
+        self.must_next(Token::SemiColon, "ast.rs(statement_return): Not Exists SemiColon");
+        AstType::Return(Box::new(expr))
     }
 
     // assign.
@@ -3667,6 +3679,71 @@ mod tests {
                                 Box::new(AstType::Factor(3))
                             )),
                        )
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_statement_return() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Return, "return".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "2".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Return(
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2))
+                            ))
+                        )]
+                    ))
+                )
+            );
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Return, "return".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Return(Box::new(AstType::Variable("a".to_string())))
                     ]))
                 )
             );

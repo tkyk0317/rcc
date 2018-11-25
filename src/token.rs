@@ -9,6 +9,7 @@ pub enum Token {
     For, // For文.
     Continue, // continue文.
     Break, // break文.
+    Return, // return文.
     BitReverse, // ビット反転演算子.
     BitAnd, // ビットAND演算子
     BitOr, // ビットOR演算子
