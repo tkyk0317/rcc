@@ -213,27 +213,29 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}  je .L{}\n", self.inst, label_end);
 
         // elseブロック生成.
-        if let Some(e) = c {
-            let label_else = self.label.next_label();
+        match c {
+            Some(e) => {
+                let label_else = self.label.next_label();
 
-            // elseブロック生成.
-            // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-            self.generate(e);
-            self.generate_jmp_inst(label_else);
+                // elseブロック生成.
+                // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
+                self.generate(e);
+                self.generate_jmp_inst(label_else);
 
-            // ifブロック部生成.
-            // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-            self.generate_label_inst(label_end);
-            self.generate(b);
+                // ifブロック部生成.
+                // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
+                self.generate_label_inst(label_end);
+                self.generate(b);
 
-            // 終端ラベル.
-            self.generate_label_inst(label_else);
-        }
-        else {
-            // ifブロック部生成.
-            // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-            self.generate_label_inst(label_end);
-            self.generate(b);
+                // 終端ラベル.
+                self.generate_label_inst(label_else);
+            }
+            _ => {
+                // ifブロック部生成.
+                // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
+                self.generate_label_inst(label_end);
+                self.generate(b);
+            }
         }
     }
 
@@ -339,22 +341,14 @@ impl<'a> Asm<'a> {
 
     // continue文生成.
     fn generate_statement_continue(&mut self) {
-        if let Some(no) = self.label.pop_continue() {
-            self.generate_jmp_inst(no);
-        }
-        else {
-            panic!("asm.rs(generate_statement_continue): invalid continue label")
-        }
+        let no = self.label.pop_continue().expect("asm.rs(generate_statement_continue): invalid continue label");
+        self.generate_jmp_inst(no);
     }
 
     // break文生成.
     fn generate_statement_break(&mut self) {
-        if let Some(no) = self.label.pop_break() {
-            self.generate_jmp_inst(no);
-        }
-        else {
-            panic!("asm.rs(generate_statement_break): invalid break label")
-        }
+        let no = self.label.pop_break().expect("asm.rs(generate_statement_break): invalid continue label");
+        self.generate_jmp_inst(no);
     }
 
     // return statement.
@@ -371,16 +365,11 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(ref a) => {
-                if let Some(var) = self.var_table.search(a) {
-                    let pos = var.pos * 4 + 4;
-                    self.generate(b);
-                    self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-                    self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
-                    self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-                }
-                else {
-                    panic!("asm.rs(generate_assign): error if let some")
-                }
+                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").pos * 4 + 4;
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
+                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
             }
             _ => self.generate(b),
         }
@@ -388,15 +377,10 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, v: &String) {
-        if let Some(var) = self.var_table.search(v) {
-            let pos = var.pos * 4 + 4;
-            self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
-            self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
-        }
-        else {
-            panic!("asm.rs(generate_variable): error if let some")
-        }
-   }
+        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").pos * 4 + 4;
+        self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
+        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+    }
 
     // 関数コール生成.
     fn generate_call_func(&mut self, a: &AstType, b: &AstType) {

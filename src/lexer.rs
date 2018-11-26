@@ -156,7 +156,7 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 文字を読み出す.
     fn read(&self) -> char {
-        self.input.chars().nth(self.pos).unwrap()
+        self.input.chars().nth(self.pos).expect("lexer.rs(read): cannot read next char")
     }
 
     // 文字列を取得.
@@ -210,7 +210,7 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() && true == self.read().is_digit(10) {
-            s.push(self.next().unwrap());
+            s.push(self.next().expect("lexer.rs(generate_number_token): cannot read next char"));
         }
         TokenInfo::new(Token::Number, s)
     }

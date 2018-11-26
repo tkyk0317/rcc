@@ -616,17 +616,17 @@ impl<'a> AstGen<'a> {
 
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
-        AstType::Factor(token.get_token_value().parse::<i64>().unwrap())
+        AstType::Factor(token.get_token_value().parse::<i64>().expect("ast.rs(number): cannot convert i64"))
     }
 
     // トークン読み取り.
     fn next(&mut self) -> &'a TokenInfo {
-        self.tokens.get(self.current_pos).unwrap()
+        self.tokens.get(self.current_pos).expect("ast.rs(next): cannot read next value")
     }
 
     // 読み取り位置更新.
     fn next_consume(&mut self) -> &'a TokenInfo {
-        let token = self.tokens.get(self.current_pos).unwrap();
+        let token = self.tokens.get(self.current_pos).expect("ast.rs(next_consume): cannot read next value");
         self.current_pos += 1;
         token
     }

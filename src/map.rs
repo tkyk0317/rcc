@@ -24,7 +24,7 @@ impl<T: Clone> Map<T> {
         match self.search(&k) {
             Some(_) => {
                 let i = self.keys.iter().position(|d| &k == d);
-                self.values[i.unwrap()] = v;
+                self.values[i.expect("map.rs(add): cannot read position")] = v;
                 true
             },
             None if self.count >= MAX_COUNT => false,
