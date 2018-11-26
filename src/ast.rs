@@ -241,22 +241,20 @@ impl<'a> AstGen<'a> {
                 stmt.push(self.statement_break());
                 self.sub_statement(&stmt)
             }
-            Token::Return => {
-                stmt.push(self.statement_return());
-                self.sub_statement(&stmt)
-            }
-            Token::SemiColon => self.sub_statement(&stmt),
             Token::LeftBrace => self.sub_statement(&stmt),
+            Token::SemiColon => self.sub_statement(&stmt),
             Token::RightBrace =>  stmt,
             _ => {
                 self.back(1);
-                stmt.push(self.assign());
+                stmt.push(self.expression());
                 self.sub_statement(&stmt)
             }
         }
     }
 
     // if statement.
+    //
+    // ブロック部が一行の場合、asm部が期待しているAstType::Statementでexpression結果を包む
     fn statement_if(&mut self) -> AstType {
         self.must_next(Token::LeftBracket, "ast.rs(statement_if): Not Exists LeftBracket");
 
@@ -265,12 +263,13 @@ impl<'a> AstGen<'a> {
         self.must_next(Token::RightBracket, "ast.rs(statement_if): Not Exists RightBracket");
 
         // ifブロック内を解析.
-        let stmt = self.statement();
+        let stmt = if Token::LeftBrace == self.next().get_token_type() { self.statement() } else { AstType::Statement(vec![self.expression()]) };
 
         // else部分解析.
         if Token::Else == self.next().get_token_type() {
             self.consume();
-            AstType::If(Box::new(condition), Box::new(stmt), Box::new(Some(self.statement())))
+            let else_stmt = if Token::LeftBrace == self.next().get_token_type() { self.statement() } else { AstType::Statement(vec![self.expression()]) };
+            AstType::If(Box::new(condition), Box::new(stmt), Box::new(Some(else_stmt)))
         }
         else {
             AstType::If(Box::new(condition), Box::new(stmt), Box::new(None))
@@ -321,21 +320,31 @@ impl<'a> AstGen<'a> {
 
     // continue statement.
     fn statement_continue(&mut self) -> AstType {
-        self.must_next(Token::SemiColon, "ast.rs(statement_continue): Not Exists SemiColon");
         AstType::Continue()
     }
 
     // break statement.
     fn statement_break(&mut self) -> AstType {
-        self.must_next(Token::SemiColon, "ast.rs(statement_break): Not Exists SemiColon");
         AstType::Break()
     }
 
     // return statement.
     fn statement_return(&mut self) -> AstType {
         let expr = self.assign();
-        self.must_next(Token::SemiColon, "ast.rs(statement_return): Not Exists SemiColon");
         AstType::Return(Box::new(expr))
+    }
+
+    // expression.
+    fn expression(&mut self) -> AstType {
+        let expr = match self.next().get_token_type() {
+            Token::Return => {
+                self.consume();
+                self.statement_return()
+            }
+            _ => self.assign()
+        };
+        self.must_next(Token::SemiColon, "ast.rs(expression): Not Exists SemiColon");
+        expr
     }
 
     // assign.
@@ -3261,6 +3270,61 @@ mod tests {
                                     ],
                                 ))
                             ),
+                        ),
+                    ]))
+                )
+            );
+        }
+        {
+            println!("test");
+            let data = vec![
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::If, "if".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Equal, "==".to_string()),
+                TokenInfo::new(Token::Number, "3".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Else, "else".to_string()),
+                TokenInfo::new(Token::Variable, "e".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Number, "9".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::If(
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable("a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                            Box::new(AstType::Statement(
+                                vec![ AstType::Factor(1) ]
+                            )),
+                            Box::new(
+                                Some(AstType::Statement(
+                                    vec![
+                                        AstType::Assign(
+                                            Box::new(AstType::Variable("e".to_string())),
+                                            Box::new(AstType::Factor(9)))
+                                    ]
+                                ))
+                            )
                         ),
                     ]))
                 )
