@@ -1,6 +1,6 @@
-use token::TokenInfo;
-use token::Token;
 use symbol::SymbolTable;
+use token::Token;
+use token::TokenInfo;
 
 // 文法.
 //   <FuncDef> ::= VARIABLE '()' <FuncBody>
@@ -32,9 +32,14 @@ pub enum AstType {
     FuncDef(String, Box<AstType>, Box<AstType>),
     Statement(Vec<AstType>),
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
-    Do(Box<AstType>, Box<AstType>), // ブロック部、条件式.
+    Do(Box<AstType>, Box<AstType>),    // ブロック部、条件式.
     If(Box<AstType>, Box<AstType>, Box<Option<AstType>>), // 条件式、真ブロック、偽ブロック.
-    For(Box<Option<AstType>>, Box<Option<AstType>>, Box<Option<AstType>>, Box<AstType>), // 初期条件、終了条件、更新部、ブロック部.
+    For(
+        Box<Option<AstType>>,
+        Box<Option<AstType>>,
+        Box<Option<AstType>>,
+        Box<AstType>,
+    ), // 初期条件、終了条件、更新部、ブロック部.
     Continue(),
     Break(),
     Return(Box<AstType>),
@@ -72,12 +77,12 @@ impl AstType {
     // 式判定.
     pub fn is_expr(&self) -> bool {
         match self {
-            AstType::If(_, _, _) |
-            AstType::For(_, _, _, _) |
-            AstType::Do(_, _) |
-            AstType::Continue() |
-            AstType::Break() |
-            AstType::While(_, _) => false,
+            AstType::If(_, _, _)
+            | AstType::For(_, _, _, _)
+            | AstType::Do(_, _)
+            | AstType::Continue()
+            | AstType::Break()
+            | AstType::While(_, _) => false,
             _ => true,
         }
     }
@@ -86,9 +91,9 @@ impl AstType {
 #[derive(Debug)]
 pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
-    current_pos: usize, // 現在読み取り位置.
-    var_table: SymbolTable, // シンボルテーブル.
-    func_table: SymbolTable, // 関数シンボルテーブル.
+    current_pos: usize,         // 現在読み取り位置.
+    var_table: SymbolTable,     // シンボルテーブル.
+    func_table: SymbolTable,    // 関数シンボルテーブル.
 }
 
 pub struct AstTree {
@@ -148,14 +153,15 @@ impl<'a> AstGen<'a> {
             Token::Variable => {
                 // 既に同じシンボルが登録されていればエラー.
                 if None != self.func_table.search(&token.get_token_value()) {
-                    panic!("ast.rs(func_def): already define {}", token.get_token_value());
+                    panic!(
+                        "ast.rs(func_def): already define {}",
+                        token.get_token_value()
+                    );
                 }
 
                 // 関数シンボルを登録.
-                self.func_table.push(
-                    token.get_token_value(),
-                    token.get_token_value().to_string(),
-                );
+                self.func_table
+                    .push(token.get_token_value(), token.get_token_value().to_string());
                 AstType::FuncDef(
                     token.get_token_value(),
                     Box::new(self.func_args()),
@@ -176,7 +182,10 @@ impl<'a> AstGen<'a> {
                 let args = AstType::Argment(self.recur_func_args(tmp));
 
                 // 閉じ括弧.
-                self.must_next(Token::RightBracket, "ast.rs(func_arg): Not Exists RightBracket");
+                self.must_next(
+                    Token::RightBracket,
+                    "ast.rs(func_arg): Not Exists RightBracket",
+                );
                 args
             }
             _ => panic!("ast.rs(func_arg): Not Exists LeftBracket {:?}", token),
@@ -243,7 +252,7 @@ impl<'a> AstGen<'a> {
             }
             Token::LeftBrace => self.sub_statement(&stmt),
             Token::SemiColon => self.sub_statement(&stmt),
-            Token::RightBrace =>  stmt,
+            Token::RightBrace => stmt,
             _ => {
                 self.back(1);
                 stmt.push(self.expression());
@@ -256,33 +265,56 @@ impl<'a> AstGen<'a> {
     //
     // ブロック部が一行の場合、asm部が期待しているAstType::Statementでexpression結果を包む
     fn statement_if(&mut self) -> AstType {
-        self.must_next(Token::LeftBracket, "ast.rs(statement_if): Not Exists LeftBracket");
+        self.must_next(
+            Token::LeftBracket,
+            "ast.rs(statement_if): Not Exists LeftBracket",
+        );
 
         // 条件式を解析.
         let condition = self.assign();
-        self.must_next(Token::RightBracket, "ast.rs(statement_if): Not Exists RightBracket");
+        self.must_next(
+            Token::RightBracket,
+            "ast.rs(statement_if): Not Exists RightBracket",
+        );
 
         // ifブロック内を解析.
-        let stmt = if Token::LeftBrace == self.next().get_token_type() { self.statement() } else { AstType::Statement(vec![self.expression()]) };
+        let stmt = if Token::LeftBrace == self.next().get_token_type() {
+            self.statement()
+        } else {
+            AstType::Statement(vec![self.expression()])
+        };
 
         // else部分解析.
         if Token::Else == self.next().get_token_type() {
             self.consume();
-            let else_stmt = if Token::LeftBrace == self.next().get_token_type() { self.statement() } else { AstType::Statement(vec![self.expression()]) };
-            AstType::If(Box::new(condition), Box::new(stmt), Box::new(Some(else_stmt)))
-        }
-        else {
+            let else_stmt = if Token::LeftBrace == self.next().get_token_type() {
+                self.statement()
+            } else {
+                AstType::Statement(vec![self.expression()])
+            };
+            AstType::If(
+                Box::new(condition),
+                Box::new(stmt),
+                Box::new(Some(else_stmt)),
+            )
+        } else {
             AstType::If(Box::new(condition), Box::new(stmt), Box::new(None))
         }
     }
 
     // while statement.
     fn statement_while(&mut self) -> AstType {
-        self.must_next(Token::LeftBracket, "ast.rs(statement_while): Not Exists LeftBracket");
+        self.must_next(
+            Token::LeftBracket,
+            "ast.rs(statement_while): Not Exists LeftBracket",
+        );
 
         // 条件式を解析.
         let condition = self.assign();
-        self.must_next(Token::RightBracket, "ast.rs(statement_while): Not Exists RightBracket");
+        self.must_next(
+            Token::RightBracket,
+            "ast.rs(statement_while): Not Exists RightBracket",
+        );
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
     }
@@ -294,28 +326,63 @@ impl<'a> AstGen<'a> {
         self.must_next(Token::While, "ast.rs(statement_do): Not Exists while token");
 
         // 条件式を解析.
-        self.must_next(Token::LeftBracket, "ast.rs(statement_do): Not Exists LeftBracket");
+        self.must_next(
+            Token::LeftBracket,
+            "ast.rs(statement_do): Not Exists LeftBracket",
+        );
         let condition = self.assign();
-        self.must_next(Token::RightBracket, "ast.rs(statement_while): Not Exists RightBracket");
+        self.must_next(
+            Token::RightBracket,
+            "ast.rs(statement_while): Not Exists RightBracket",
+        );
 
         AstType::Do(Box::new(stmt), Box::new(condition))
     }
 
     // for statement.
     fn statement_for(&mut self) -> AstType {
-        self.must_next(Token::LeftBracket, "ast.rs(statement_for): Not Exists LeftBracket");
+        self.must_next(
+            Token::LeftBracket,
+            "ast.rs(statement_for): Not Exists LeftBracket",
+        );
 
         // 各種条件を解析.
-        let begin = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
-        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
+        let begin = if Token::SemiColon == self.next().get_token_type() {
+            None
+        } else {
+            Some(self.assign())
+        };
+        self.must_next(
+            Token::SemiColon,
+            "ast.rs(statement_for): Not Exists Semicolon",
+        );
 
-        let condition = if Token::SemiColon == self.next().get_token_type() { None } else { Some(self.assign()) };
-        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
+        let condition = if Token::SemiColon == self.next().get_token_type() {
+            None
+        } else {
+            Some(self.assign())
+        };
+        self.must_next(
+            Token::SemiColon,
+            "ast.rs(statement_for): Not Exists Semicolon",
+        );
 
-        let end = if Token::RightBracket == self.next().get_token_type() { None } else { Some(self.assign()) };
-        self.must_next(Token::RightBracket, "ast.rs(statement_for): Not Exists RightBracket");
+        let end = if Token::RightBracket == self.next().get_token_type() {
+            None
+        } else {
+            Some(self.assign())
+        };
+        self.must_next(
+            Token::RightBracket,
+            "ast.rs(statement_for): Not Exists RightBracket",
+        );
 
-        AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
+        AstType::For(
+            Box::new(begin),
+            Box::new(condition),
+            Box::new(end),
+            Box::new(self.statement()),
+        )
     }
 
     // continue statement.
@@ -341,7 +408,7 @@ impl<'a> AstGen<'a> {
                 self.consume();
                 self.statement_return()
             }
-            _ => self.assign()
+            _ => self.assign(),
         };
         self.must_next(Token::SemiColon, "ast.rs(expression): Not Exists SemiColon");
         expr
@@ -376,11 +443,17 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::LeftBracket => {
-                let call_func = AstType::CallFunc(Box::new(acc), Box::new(self.argment(AstType::Argment(vec![]))));
-                self.must_next(Token::RightBracket, "ast.rs(call_func): Not exists RightBracket");
+                let call_func = AstType::CallFunc(
+                    Box::new(acc),
+                    Box::new(self.argment(AstType::Argment(vec![]))),
+                );
+                self.must_next(
+                    Token::RightBracket,
+                    "ast.rs(call_func): Not exists RightBracket",
+                );
                 call_func
             }
-            _ => panic!("ast.rs(call_func): Not exists LeftBracket")
+            _ => panic!("ast.rs(call_func): Not exists LeftBracket"),
         }
     }
 
@@ -513,8 +586,12 @@ impl<'a> AstGen<'a> {
 
         let ope_type = self.next().get_token_type();
         match ope_type {
-            Token::Equal | Token::NotEqual | Token::LessThan | Token::LessThanEqual |
-            Token::GreaterThan | Token::GreaterThanEqual => {
+            Token::Equal
+            | Token::NotEqual
+            | Token::LessThan
+            | Token::LessThanEqual
+            | Token::GreaterThan
+            | Token::GreaterThanEqual => {
                 self.consume();
                 let right = self.shift();
                 self.sub_relation(create(ope_type, acc, right))
@@ -616,7 +693,10 @@ impl<'a> AstGen<'a> {
                 let tree = self.assign();
 
                 // 閉じカッコがあるかどうかチェック.
-                self.must_next(Token::RightBracket, "ast.rs(factor): Not exists RightBracket");
+                self.must_next(
+                    Token::RightBracket,
+                    "ast.rs(factor): Not exists RightBracket",
+                );
                 tree
             }
             _ => panic!("ast.rs: failed in factor {:?}", token),
@@ -625,17 +705,27 @@ impl<'a> AstGen<'a> {
 
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
-        AstType::Factor(token.get_token_value().parse::<i64>().expect("ast.rs(number): cannot convert i64"))
+        AstType::Factor(
+            token
+                .get_token_value()
+                .parse::<i64>()
+                .expect("ast.rs(number): cannot convert i64"),
+        )
     }
 
     // トークン読み取り.
     fn next(&mut self) -> &'a TokenInfo {
-        self.tokens.get(self.current_pos).expect("ast.rs(next): cannot read next value")
+        self.tokens
+            .get(self.current_pos)
+            .expect("ast.rs(next): cannot read next value")
     }
 
     // 読み取り位置更新.
     fn next_consume(&mut self) -> &'a TokenInfo {
-        let token = self.tokens.get(self.current_pos).expect("ast.rs(next_consume): cannot read next value");
+        let token = self
+            .tokens
+            .get(self.current_pos)
+            .expect("ast.rs(next_consume): cannot read next value");
         self.current_pos += 1;
         token
     }
@@ -688,12 +778,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Factor(2))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Factor(2))
+                    ),])),
                 )
             )
         }
@@ -722,15 +810,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -761,18 +847,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Plus(
                             Box::new(AstType::Plus(
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
-                                Box::new(AstType::Factor(3)),
+                                Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Factor(4))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(4))
+                    ),])),
                 )
             )
         }
@@ -803,12 +887,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Minus(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Factor(2))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Minus(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Factor(2))
+                    ),])),
                 )
             )
         }
@@ -837,15 +919,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Minus(
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(100)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Minus(
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(100)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -876,18 +956,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Minus(
+                    Box::new(AstType::Statement(vec![AstType::Minus(
+                        Box::new(AstType::Minus(
                             Box::new(AstType::Minus(
-                                Box::new(AstType::Minus(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
-                                Box::new(AstType::Factor(3)),
+                                Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Factor(4))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(4))
+                    ),])),
                 )
             )
         }
@@ -918,12 +996,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Multiple(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Factor(2))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Multiple(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Factor(2))
+                    ),])),
                 )
             )
         }
@@ -952,15 +1028,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Multiple(
-                            Box::new(AstType::Multiple(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Multiple(
+                        Box::new(AstType::Multiple(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -991,18 +1065,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Multiple(
+                    Box::new(AstType::Statement(vec![AstType::Multiple(
+                        Box::new(AstType::Multiple(
                             Box::new(AstType::Multiple(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
-                                Box::new(AstType::Factor(3)),
+                                Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Factor(4))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(4))
+                    ),])),
                 )
             )
         }
@@ -1033,12 +1105,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Division(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Factor(2))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Division(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Factor(2))
+                    ),])),
                 )
             )
         }
@@ -1067,15 +1137,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Division(
-                            Box::new(AstType::Division(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Division(
+                        Box::new(AstType::Division(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -1106,18 +1174,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Division(
+                    Box::new(AstType::Statement(vec![AstType::Division(
+                        Box::new(AstType::Division(
                             Box::new(AstType::Division(
-                                Box::new(AstType::Division(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
-                                Box::new(AstType::Factor(3)),
+                                Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Factor(4))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(4))
+                    ),])),
                 )
             )
         }
@@ -1150,15 +1216,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Multiple(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Multiple(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -1187,15 +1251,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Multiple(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Multiple(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1224,15 +1286,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Division(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Division(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -1261,15 +1321,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Division(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Division(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1299,18 +1357,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::GreaterThanEqual(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::LessThan(
-                                    Box::new(AstType::Factor(2)),
-                                    Box::new(AstType::Factor(3)),
-                                )),
-                                Box::new(AstType::Factor(4)),
+                    Box::new(AstType::Statement(vec![AstType::GreaterThanEqual(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::LessThan(
+                                Box::new(AstType::Factor(2)),
+                                Box::new(AstType::Factor(3)),
                             )),
-                            Box::new(AstType::Factor(5))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(4)),
+                        )),
+                        Box::new(AstType::Factor(5))
+                    ),])),
                 )
             )
         }
@@ -1343,12 +1399,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Factor(2))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Factor(2))
+                    ),])),
                 )
             )
         }
@@ -1378,15 +1432,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Plus(
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Plus(
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1421,18 +1473,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Equal(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Equal(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1462,18 +1512,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Equal(
-                            Box::new(AstType::Multiple(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2)),
-                            )),
-                            Box::new(AstType::Multiple(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Equal(
+                        Box::new(AstType::Multiple(
+                            Box::new(AstType::Factor(1)),
+                            Box::new(AstType::Factor(2)),
+                        )),
+                        Box::new(AstType::Multiple(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1505,21 +1553,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Equal(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::Equal(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Multiple(
                                 Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(1)),
+                        )),
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1555,21 +1601,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::NotEqual(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::NotEqual(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Multiple(
                                 Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(1)),
+                        )),
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1605,21 +1649,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LessThan(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::LessThan(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Multiple(
                                 Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(1)),
+                        )),
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1651,21 +1693,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LessThanEqual(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::LessThanEqual(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Multiple(
                                 Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(1)),
+                        )),
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1701,21 +1741,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::GreaterThan(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::GreaterThan(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Multiple(
                                 Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(1)),
+                        )),
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1747,21 +1785,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::GreaterThanEqual(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(1)),
-                                    Box::new(AstType::Factor(2)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::GreaterThanEqual(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Multiple(
                                 Box::new(AstType::Factor(1)),
+                                Box::new(AstType::Factor(2)),
                             )),
-                            Box::new(AstType::Minus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(4)),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(1)),
+                        )),
+                        Box::new(AstType::Minus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(4)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1792,12 +1828,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalAnd(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::LogicalAnd(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -1827,18 +1861,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalAnd(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            )),
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(4)),
-                                Box::new(AstType::Factor(5)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::LogicalAnd(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(4)),
+                            Box::new(AstType::Factor(5)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1876,30 +1908,28 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalAnd(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(2)),
-                                    Box::new(AstType::Factor(3)),
-                                )),
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(4)),
-                                    Box::new(AstType::Factor(5)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::LogicalAnd(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(2)),
+                                Box::new(AstType::Factor(3)),
                             )),
-                            Box::new(AstType::NotEqual(
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(6)),
-                                    Box::new(AstType::Factor(7)),
-                                )),
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(8)),
-                                    Box::new(AstType::Factor(9)),
-                                )),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(4)),
+                                Box::new(AstType::Factor(5)),
+                            )),
+                        )),
+                        Box::new(AstType::NotEqual(
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(6)),
+                                Box::new(AstType::Factor(7)),
+                            )),
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(8)),
+                                Box::new(AstType::Factor(9)),
+                            )),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -1926,12 +1956,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalOr(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::LogicalOr(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -1961,18 +1989,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalOr(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            )),
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(4)),
-                                Box::new(AstType::Factor(5)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::LogicalOr(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(4)),
+                            Box::new(AstType::Factor(5)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2010,30 +2036,28 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalOr(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(2)),
-                                    Box::new(AstType::Factor(3)),
-                                )),
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(4)),
-                                    Box::new(AstType::Factor(5)),
-                                )),
+                    Box::new(AstType::Statement(vec![AstType::LogicalOr(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(2)),
+                                Box::new(AstType::Factor(3)),
                             )),
-                            Box::new(AstType::NotEqual(
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(6)),
-                                    Box::new(AstType::Factor(7)),
-                                )),
-                                Box::new(AstType::Plus(
-                                    Box::new(AstType::Factor(8)),
-                                    Box::new(AstType::Factor(9)),
-                                )),
-                            ))
-                        ),
-                    ])),
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(4)),
+                                Box::new(AstType::Factor(5)),
+                            )),
+                        )),
+                        Box::new(AstType::NotEqual(
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(6)),
+                                Box::new(AstType::Factor(7)),
+                            )),
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Factor(8)),
+                                Box::new(AstType::Factor(9)),
+                            )),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2067,18 +2091,16 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LogicalOr(
-                            Box::new(AstType::LogicalAnd(
-                                Box::new(AstType::LogicalOr(
-                                    Box::new(AstType::Factor(2)),
-                                    Box::new(AstType::Factor(3)),
-                                )),
-                                Box::new(AstType::Factor(4)),
+                    Box::new(AstType::Statement(vec![AstType::LogicalOr(
+                        Box::new(AstType::LogicalAnd(
+                            Box::new(AstType::LogicalOr(
+                                Box::new(AstType::Factor(2)),
+                                Box::new(AstType::Factor(3)),
                             )),
-                            Box::new(AstType::Factor(5))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(4)),
+                        )),
+                        Box::new(AstType::Factor(5))
+                    ),])),
                 )
             )
         }
@@ -2112,16 +2134,14 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Condition(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            )),
-                            Box::new(AstType::Factor(1)),
-                            Box::new(AstType::Factor(5))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Condition(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(1)),
+                        Box::new(AstType::Factor(5))
+                    ),])),
                 )
             )
         }
@@ -2159,23 +2179,21 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Condition(
+                    Box::new(AstType::Statement(vec![AstType::Condition(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Condition(
                             Box::new(AstType::Equal(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
+                                Box::new(AstType::Factor(10)),
+                                Box::new(AstType::Factor(11)),
                             )),
-                            Box::new(AstType::Condition(
-                                Box::new(AstType::Equal(
-                                    Box::new(AstType::Factor(10)),
-                                    Box::new(AstType::Factor(11)),
-                                )),
-                                Box::new(AstType::Factor(12)),
-                                Box::new(AstType::Factor(13)),
-                            )),
-                            Box::new(AstType::Factor(5))
-                        ),
-                    ])),
+                            Box::new(AstType::Factor(12)),
+                            Box::new(AstType::Factor(13)),
+                        )),
+                        Box::new(AstType::Factor(5))
+                    ),])),
                 )
             )
         }
@@ -2204,9 +2222,9 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(
-                        vec![AstType::UnPlus(Box::new(AstType::Factor(2)))],
-                    )),
+                    Box::new(AstType::Statement(vec![AstType::UnPlus(Box::new(
+                        AstType::Factor(2)
+                    ))],)),
                 )
             )
         }
@@ -2233,12 +2251,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Minus(
-                            Box::new(AstType::UnPlus(Box::new(AstType::Factor(2)))),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Minus(
+                        Box::new(AstType::UnPlus(Box::new(AstType::Factor(2)))),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             )
         }
@@ -2267,12 +2283,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Minus(
-                            Box::new(AstType::UnPlus(Box::new(AstType::Factor(2)))),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Minus(
+                        Box::new(AstType::UnPlus(Box::new(AstType::Factor(2)))),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             )
         }
@@ -2299,12 +2313,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Multiple(
-                            Box::new(AstType::UnPlus(Box::new(AstType::Factor(2)))),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Multiple(
+                        Box::new(AstType::UnPlus(Box::new(AstType::Factor(2)))),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             )
         }
@@ -2330,7 +2342,9 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::Not(Box::new(AstType::Factor(2)))])),
+                    Box::new(AstType::Statement(vec![AstType::Not(Box::new(
+                        AstType::Factor(2)
+                    ))])),
                 )
             )
         }
@@ -2359,12 +2373,9 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Not(Box::new(AstType::Equal(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(3)),
-                        ))),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Not(Box::new(
+                        AstType::Equal(Box::new(AstType::Factor(2)), Box::new(AstType::Factor(3)),)
+                    )),])),
                 )
             )
         }
@@ -2390,9 +2401,9 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(
-                        vec![AstType::BitReverse(Box::new(AstType::Factor(2)))],
-                    )),
+                    Box::new(AstType::Statement(vec![AstType::BitReverse(Box::new(
+                        AstType::Factor(2)
+                    ))],)),
                 )
             )
         }
@@ -2422,12 +2433,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LeftShift(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::LeftShift(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             )
         }
@@ -2453,12 +2462,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::RightShift(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::RightShift(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             )
         }
@@ -2486,15 +2493,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::RightShift(
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            )),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::RightShift(
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             )
         }
@@ -2522,15 +2527,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::LessThan(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::RightShift(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(1)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::LessThan(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::RightShift(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(1)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2561,12 +2564,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::BitAnd(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::BitAnd(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -2592,12 +2593,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::BitOr(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::BitOr(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -2623,12 +2622,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::BitXor(
-                            Box::new(AstType::Factor(2)),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::BitXor(
+                        Box::new(AstType::Factor(2)),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -2656,15 +2653,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::BitOr(
-                            Box::new(AstType::BitAnd(
-                                Box::new(AstType::Factor(2)),
-                                Box::new(AstType::Factor(3)),
-                            )),
-                            Box::new(AstType::Factor(4))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::BitOr(
+                        Box::new(AstType::BitAnd(
+                            Box::new(AstType::Factor(2)),
+                            Box::new(AstType::Factor(3)),
+                        )),
+                        Box::new(AstType::Factor(4))
+                    ),])),
                 )
             )
         }
@@ -2694,12 +2689,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             )
         }
@@ -2727,15 +2720,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::Plus(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(1)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Plus(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(1)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2763,15 +2754,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::LogicalAnd(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(1)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::LogicalAnd(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(1)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2799,15 +2788,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::Multiple(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(1)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Multiple(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(1)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2835,15 +2822,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::BitOr(
-                                Box::new(AstType::Factor(3)),
-                                Box::new(AstType::Factor(1)),
-                            ))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::BitOr(
+                            Box::new(AstType::Factor(3)),
+                            Box::new(AstType::Factor(1)),
+                        ))
+                    ),])),
                 )
             )
         }
@@ -2873,12 +2858,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::CallFunc(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::Argment(vec![]))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::CallFunc(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Argment(vec![]))
+                    ),])),
                 )
             )
         }
@@ -2905,14 +2888,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::CallFunc(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(
-                                AstType::Argment(vec![AstType::Variable('b'.to_string())]),
-                            )
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::CallFunc(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Argment(vec![AstType::Variable('b'.to_string())]),)
+                    ),])),
                 )
             )
         }
@@ -2941,15 +2920,13 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::CallFunc(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::Argment(vec![
-                                AstType::Variable('b'.to_string()),
-                                AstType::Variable('c'.to_string()),
-                            ]))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::CallFunc(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Argment(vec![
+                            AstType::Variable('b'.to_string()),
+                            AstType::Variable('c'.to_string()),
+                        ]))
+                    ),])),
                 )
             )
         }
@@ -3080,12 +3057,10 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("a".to_string())),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("a".to_string())),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             );
             assert_eq!(
@@ -3093,12 +3068,10 @@ mod tests {
                 AstType::FuncDef(
                     "test".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("b".to_string())),
-                            Box::new(AstType::Factor(1))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("b".to_string())),
+                        Box::new(AstType::Factor(1))
+                    ),])),
                 )
             );
         }
@@ -3134,12 +3107,10 @@ mod tests {
                         AstType::Variable("a".to_string()),
                         AstType::Variable("b".to_string()),
                     ])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Assign(
-                            Box::new(AstType::Variable("c".to_string())),
-                            Box::new(AstType::Factor(3))
-                        ),
-                    ])),
+                    Box::new(AstType::Statement(vec![AstType::Assign(
+                        Box::new(AstType::Variable("c".to_string())),
+                        Box::new(AstType::Factor(3))
+                    ),])),
                 )
             );
         }
@@ -3179,24 +3150,20 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::If(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
-                            )),
-                            Box::new(None)
-                        )
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::If(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            )
+                        ],)),
+                        Box::new(None)
+                    )]))
                 )
             );
         }
@@ -3224,7 +3191,6 @@ mod tests {
                 TokenInfo::new(Token::Number, "10".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
-
                 TokenInfo::new(Token::Else, "else".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "e".to_string()),
@@ -3233,7 +3199,6 @@ mod tests {
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
-
                 TokenInfo::new(Token::End, "End".to_string()),
             ];
             let mut ast = AstGen::new(&data);
@@ -3245,33 +3210,23 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::If(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
-                            )),
-                            Box::new(
-                                Some(AstType::Statement(
-                                    vec![
-                                        AstType::Assign(
-                                            Box::new(AstType::Variable("e".to_string())),
-                                            Box::new(AstType::Factor(9))
-                                        )
-                                    ],
-                                ))
-                            ),
-                        ),
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::If(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            )
+                        ],)),
+                        Box::new(Some(AstType::Statement(vec![AstType::Assign(
+                            Box::new(AstType::Variable("e".to_string())),
+                            Box::new(AstType::Factor(9))
+                        )],))),
+                    ),]))
                 )
             );
         }
@@ -3307,26 +3262,17 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::If(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                            Box::new(AstType::Statement(
-                                vec![ AstType::Factor(1) ]
-                            )),
-                            Box::new(
-                                Some(AstType::Statement(
-                                    vec![
-                                        AstType::Assign(
-                                            Box::new(AstType::Variable("e".to_string())),
-                                            Box::new(AstType::Factor(9)))
-                                    ]
-                                ))
-                            )
-                        ),
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::If(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                        Box::new(AstType::Statement(vec![AstType::Factor(1)])),
+                        Box::new(Some(AstType::Statement(vec![AstType::Assign(
+                            Box::new(AstType::Variable("e".to_string())),
+                            Box::new(AstType::Factor(9))
+                        )])))
+                    ),]))
                 )
             );
         }
@@ -3366,23 +3312,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::While(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
-                            ))
-                        )
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::While(
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            )
+                        ],))
+                    )]))
                 )
             );
         }
@@ -3426,15 +3368,13 @@ mod tests {
                                 Box::new(AstType::Variable("a".to_string())),
                                 Box::new(AstType::Factor(3))
                             )),
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
-                            ))
+                            Box::new(AstType::Statement(vec![
+                                AstType::Factor(1),
+                                AstType::Assign(
+                                    Box::new(AstType::Variable("b".to_string())),
+                                    Box::new(AstType::Factor(10))
+                                )
+                            ],))
                         ),
                         AstType::Variable("b".to_string())
                     ]))
@@ -3476,22 +3416,18 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::For(
-                            Box::new(None),
-                            Box::new(None),
-                            Box::new(None),
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
-                            ))
-                        )
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::For(
+                        Box::new(None),
+                        Box::new(None),
+                        Box::new(None),
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            )
+                        ],))
+                    )]))
                 )
             );
         }
@@ -3537,40 +3473,30 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::For(
-                            Box::new(Some(
-                                AstType::Assign(
-                                    Box::new(AstType::Variable("i".to_string())),
-                                    Box::new(AstType::Factor(0))
-                                ),
-                            )),
-                            Box::new(Some(
-                                AstType::LessThan(
-                                    Box::new(AstType::Variable("i".to_string())),
-                                    Box::new(AstType::Factor(10))
-                                ),
-                            )),
-                            Box::new(Some(
-                                AstType::Assign(
-                                    Box::new(AstType::Variable("i".to_string())),
-                                    Box::new(AstType::Plus(
-                                        Box::new(AstType::Variable("i".to_string())),
-                                        Box::new(AstType::Factor(1))
-                                    ))
-                                )
-                            )),
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
+                    Box::new(AstType::Statement(vec![AstType::For(
+                        Box::new(Some(AstType::Assign(
+                            Box::new(AstType::Variable("i".to_string())),
+                            Box::new(AstType::Factor(0))
+                        ),)),
+                        Box::new(Some(AstType::LessThan(
+                            Box::new(AstType::Variable("i".to_string())),
+                            Box::new(AstType::Factor(10))
+                        ),)),
+                        Box::new(Some(AstType::Assign(
+                            Box::new(AstType::Variable("i".to_string())),
+                            Box::new(AstType::Plus(
+                                Box::new(AstType::Variable("i".to_string())),
+                                Box::new(AstType::Factor(1))
                             ))
-                        )
-                    ]))
+                        ))),
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            )
+                        ],))
+                    )]))
                 )
             );
         }
@@ -3611,23 +3537,19 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Do(
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    )
-                                ],
-                            )),
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                       )
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::Do(
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            )
+                        ],)),
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                    )]))
                 )
             );
         }
@@ -3670,24 +3592,20 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Do(
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    ),
-                                    AstType::Continue(),
-                                ],
-                            )),
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                       )
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::Do(
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            ),
+                            AstType::Continue(),
+                        ],)),
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                    )]))
                 )
             );
         }
@@ -3726,24 +3644,20 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Do(
-                            Box::new(AstType::Statement(
-                                vec![
-                                    AstType::Factor(1),
-                                    AstType::Assign(
-                                        Box::new(AstType::Variable("b".to_string())),
-                                        Box::new(AstType::Factor(10))
-                                    ),
-                                    AstType::Break(),
-                                ],
-                            )),
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Variable("a".to_string())),
-                                Box::new(AstType::Factor(3))
-                            )),
-                       )
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::Do(
+                        Box::new(AstType::Statement(vec![
+                            AstType::Factor(1),
+                            AstType::Assign(
+                                Box::new(AstType::Variable("b".to_string())),
+                                Box::new(AstType::Factor(10))
+                            ),
+                            AstType::Break(),
+                        ],)),
+                        Box::new(AstType::Equal(
+                            Box::new(AstType::Variable("a".to_string())),
+                            Box::new(AstType::Factor(3))
+                        )),
+                    )]))
                 )
             );
         }
@@ -3774,14 +3688,9 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Return(
-                            Box::new(AstType::Equal(
-                                Box::new(AstType::Factor(1)),
-                                Box::new(AstType::Factor(2))
-                            ))
-                        )]
-                    ))
+                    Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                        AstType::Equal(Box::new(AstType::Factor(1)), Box::new(AstType::Factor(2)))
+                    ))]))
                 )
             );
         }
@@ -3806,9 +3715,9 @@ mod tests {
                 AstType::FuncDef(
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![
-                        AstType::Return(Box::new(AstType::Variable("a".to_string())))
-                    ]))
+                    Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                        AstType::Variable("a".to_string())
+                    ))]))
                 )
             );
         }

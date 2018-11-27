@@ -1,7 +1,7 @@
-use std::process;
-use ast::AstType;
 use ast::AstTree;
+use ast::AstType;
 use config::Config;
+use std::process;
 use symbol::SymbolTable;
 
 #[doc = "ラベル管理"]
@@ -22,9 +22,12 @@ pub struct Asm<'a> {
 
 impl Label {
     // コンストラクタ.
-    pub fn new() ->Self {
+    pub fn new() -> Self {
         Label {
-            label_no: 0, continue_labels: vec![], break_labels: vec![], return_label: 0,
+            label_no: 0,
+            continue_labels: vec![],
+            break_labels: vec![],
+            return_label: 0,
         }
     }
 
@@ -39,20 +42,44 @@ impl Label {
         self.return_label = self.next_label();
         self.return_label
     }
-    pub fn get_return_label(&self) -> usize { self.return_label }
+    pub fn get_return_label(&self) -> usize {
+        self.return_label
+    }
 
     // continueラベル追加.
-    pub fn push_continue(&mut self, no: usize) { self.continue_labels.push(no); }
+    pub fn push_continue(&mut self, no: usize) {
+        self.continue_labels.push(no);
+    }
     // continueラベルpop.
-    pub fn pop_continue(&mut self) -> Option<usize> { self.continue_labels.pop() }
+    pub fn pop_continue(&mut self) -> Option<usize> {
+        self.continue_labels.pop()
+    }
     // continueラベル削除.
-    pub fn remove_continue(&mut self, no: usize) { self.continue_labels = self.continue_labels.iter().cloned().filter(|d| *d != no).collect(); }
+    pub fn remove_continue(&mut self, no: usize) {
+        self.continue_labels = self
+            .continue_labels
+            .iter()
+            .cloned()
+            .filter(|d| *d != no)
+            .collect();
+    }
     // breakラベル追加.
-    pub fn push_break(&mut self, no: usize) { self.break_labels.push(no); }
+    pub fn push_break(&mut self, no: usize) {
+        self.break_labels.push(no);
+    }
     // breakラベルpop.
-    pub fn pop_break(&mut self) -> Option<usize> { self.break_labels.pop() }
+    pub fn pop_break(&mut self) -> Option<usize> {
+        self.break_labels.pop()
+    }
     // breakラベル削除.
-    pub fn remove_break(&mut self, no: usize) { self.break_labels = self.break_labels.iter().cloned().filter(|d| *d != no).collect(); }
+    pub fn remove_break(&mut self, no: usize) {
+        self.break_labels = self
+            .break_labels
+            .iter()
+            .cloned()
+            .filter(|d| *d != no)
+            .collect();
+    }
 }
 
 // 関数引数レジスタ.
@@ -102,22 +129,22 @@ impl<'a> Asm<'a> {
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::Variable(ref a) => self.generate_variable(a),
             AstType::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
-            AstType::Plus(ref a, ref b) |
-            AstType::Minus(ref a, ref b) |
-            AstType::Multiple(ref a, ref b) |
-            AstType::Division(ref a, ref b) |
-            AstType::Remainder(ref a, ref b) |
-            AstType::Equal(ref a, ref b) |
-            AstType::NotEqual(ref a, ref b) |
-            AstType::LessThan(ref a, ref b) |
-            AstType::GreaterThan(ref a, ref b) |
-            AstType::LessThanEqual(ref a, ref b) |
-            AstType::GreaterThanEqual(ref a, ref b) |
-            AstType::LeftShift(ref a, ref b) |
-            AstType::RightShift(ref a, ref b) |
-            AstType::BitAnd(ref a, ref b) |
-            AstType::BitOr(ref a, ref b) |
-            AstType::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
+            AstType::Plus(ref a, ref b)
+            | AstType::Minus(ref a, ref b)
+            | AstType::Multiple(ref a, ref b)
+            | AstType::Division(ref a, ref b)
+            | AstType::Remainder(ref a, ref b)
+            | AstType::Equal(ref a, ref b)
+            | AstType::NotEqual(ref a, ref b)
+            | AstType::LessThan(ref a, ref b)
+            | AstType::GreaterThan(ref a, ref b)
+            | AstType::LessThanEqual(ref a, ref b)
+            | AstType::GreaterThanEqual(ref a, ref b)
+            | AstType::LeftShift(ref a, ref b)
+            | AstType::RightShift(ref a, ref b)
+            | AstType::BitAnd(ref a, ref b)
+            | AstType::BitOr(ref a, ref b)
+            | AstType::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
             _ => panic!("asm.rs(generate): not support expression"),
         }
     }
@@ -191,12 +218,10 @@ impl<'a> Asm<'a> {
         let st = 4;
         match *a {
             AstType::Argment(ref args) => {
-                args.iter()
-                    .zip(REGS.iter())
-                    .fold(st, |p, d| {
-                        self.inst = gen(&self.inst, d.0, d.1, p);
-                        p + 4
-                    });
+                args.iter().zip(REGS.iter()).fold(st, |p, d| {
+                    self.inst = gen(&self.inst, d.0, d.1, p);
+                    p + 4
+                });
             }
             _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
         }
@@ -298,7 +323,13 @@ impl<'a> Asm<'a> {
     }
 
     // for statement生成.
-    fn generate_statement_for(&mut self, a: &Option<AstType>, b: &Option<AstType>, c: &Option<AstType>, d: &AstType) {
+    fn generate_statement_for(
+        &mut self,
+        a: &Option<AstType>,
+        b: &Option<AstType>,
+        c: &Option<AstType>,
+        d: &AstType,
+    ) {
         let label_begin = self.label.next_label();
         let label_continue = self.label.next_label();
         let label_end = self.label.next_label();
@@ -341,13 +372,19 @@ impl<'a> Asm<'a> {
 
     // continue文生成.
     fn generate_statement_continue(&mut self) {
-        let no = self.label.pop_continue().expect("asm.rs(generate_statement_continue): invalid continue label");
+        let no = self
+            .label
+            .pop_continue()
+            .expect("asm.rs(generate_statement_continue): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
     // break文生成.
     fn generate_statement_break(&mut self) {
-        let no = self.label.pop_break().expect("asm.rs(generate_statement_break): invalid continue label");
+        let no = self
+            .label
+            .pop_break()
+            .expect("asm.rs(generate_statement_break): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
@@ -365,7 +402,13 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").pos * 4 + 4;
+                let pos = self
+                    .var_table
+                    .search(a)
+                    .expect("asm.rs(generate_assign): error option value")
+                    .pos
+                    * 4
+                    + 4;
                 self.generate(b);
                 self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                 self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
@@ -377,7 +420,13 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, v: &String) {
-        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").pos * 4 + 4;
+        let pos = self
+            .var_table
+            .search(v)
+            .expect("asm.rs(generate_variable): error option value")
+            .pos
+            * 4
+            + 4;
         self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
@@ -393,9 +442,9 @@ impl<'a> Asm<'a> {
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
                         // 関数引数をスタックからレジスタへ.
-                        self.inst = v.iter()
-                                     .zip(REGS.iter())
-                                     .fold(self.inst.clone(), |s, d| s + &self.pop_stack("eax") + &format!("  mov %rax, {}\n", d.1));
+                        self.inst = v.iter().zip(REGS.iter()).fold(self.inst.clone(), |s, d| {
+                            s + &self.pop_stack("eax") + &format!("  mov %rax, {}\n", d.1)
+                        });
                     }
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment"),
                 }
@@ -528,7 +577,9 @@ impl<'a> Asm<'a> {
 
         // 演算子に応じて退避するレジスタを変更.
         match *ast {
-            AstType::Remainder(_, _) => self.inst = format!("{}{}", self.inst, self.push_stack("edx")),
+            AstType::Remainder(_, _) => {
+                self.inst = format!("{}{}", self.inst, self.push_stack("edx"))
+            }
             _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
         }
     }
@@ -549,19 +600,32 @@ impl<'a> Asm<'a> {
             AstType::Multiple(_, _) => "  imull %ecx\n".to_string(),
             AstType::Plus(_, _) => "  addl %ecx, %eax\n".to_string(),
             AstType::Minus(_, _) => "  subl %ecx, %eax\n".to_string(),
-            AstType::Equal(_, _) => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
-            AstType::NotEqual(_, _) => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
-            AstType::LessThan(_, _) => "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string(),
-            AstType::GreaterThan(_, _) => "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string(),
-            AstType::LessThanEqual(_, _) => "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string(),
-            AstType::GreaterThanEqual(_, _) => "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::Equal(_, _) => {
+                "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string()
+            }
+            AstType::NotEqual(_, _) => {
+                "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string()
+            }
+            AstType::LessThan(_, _) => {
+                "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string()
+            }
+            AstType::GreaterThan(_, _) => {
+                "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string()
+            }
+            AstType::LessThanEqual(_, _) => {
+                "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string()
+            }
+            AstType::GreaterThanEqual(_, _) => {
+                "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
+            }
             AstType::LeftShift(_, _) => "  sall %cl, %eax\n".to_string(),
             AstType::RightShift(_, _) => "  sarl %cl, %eax\n".to_string(),
             AstType::BitAnd(_, _) => "  andl %ecx, %eax\n".to_string(),
             AstType::BitOr(_, _) => "  orl %ecx, %eax\n".to_string(),
             AstType::BitXor(_, _) => "  xorl %ecx, %eax\n".to_string(),
-            AstType::Division(_, _) |
-            AstType::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
+            AstType::Division(_, _) | AstType::Remainder(_, _) => {
+                "  movl $0, %edx\n  idivl %ecx\n".to_string()
+            }
             _ => process::abort(),
         }
     }

@@ -26,7 +26,7 @@ impl<T: Clone> Map<T> {
                 let i = self.keys.iter().position(|d| &k == d);
                 self.values[i.expect("map.rs(add): cannot read position")] = v;
                 true
-            },
+            }
             None if self.count >= MAX_COUNT => false,
             _ => {
                 self.keys.push(k.clone());
@@ -41,8 +41,7 @@ impl<T: Clone> Map<T> {
     pub fn search(&self, k: &String) -> Option<T> {
         if let Some(i) = self.keys.iter().position(|d| k == d) {
             Some(self.values[i].clone())
-        }
-        else {
+        } else {
             None
         }
     }

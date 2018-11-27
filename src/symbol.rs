@@ -1,5 +1,4 @@
 #[doc = "シンボルテーブル"]
-
 use map::Map;
 
 #[derive(Debug)]

@@ -1,14 +1,14 @@
-mod lexer;
-mod token;
-mod ast;
 mod asm;
+mod ast;
 mod config;
-mod string;
+mod lexer;
 mod map;
+mod string;
 mod symbol;
+mod token;
 
-use ast::AstGen;
 use asm::Asm;
+use ast::AstGen;
 
 #[doc = "メイン関数"]
 fn main() {

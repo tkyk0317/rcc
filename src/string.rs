@@ -1,7 +1,7 @@
 #[doc = "文字列構造"]
 pub struct StringData {
-    len: usize, // 文字列長.
-    size: usize, // 文字列バッファサイズ.
+    len: usize,     // 文字列長.
+    size: usize,    // 文字列バッファサイズ.
     buf: Vec<char>, // 文字列領域
 }
 
