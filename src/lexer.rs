@@ -1,5 +1,5 @@
-use token::TokenInfo;
 use token::Token;
+use token::TokenInfo;
 
 #[doc = " 字句解析"]
 pub struct LexicalAnalysis<'a> {
@@ -33,130 +33,103 @@ impl<'a> LexicalAnalysis<'a> {
             // 一文字読み取って、トークン生成.
             match self.next() {
                 Some(v) => {
-                    let mut token;
-                    match v {
+                    let token = match v {
                         s if true == s.is_alphabetic() || s == '_' => {
-                            if true == self.is_statement_if(s) {
-                                self.skip(1);
-                                token = TokenInfo::new(Token::If, "if".to_string());
-                            }
-                            else if true == self.is_statement_else(s) {
-                                self.skip(3);
-                                token = TokenInfo::new(Token::Else, "else".to_string());
-                            }
-                            else if true == self.is_statement_while(s) {
-                                self.skip(4);
-                                token = TokenInfo::new(Token::While, "while".to_string());
-                            }
-                            else if true == self.is_statement_for(s) {
-                                self.skip(2);
-                                token = TokenInfo::new(Token::For, "for".to_string());
-                            }
-                            else if true == self.is_statement_do(s) {
-                                self.skip(1);
-                                token = TokenInfo::new(Token::Do, "do".to_string());
-                            }
-                            else if true == self.is_statement_continue(s) {
-                                self.skip(7);
-                                token = TokenInfo::new(Token::Continue, "continue".to_string());
-                            }
-                            else if true == self.is_statement_break(s) {
-                                self.skip(4);
-                                token = TokenInfo::new(Token::Break, "break".to_string());
-                            }
-                            else if true == self.is_statement_return(s) {
-                                self.skip(5);
-                                token = TokenInfo::new(Token::Return, "return".to_string());
-                            }
-                            else {
-                                token = self.generate_variable_token(s);
+                            if let Some(t) = self.generate_statement(s) {
+                                t
+                            } else {
+                                self.generate_variable_token(s)
                             }
                         }
                         '=' => {
                             if true == self.is_equal(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::Equal, "==".to_string());
+                                TokenInfo::new(Token::Equal, "==".to_string())
                             } else {
-                                token = TokenInfo::new(Token::Assign, v.to_string());
+                                TokenInfo::new(Token::Assign, v.to_string())
                             }
                         }
                         '!' => {
                             if true == self.is_not_equal(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::NotEqual, "!=".to_string());
+                                TokenInfo::new(Token::NotEqual, "!=".to_string())
                             } else {
-                                token = TokenInfo::new(Token::Not, v.to_string());
+                                TokenInfo::new(Token::Not, v.to_string())
                             }
                         }
                         '>' => {
                             if true == self.is_greater_than_equal(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::GreaterThanEqual, ">=".to_string());
+                                TokenInfo::new(Token::GreaterThanEqual, ">=".to_string())
                             } else if true == self.is_right_shift(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::RightShift, ">>".to_string());
+                                TokenInfo::new(Token::RightShift, ">>".to_string())
                             } else {
-                                token = TokenInfo::new(Token::GreaterThan, v.to_string());
+                                TokenInfo::new(Token::GreaterThan, v.to_string())
                             }
                         }
                         '<' => {
                             if true == self.is_less_than_equal(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::LessThanEqual, "<=".to_string());
+                                TokenInfo::new(Token::LessThanEqual, "<=".to_string())
                             } else if true == self.is_left_shift(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::LeftShift, "<<".to_string());
+                                TokenInfo::new(Token::LeftShift, "<<".to_string())
                             } else {
-                                token = TokenInfo::new(Token::LessThan, v.to_string());
+                                TokenInfo::new(Token::LessThan, v.to_string())
                             }
                         }
                         '&' => {
                             if true == self.is_logical_and(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::LogicalAnd, "&&".to_string());
+                                TokenInfo::new(Token::LogicalAnd, "&&".to_string())
                             } else {
-                                token = TokenInfo::new(Token::BitAnd, v.to_string());
+                                TokenInfo::new(Token::BitAnd, v.to_string())
                             }
                         }
                         '|' => {
                             if true == self.is_logical_or(v) {
                                 self.skip(1);
-                                token = TokenInfo::new(Token::LogicalOr, "||".to_string());
+                                TokenInfo::new(Token::LogicalOr, "||".to_string())
                             } else {
-                                token = TokenInfo::new(Token::BitOr, v.to_string());
+                                TokenInfo::new(Token::BitOr, v.to_string())
                             }
                         }
-                        '^' => token = TokenInfo::new(Token::BitXor, v.to_string()),
-                        '~' => token = TokenInfo::new(Token::BitReverse, v.to_string()),
-                        '+' => token = TokenInfo::new(Token::Plus, v.to_string()),
-                        '-' => token = TokenInfo::new(Token::Minus, v.to_string()),
-                        '*' => token = TokenInfo::new(Token::Multi, v.to_string()),
-                        '/' => token = TokenInfo::new(Token::Division, v.to_string()),
-                        '%' => token = TokenInfo::new(Token::Remainder, v.to_string()),
-                        '(' => token = TokenInfo::new(Token::LeftBracket, v.to_string()),
-                        ')' => token = TokenInfo::new(Token::RightBracket, v.to_string()),
-                        '{' => token = TokenInfo::new(Token::LeftBrace, v.to_string()),
-                        '}' => token = TokenInfo::new(Token::RightBrace, v.to_string()),
-                        '?' => token = TokenInfo::new(Token::Question, v.to_string()),
-                        ':' => token = TokenInfo::new(Token::Colon, v.to_string()),
-                        ';' => token = TokenInfo::new(Token::SemiColon, v.to_string()),
-                        ',' => token = TokenInfo::new(Token::Comma, v.to_string()),
-                        '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => token = self.generate_number_token(v),
+                        '^' => TokenInfo::new(Token::BitXor, v.to_string()),
+                        '~' => TokenInfo::new(Token::BitReverse, v.to_string()),
+                        '+' => TokenInfo::new(Token::Plus, v.to_string()),
+                        '-' => TokenInfo::new(Token::Minus, v.to_string()),
+                        '*' => TokenInfo::new(Token::Multi, v.to_string()),
+                        '/' => TokenInfo::new(Token::Division, v.to_string()),
+                        '%' => TokenInfo::new(Token::Remainder, v.to_string()),
+                        '(' => TokenInfo::new(Token::LeftBracket, v.to_string()),
+                        ')' => TokenInfo::new(Token::RightBracket, v.to_string()),
+                        '{' => TokenInfo::new(Token::LeftBrace, v.to_string()),
+                        '}' => TokenInfo::new(Token::RightBrace, v.to_string()),
+                        '?' => TokenInfo::new(Token::Question, v.to_string()),
+                        ':' => TokenInfo::new(Token::Colon, v.to_string()),
+                        ';' => TokenInfo::new(Token::SemiColon, v.to_string()),
+                        ',' => TokenInfo::new(Token::Comma, v.to_string()),
+                        '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                            self.generate_number_token(v)
+                        }
                         _ => panic!("Not Support Lexer {}", v),
-                    }
+                    };
                     self.tokens.push(token);
                 }
                 _ => {}
             }
         }
-        self.tokens.push(
-            TokenInfo::new(Token::End, "End".to_string()),
-        );
+        self.tokens
+            .push(TokenInfo::new(Token::End, "End".to_string()));
     }
 
     // 文字を読み出す.
     fn read(&self) -> char {
-        self.input.chars().nth(self.pos).expect("lexer.rs(read): cannot read next char")
+        self.input
+            .chars()
+            .nth(self.pos)
+            .expect("lexer.rs(read): cannot read next char")
     }
 
     // 文字列を取得.
@@ -210,7 +183,10 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() && true == self.read().is_digit(10) {
-            s.push(self.next().expect("lexer.rs(generate_number_token): cannot read next char"));
+            s.push(
+                self.next()
+                    .expect("lexer.rs(generate_number_token): cannot read next char"),
+            );
         }
         TokenInfo::new(Token::Number, s)
     }
@@ -267,6 +243,37 @@ impl<'a> LexicalAnalysis<'a> {
     // 右シフト演算子チェック.
     fn is_right_shift(&self, v: char) -> bool {
         v == '>' && self.read() == '>'
+    }
+
+    // statement作成.
+    fn generate_statement(&mut self, c: char) -> Option<TokenInfo> {
+        if true == self.is_statement_if(c) {
+            self.skip(1);
+            Some(TokenInfo::new(Token::If, "if".to_string()))
+        } else if true == self.is_statement_else(c) {
+            self.skip(3);
+            Some(TokenInfo::new(Token::Else, "else".to_string()))
+        } else if true == self.is_statement_while(c) {
+            self.skip(4);
+            Some(TokenInfo::new(Token::While, "while".to_string()))
+        } else if true == self.is_statement_for(c) {
+            self.skip(2);
+            Some(TokenInfo::new(Token::For, "for".to_string()))
+        } else if true == self.is_statement_do(c) {
+            self.skip(1);
+            Some(TokenInfo::new(Token::Do, "do".to_string()))
+        } else if true == self.is_statement_continue(c) {
+            self.skip(7);
+            Some(TokenInfo::new(Token::Continue, "continue".to_string()))
+        } else if true == self.is_statement_break(c) {
+            self.skip(4);
+            Some(TokenInfo::new(Token::Break, "break".to_string()))
+        } else if true == self.is_statement_return(c) {
+            self.skip(5);
+            Some(TokenInfo::new(Token::Return, "return".to_string()))
+        } else {
+            None
+        }
     }
 
     // if statementチェック.
