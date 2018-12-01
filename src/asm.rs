@@ -128,7 +128,7 @@ impl<'a> Asm<'a> {
             AstType::Not(ref a) => self.generate_not(a),
             AstType::BitReverse(ref a) => self.generate_bit_reverse(a),
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
-            AstType::Variable(ref a) => self.generate_variable(a),
+            AstType::Variable(ref t, ref a) => self.generate_variable(t, a),
             AstType::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
             AstType::Plus(ref a, ref b)
             | AstType::Minus(ref a, ref b)
@@ -151,7 +151,7 @@ impl<'a> Asm<'a> {
     }
 
     // 関数定義.
-    fn generate_funcdef(&mut self, t: &Type, a: &String, b: &AstType, c: &AstType) {
+    fn generate_funcdef(&mut self, _t: &Type, a: &String, b: &AstType, c: &AstType) {
         // return文のラベルを生成.
         let return_label = self.label.next_return_label();
 
@@ -207,7 +207,7 @@ impl<'a> Asm<'a> {
         // 各引数生成.
         let gen = |inst: &str, a: &AstType, r: &str, p: usize| -> String {
             match a {
-                AstType::Variable(_) => {
+                AstType::Variable(_, _) => {
                     let mut t = format!("{}  mov {}, %rax\n", inst, r);
                     format!("{}  movl %eax, -{}(%rbp)\n", t, p)
                 }
@@ -373,19 +373,13 @@ impl<'a> Asm<'a> {
 
     // continue文生成.
     fn generate_statement_continue(&mut self) {
-        let no = self
-            .label
-            .pop_continue()
-            .expect("asm.rs(generate_statement_continue): invalid continue label");
+        let no = self.label.pop_continue().expect("asm.rs(generate_statement_continue): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
     // break文生成.
     fn generate_statement_break(&mut self) {
-        let no = self
-            .label
-            .pop_break()
-            .expect("asm.rs(generate_statement_break): invalid continue label");
+        let no = self.label.pop_break().expect("asm.rs(generate_statement_break): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
@@ -402,14 +396,8 @@ impl<'a> Asm<'a> {
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            AstType::Variable(ref a) => {
-                let pos = self
-                    .var_table
-                    .search(a)
-                    .expect("asm.rs(generate_assign): error option value")
-                    .pos
-                    * 4
-                    + 4;
+            AstType::Variable(_, ref a) => {
+                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").pos * 4 + 4;
                 self.generate(b);
                 self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                 self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
@@ -420,14 +408,8 @@ impl<'a> Asm<'a> {
     }
 
     // variable生成.
-    fn generate_variable(&mut self, v: &String) {
-        let pos = self
-            .var_table
-            .search(v)
-            .expect("asm.rs(generate_variable): error option value")
-            .pos
-            * 4
-            + 4;
+    fn generate_variable(&mut self, _t: &Type, v: &String) {
+        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").pos * 4 + 4;
         self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
@@ -436,7 +418,7 @@ impl<'a> Asm<'a> {
     fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
         match *a {
             // 関数名.
-            AstType::Variable(ref n) => {
+            AstType::Variable(_, ref n) => {
                 match *b {
                     AstType::Argment(ref v) => {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
@@ -601,32 +583,18 @@ impl<'a> Asm<'a> {
             AstType::Multiple(_, _) => "  imull %ecx\n".to_string(),
             AstType::Plus(_, _) => "  addl %ecx, %eax\n".to_string(),
             AstType::Minus(_, _) => "  subl %ecx, %eax\n".to_string(),
-            AstType::Equal(_, _) => {
-                "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::NotEqual(_, _) => {
-                "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::LessThan(_, _) => {
-                "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::GreaterThan(_, _) => {
-                "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::LessThanEqual(_, _) => {
-                "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string()
-            }
-            AstType::GreaterThanEqual(_, _) => {
-                "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
-            }
+            AstType::Equal(_, _) => "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::NotEqual(_, _) => "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::LessThan(_, _) => "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::GreaterThan(_, _) => "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::LessThanEqual(_, _) => "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string(),
+            AstType::GreaterThanEqual(_, _) => "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string(),
             AstType::LeftShift(_, _) => "  sall %cl, %eax\n".to_string(),
             AstType::RightShift(_, _) => "  sarl %cl, %eax\n".to_string(),
             AstType::BitAnd(_, _) => "  andl %ecx, %eax\n".to_string(),
             AstType::BitOr(_, _) => "  orl %ecx, %eax\n".to_string(),
             AstType::BitXor(_, _) => "  xorl %ecx, %eax\n".to_string(),
-            AstType::Division(_, _) | AstType::Remainder(_, _) => {
-                "  movl $0, %edx\n  idivl %ecx\n".to_string()
-            }
+            AstType::Division(_, _) | AstType::Remainder(_, _) => "  movl $0, %edx\n  idivl %ecx\n".to_string(),
             _ => process::abort(),
         }
     }
