@@ -215,6 +215,7 @@ test "int main() { int a; a = 100; return a; }" 100 126
 test "int main() { return 1 == 4; }" 0 127
 test "int main() { int a; a = 0; if (1 == 10) a = 9; else a = 4; return a; }" 4 128
 test "int main() { if (1 != 10) return 1; else return 10; }" 1 129
+test "int main() { int a = 2; a = a * 29; return a; }" 58 130
 
 #test 256 256 # 255までしか数値を扱うことができない
 

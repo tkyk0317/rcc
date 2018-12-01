@@ -218,32 +218,23 @@ impl<'a> AstGen<'a> {
     // recur func argment.
     fn recur_func_args(&mut self, a: Vec<AstType>) -> Vec<AstType> {
         // 型が定義されていれば、引数として評価.
-        let exists_type = self.is_type_token();
-        if exists_type {
-            let t = self.generate_type();
-            let token = self.next();
-            match token.get_token_type() {
-                Token::Variable => {
-                    // シンボルを登録し、引数vec生成.
-                    self.consume();
-                    self.var_table.push(token.get_token_value(), "".to_string());
-                    let mut args = a;
-                    args.push(AstType::Variable(t, token.get_token_value()));
+        if false == self.is_type_token() {
+            return a.clone();
+        }
 
-                    // カンマがあれば引き続き.
-                    let comma = self.next();
-                    if Token::Comma == comma.get_token_type() {
-                        self.consume();
-                        return self.recur_func_args(args);
-                    }
-                    return args.clone();
-                }
-                _ => a.clone(),
-            }
+        // 引数を評価
+        let mut args = a;
+        args.push(self.assign());
+
+        // カンマがあれば引き続き.
+        let comma = self.next();
+        if Token::Comma == comma.get_token_type() {
+            self.consume();
+            self.recur_func_args(args)
         }
         else {
-           a.clone()
-       }
+            args.clone()
+        }
     }
 
     // statement.
@@ -715,6 +706,12 @@ impl<'a> AstGen<'a> {
             Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
             Token::Int => self.variable(Type::Int),
             Token::Variable => {
+                // 既に定義されていないとエラー
+                if None == self.var_table.search(&token.get_token_value()) &&
+                   None == self.func_table.search(&token.get_token_value()) {
+                    println!("{:?}", self.var_table);
+                    panic!("ast.rs(factor): Variable({:?}) is undefined", token)
+                }
                 self.back(1);
                 self.variable(Type::Int)
             }
@@ -2889,6 +2886,9 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
@@ -2908,13 +2908,16 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                        Box::new(AstType::LogicalAnd(
-                            Box::new(AstType::Factor(3)),
-                            Box::new(AstType::Factor(1)),
-                        ))
-                    ),])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Assign(
+                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::LogicalAnd(
+                                Box::new(AstType::Factor(3)),
+                                Box::new(AstType::Factor(1)),
+                            ))
+                        ),
+                    ])),
                 )
             )
         }
@@ -2999,6 +3002,12 @@ mod tests {
         {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3018,6 +3027,15 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    "a".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![])),
+                )
+            );
+            assert_eq!(
+                result.get_tree()[1],
+                AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
@@ -3025,10 +3043,18 @@ mod tests {
                         Box::new(AstType::Argment(vec![]))
                     ),])),
                 )
-            )
+            );
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
@@ -3050,6 +3076,17 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    "a".to_string(),
+                    Box::new(AstType::Argment(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                    ])),
+                    Box::new(AstType::Statement(vec![]))
+                )
+            );
+            assert_eq!(
+                result.get_tree()[1],
+                AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
@@ -3057,10 +3094,21 @@ mod tests {
                         Box::new(AstType::Argment(vec![AstType::Variable(Type::Int, 'b'.to_string())]),)
                     ),])),
                 )
-            )
+            );
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Comma, ",".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
@@ -3082,6 +3130,18 @@ mod tests {
             // 期待値確認.
             assert_eq!(
                 result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "a".to_string(),
+                    Box::new(AstType::Argment(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, "b".to_string()),
+                    ])),
+                    Box::new(AstType::Statement(vec![]))
+                )
+            );
+            assert_eq!(
+                result.get_tree()[1],
                 AstType::FuncDef(
                     Type::Int,
                     "main".to_string(),
@@ -3308,6 +3368,9 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::If, "if".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3317,6 +3380,7 @@ mod tests {
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "10".to_string()),
@@ -3335,20 +3399,23 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::If(
-                        Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            Box::new(AstType::Factor(3))
-                        )),
-                        Box::new(AstType::Statement(vec![
-                            AstType::Factor(1),
-                            AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
-                                Box::new(AstType::Factor(10))
-                            )
-                        ],)),
-                        Box::new(None)
-                    )]))
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::If(
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                            Box::new(AstType::Statement(vec![
+                                AstType::Factor(1),
+                                AstType::Assign(
+                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Factor(10))
+                                )
+                            ],)),
+                            Box::new(None)
+                        )
+                    ]))
                 )
             );
         }
@@ -3363,6 +3430,15 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "b".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "e".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::If, "if".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3397,34 +3473,41 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::If(
-                        Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            Box::new(AstType::Factor(3))
-                        )),
-                        Box::new(AstType::Statement(vec![
-                            AstType::Factor(1),
-                            AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
-                                Box::new(AstType::Factor(10))
-                            )
-                        ],)),
-                        Box::new(Some(AstType::Statement(vec![AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "e".to_string())),
-                            Box::new(AstType::Factor(9))
-                        )],))),
-                    ),]))
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, "b".to_string()),
+                        AstType::Variable(Type::Int, "e".to_string()),
+                        AstType::If(
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                            Box::new(AstType::Statement(vec![
+                                AstType::Factor(1),
+                                AstType::Assign(
+                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Factor(10))
+                                )
+                            ],)),
+                            Box::new(Some(AstType::Statement(vec![AstType::Assign(
+                                Box::new(AstType::Variable(Type::Int, "e".to_string())),
+                                Box::new(AstType::Factor(9))
+                            )],))),
+                        ),
+                    ]))
                 )
             );
         }
         {
-            println!("test");
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::If, "if".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3452,16 +3535,18 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::If(
-                        Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            Box::new(AstType::Factor(3))
-                        )),
-                        Box::new(AstType::Statement(vec![AstType::Factor(1)])),
-                        Box::new(Some(AstType::Statement(vec![AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "e".to_string())),
-                            Box::new(AstType::Factor(9))
-                        )])))
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::If(
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                            Box::new(AstType::Statement(vec![AstType::Factor(1)])),
+                            Box::new(Some(AstType::Statement(vec![AstType::Assign(
+                                Box::new(AstType::Variable(Type::Int, "e".to_string())),
+                                Box::new(AstType::Factor(9))
+                            )])))
                     ),]))
                 )
             );
@@ -3477,6 +3562,9 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3505,18 +3593,20 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::While(
-                        Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            Box::new(AstType::Factor(3))
-                        )),
-                        Box::new(AstType::Statement(vec![
-                            AstType::Factor(1),
-                            AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
-                                Box::new(AstType::Factor(10))
-                            )
-                        ],))
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::While(
+                            Box::new(AstType::Equal(
+                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Factor(3))
+                            )),
+                            Box::new(AstType::Statement(vec![
+                                AstType::Factor(1),
+                                AstType::Assign(
+                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Factor(10))
+                                )
+                            ]))
                     )]))
                 )
             );
@@ -3528,6 +3618,9 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3559,6 +3652,7 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
                         AstType::While(
                             Box::new(AstType::Equal(
                                 Box::new(AstType::Variable(Type::Int, "a".to_string())),
@@ -3719,6 +3813,9 @@ mod tests {
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
                 TokenInfo::new(Token::Number, "10".to_string()),
@@ -3746,6 +3843,7 @@ mod tests {
                     Box::new(AstType::Statement(vec![AstType::Do(
                         Box::new(AstType::Statement(vec![
                             AstType::Factor(1),
+                            AstType::Variable(Type::Int, "a".to_string()),
                             AstType::Assign(
                                 Box::new(AstType::Variable(Type::Int, "b".to_string())),
                                 Box::new(AstType::Factor(10))
@@ -3773,6 +3871,9 @@ mod tests {
                 TokenInfo::new(Token::Do, "do".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
@@ -3804,6 +3905,7 @@ mod tests {
                     Box::new(AstType::Statement(vec![AstType::Do(
                         Box::new(AstType::Statement(vec![
                             AstType::Factor(1),
+                            AstType::Variable(Type::Int, "a".to_string()),
                             AstType::Assign(
                                 Box::new(AstType::Variable(Type::Int, "b".to_string())),
                                 Box::new(AstType::Factor(10))
@@ -3827,6 +3929,9 @@ mod tests {
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Do, "do".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
@@ -3858,6 +3963,7 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
                         Box::new(AstType::Statement(vec![
+                            AstType::Variable(Type::Int, "a".to_string()),
                             AstType::Factor(1),
                             AstType::Assign(
                                 Box::new(AstType::Variable(Type::Int, "b".to_string())),
@@ -3915,6 +4021,9 @@ mod tests {
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Return, "return".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3931,9 +4040,12 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                        AstType::Variable(Type::Int, "a".to_string())
-                    ))]))
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Return(Box::new(
+                            AstType::Variable(Type::Int, "a".to_string())
+                        ))
+                    ]))
                 )
             );
         }
