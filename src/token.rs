@@ -11,7 +11,7 @@ pub enum Token {
     Break,            // break文.
     Return,           // return文.
     BitReverse,       // ビット反転演算子.
-    BitAnd,           // ビットAND演算子
+    And,              // &演算子
     BitOr,            // ビットOR演算子
     BitXor,           // ビットXOR演算子
     LeftShift,        // 左シフト演算子.

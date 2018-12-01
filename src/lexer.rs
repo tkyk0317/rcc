@@ -87,7 +87,7 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.skip(1);
                                 TokenInfo::new(Token::LogicalAnd, "&&".to_string())
                             } else {
-                                TokenInfo::new(Token::BitAnd, v.to_string())
+                                TokenInfo::new(Token::And, v.to_string())
                             }
                         }
                         '|' => {

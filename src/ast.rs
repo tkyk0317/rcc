@@ -76,6 +76,8 @@ pub enum AstType {
     Variable(Type, String),
     CallFunc(Box<AstType>, Box<AstType>),
     Argment(Vec<AstType>),
+    Address(Box<AstType>),
+    Indirect(Box<AstType>),
 }
 
 impl AstType {
@@ -399,12 +401,7 @@ impl<'a> AstGen<'a> {
             "ast.rs(statement_for): Not Exists RightBracket",
         );
 
-        AstType::For(
-            Box::new(begin),
-            Box::new(condition),
-            Box::new(end),
-            Box::new(self.statement()),
-        )
+        AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
     }
 
     // continue statement.
@@ -572,14 +569,14 @@ impl<'a> AstGen<'a> {
     fn sub_bit_operator(&mut self, acc: AstType) -> AstType {
         let create = |ope, left, right| match ope {
             Token::BitOr => AstType::BitOr(Box::new(left), Box::new(right)),
-            Token::BitAnd => AstType::BitAnd(Box::new(left), Box::new(right)),
+            Token::And => AstType::BitAnd(Box::new(left), Box::new(right)),
             Token::BitXor => AstType::BitXor(Box::new(left), Box::new(right)),
             _ => panic!("sub_bit_operator: Not Support Token {:?}", ope),
         };
 
         let token = self.next();
         match token.get_token_type() {
-            Token::BitOr | Token::BitAnd | Token::BitXor => {
+            Token::BitOr | Token::And | Token::BitXor => {
                 self.consume();
                 let right = self.relation();
                 self.sub_bit_operator(create(token.get_token_type(), acc, right))
@@ -705,6 +702,8 @@ impl<'a> AstGen<'a> {
             Token::Not => AstType::Not(Box::new(self.factor())),
             Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
             Token::Int => self.variable(Type::Int),
+            Token::And => AstType::Address(Box::new(self.factor())),
+            Token::Multi => AstType::Indirect(Box::new(self.factor())),
             Token::Variable => {
                 // 既に定義されていないとエラー
                 if None == self.var_table.search(&token.get_token_value()) &&
@@ -746,27 +745,17 @@ impl<'a> AstGen<'a> {
 
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
-        AstType::Factor(
-            token
-                .get_token_value()
-                .parse::<i64>()
-                .expect("ast.rs(number): cannot convert i64"),
-        )
+        AstType::Factor(token.get_token_value().parse::<i64>().expect("ast.rs(number): cannot convert i64"))
     }
 
     // トークン読み取り.
     fn next(&mut self) -> &'a TokenInfo {
-        self.tokens
-            .get(self.current_pos)
-            .expect("ast.rs(next): cannot read next value")
+        self.tokens.get(self.current_pos).expect("ast.rs(next): cannot read next value")
     }
 
     // 読み取り位置更新.
     fn next_consume(&mut self) -> &'a TokenInfo {
-        let token = self
-            .tokens
-            .get(self.current_pos)
-            .expect("ast.rs(next_consume): cannot read next value");
+        let token = self.tokens.get(self.current_pos).expect("ast.rs(next_consume): cannot read next value");
         self.current_pos += 1;
         token
     }
@@ -2685,7 +2674,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
-                TokenInfo::new(Token::BitAnd, "&".to_string()),
+                TokenInfo::new(Token::And, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
@@ -2778,7 +2767,7 @@ mod tests {
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
-                TokenInfo::new(Token::BitAnd, "&".to_string()),
+                TokenInfo::new(Token::And, "&".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::BitOr, "|".to_string()),
                 TokenInfo::new(Token::Number, "4".to_string()),
@@ -4042,6 +4031,98 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Return(Box::new(
+                            AstType::Variable(Type::Int, "a".to_string())
+                        ))
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_address_indirect() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::And, "&".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Return, "return".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                         AstType::Assign(
+                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Address(Box::new(AstType::Variable(Type::Int, "a".to_string())))),
+                        ),
+                        AstType::Return(Box::new(
+                            AstType::Variable(Type::Int, "a".to_string())
+                        ))
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                TokenInfo::new(Token::Multi, "*".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Return, "return".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "a".to_string()),
+                         AstType::Assign(
+                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Indirect(Box::new(AstType::Variable(Type::Int, "a".to_string())))),
+                        ),
                         AstType::Return(Box::new(
                             AstType::Variable(Type::Int, "a".to_string())
                         ))

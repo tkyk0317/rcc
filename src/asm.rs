@@ -57,12 +57,11 @@ impl Label {
     }
     // continueラベル削除.
     pub fn remove_continue(&mut self, no: usize) {
-        self.continue_labels = self
-            .continue_labels
-            .iter()
-            .cloned()
-            .filter(|d| *d != no)
-            .collect();
+        self.continue_labels = self.continue_labels
+                                   .iter()
+                                   .cloned()
+                                   .filter(|d| *d != no)
+                                   .collect();
     }
     // breakラベル追加.
     pub fn push_break(&mut self, no: usize) {
@@ -74,12 +73,11 @@ impl Label {
     }
     // breakラベル削除.
     pub fn remove_break(&mut self, no: usize) {
-        self.break_labels = self
-            .break_labels
-            .iter()
-            .cloned()
-            .filter(|d| *d != no)
-            .collect();
+        self.break_labels = self.break_labels
+                                .iter()
+                                .cloned()
+                                .filter(|d| *d != no)
+                                .collect();
     }
 }
 
@@ -146,6 +144,8 @@ impl<'a> Asm<'a> {
             | AstType::BitAnd(ref a, ref b)
             | AstType::BitOr(ref a, ref b)
             | AstType::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
+            AstType::Address(ref a) => self.generate_address(a),
+            AstType::Indirect(ref a) => self.generate_indirect(a),
             _ => panic!("asm.rs(generate): not support expression"),
         }
     }
@@ -565,6 +565,26 @@ impl<'a> Asm<'a> {
             }
             _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
         }
+    }
+
+    // アドレス演算子.
+    fn generate_address(&mut self, a: &AstType) {
+        match *a {
+            AstType::Variable(ref _t, ref a) => {
+                let pos = self.var_table.search(a).expect("asm.rs(generate_address): error option value").pos * 4 + 4;
+                self.inst = format!("{}  lea -{}(%rbp), %rax\n", self.inst, pos);
+                self.inst = format!("{}  push %rax\n", self.inst);
+            }
+            _ => panic!("asm.rs(generate_address): Not Support Ast {:?}", a)
+        }
+    }
+
+    // 間接演算子.
+    fn generate_indirect(&mut self, a: &AstType) {
+        self.generate(a);
+        self.inst = format!("{}  pop %rax\n", self.inst);
+        self.inst = format!("{}  movl (%rax), %ecx\n", self.inst);
+        self.inst = format!("{}{}", self.inst, self.push_stack("ecx"));
     }
 
     // スタックポップ.
