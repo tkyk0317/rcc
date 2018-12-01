@@ -1,5 +1,6 @@
 use ast::AstTree;
 use ast::AstType;
+use ast::Type;
 use config::Config;
 use std::process;
 use symbol::SymbolTable;
@@ -109,7 +110,7 @@ impl<'a> Asm<'a> {
     // アセンブラ生成.
     fn generate(&mut self, ast: &AstType) {
         match *ast {
-            AstType::FuncDef(ref a, ref b, ref c) => self.generate_funcdef(a, b, c),
+            AstType::FuncDef(ref t, ref a, ref b, ref c) => self.generate_funcdef(t, a, b, c),
             AstType::Statement(_) => self.generate_statement(ast),
             AstType::While(ref a, ref b) => self.generate_statement_while(a, b),
             AstType::Do(ref a, ref b) => self.generate_statement_do(a, b),
@@ -150,7 +151,7 @@ impl<'a> Asm<'a> {
     }
 
     // 関数定義.
-    fn generate_funcdef(&mut self, a: &String, b: &AstType, c: &AstType) {
+    fn generate_funcdef(&mut self, t: &Type, a: &String, b: &AstType, c: &AstType) {
         // return文のラベルを生成.
         let return_label = self.label.next_return_label();
 

@@ -28,8 +28,13 @@ use token::TokenInfo;
 //   <UnAry> ::= ['!'|'+'|'-'|'~'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Int,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum AstType {
-    FuncDef(String, Box<AstType>, Box<AstType>),
+    FuncDef(Type, String, Box<AstType>, Box<AstType>),
     Statement(Vec<AstType>),
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
     Do(Box<AstType>, Box<AstType>),    // ブロック部、条件式.
@@ -147,6 +152,9 @@ impl<'a> AstGen<'a> {
 
     // func def.
     fn func_def(&mut self) -> AstType {
+        // 型を取得.
+        let t = self.generate_type();
+
         // 関数定義から始まらないとだめ（関数の中に様々な処理が入っている）.
         let token = self.next_consume();
         match token.get_token_type() {
@@ -163,12 +171,22 @@ impl<'a> AstGen<'a> {
                 self.func_table
                     .push(token.get_token_value(), token.get_token_value().to_string());
                 AstType::FuncDef(
+                    t,
                     token.get_token_value(),
                     Box::new(self.func_args()),
                     Box::new(self.statement()),
                 )
             }
             _ => panic!("ast.rs(func_def): Not Exists Function def {:?}", token),
+        }
+    }
+
+    // type.
+    fn generate_type(&mut self) -> Type {
+        let token = self.next_consume();
+        match token.get_token_type() {
+            Token::Int => Type::Int,
+            _ => panic!("ast.rs(generate_type): not support type {:?}", token)
         }
     }
 
@@ -758,6 +776,7 @@ mod tests {
         // 単純な加算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -776,6 +795,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -788,6 +808,7 @@ mod tests {
         // 複数の加算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, '('.to_string()),
                 TokenInfo::new(Token::RightBracket, ')'.to_string()),
@@ -808,6 +829,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -823,6 +845,7 @@ mod tests {
         // 複数の加算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -845,6 +868,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -867,6 +891,7 @@ mod tests {
         // 単純な減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -885,6 +910,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -897,6 +923,7 @@ mod tests {
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -917,6 +944,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -932,6 +960,7 @@ mod tests {
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -954,6 +983,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -976,6 +1006,7 @@ mod tests {
         // 単純な乗算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -994,6 +1025,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -1006,6 +1038,7 @@ mod tests {
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1026,6 +1059,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -1041,6 +1075,7 @@ mod tests {
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1063,6 +1098,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -1085,6 +1121,7 @@ mod tests {
         // 単純な乗算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1103,6 +1140,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Division(
@@ -1115,6 +1153,7 @@ mod tests {
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1135,6 +1174,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Division(
@@ -1150,6 +1190,7 @@ mod tests {
         // 複数の減算テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1172,6 +1213,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Division(
@@ -1194,6 +1236,7 @@ mod tests {
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1214,6 +1257,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1229,6 +1273,7 @@ mod tests {
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1249,6 +1294,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1264,6 +1310,7 @@ mod tests {
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1284,6 +1331,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1299,6 +1347,7 @@ mod tests {
         // 複数演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1319,6 +1368,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1333,6 +1383,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1355,6 +1406,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::GreaterThanEqual(
@@ -1377,6 +1429,7 @@ mod tests {
         // カッコのテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1397,6 +1450,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1408,6 +1462,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1430,6 +1485,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1449,6 +1505,7 @@ mod tests {
         // 等価演算子テスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1471,6 +1528,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Equal(
@@ -1488,6 +1546,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1510,6 +1569,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Equal(
@@ -1527,6 +1587,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1551,6 +1612,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Equal(
@@ -1575,6 +1637,7 @@ mod tests {
     fn test_not_equal_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1599,6 +1662,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::NotEqual(
@@ -1623,6 +1687,7 @@ mod tests {
     fn test_less_than_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1647,6 +1712,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LessThan(
@@ -1667,6 +1733,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1691,6 +1758,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LessThanEqual(
@@ -1715,6 +1783,7 @@ mod tests {
     fn test_greater_than_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1739,6 +1808,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::GreaterThan(
@@ -1759,6 +1829,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1783,6 +1854,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::GreaterThanEqual(
@@ -1808,6 +1880,7 @@ mod tests {
         // &&演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1826,6 +1899,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalAnd(
@@ -1837,6 +1911,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1859,6 +1934,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalAnd(
@@ -1876,6 +1952,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1906,6 +1983,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalAnd(
@@ -1936,6 +2014,7 @@ mod tests {
         // ||演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1954,6 +2033,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -1965,6 +2045,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -1987,6 +2068,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2004,6 +2086,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2034,6 +2117,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2067,6 +2151,7 @@ mod tests {
     fn test_mix_logical_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2089,6 +2174,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2110,6 +2196,7 @@ mod tests {
     fn test_condition_expression() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2132,6 +2219,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Condition(
@@ -2147,6 +2235,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2177,6 +2266,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Condition(
@@ -2203,6 +2293,7 @@ mod tests {
     fn test_unary_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2220,6 +2311,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::UnPlus(Box::new(
@@ -2230,6 +2322,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2249,6 +2342,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -2260,6 +2354,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2281,6 +2376,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -2292,6 +2388,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2311,6 +2408,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -2323,6 +2421,7 @@ mod tests {
         // 否定演算子のテスト.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2340,6 +2439,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Not(Box::new(
@@ -2350,6 +2450,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2371,6 +2472,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Not(Box::new(
@@ -2382,6 +2484,7 @@ mod tests {
         // ビット反転演算子.
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2399,6 +2502,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitReverse(Box::new(
@@ -2413,6 +2517,7 @@ mod tests {
     fn test_shift_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2431,6 +2536,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LeftShift(
@@ -2442,6 +2548,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2460,6 +2567,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::RightShift(
@@ -2471,6 +2579,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2491,6 +2600,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::RightShift(
@@ -2505,6 +2615,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2525,6 +2636,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LessThan(
@@ -2544,6 +2656,7 @@ mod tests {
     fn test_bit_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2562,6 +2675,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitAnd(
@@ -2573,6 +2687,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2591,6 +2706,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitOr(
@@ -2602,6 +2718,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2620,6 +2737,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitXor(
@@ -2631,6 +2749,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2651,6 +2770,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitOr(
@@ -2669,6 +2789,7 @@ mod tests {
     fn test_assign_operator() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2687,6 +2808,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -2698,6 +2820,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2718,6 +2841,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -2732,6 +2856,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2752,6 +2877,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -2766,6 +2892,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2786,6 +2913,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -2800,6 +2928,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2820,6 +2949,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -2838,6 +2968,7 @@ mod tests {
     fn test_call_func() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2856,6 +2987,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
@@ -2867,6 +2999,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2886,6 +3019,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
@@ -2897,6 +3031,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2918,6 +3053,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
@@ -2936,6 +3072,7 @@ mod tests {
     fn test_compound() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -2960,6 +3097,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -2980,6 +3118,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3004,6 +3143,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3028,6 +3168,7 @@ mod tests {
     fn test_some_func_def() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3037,6 +3178,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "test".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3055,6 +3197,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3066,6 +3209,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[1],
                 AstType::FuncDef(
+                    Type::Int,
                     "test".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3081,6 +3225,7 @@ mod tests {
     fn test_func_def_with_args() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3102,6 +3247,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![
                         AstType::Variable("a".to_string()),
@@ -3120,6 +3266,7 @@ mod tests {
     fn test_statement_if() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3148,6 +3295,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::If(
@@ -3173,6 +3321,7 @@ mod tests {
     fn test_statement_else() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3208,6 +3357,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::If(
@@ -3233,6 +3383,7 @@ mod tests {
         {
             println!("test");
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3260,6 +3411,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::If(
@@ -3282,6 +3434,7 @@ mod tests {
     fn test_statement_while() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3310,6 +3463,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::While(
@@ -3330,6 +3484,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3360,6 +3515,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3387,6 +3543,7 @@ mod tests {
     fn test_statement_for() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3414,6 +3571,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::For(
@@ -3433,6 +3591,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3471,6 +3630,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::For(
@@ -3506,6 +3666,7 @@ mod tests {
     fn test_statement_do_while() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3535,6 +3696,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
@@ -3559,6 +3721,7 @@ mod tests {
     fn test_statement_continue_and_break() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3590,6 +3753,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
@@ -3611,6 +3775,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3642,6 +3807,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
@@ -3667,6 +3833,7 @@ mod tests {
     fn test_statement_return() {
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3686,6 +3853,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Return(Box::new(
@@ -3696,6 +3864,7 @@ mod tests {
         }
         {
             let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
                 TokenInfo::new(Token::LeftBracket, "(".to_string()),
                 TokenInfo::new(Token::RightBracket, ")".to_string()),
@@ -3713,6 +3882,7 @@ mod tests {
             assert_eq!(
                 result.get_tree()[0],
                 AstType::FuncDef(
+                    Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Return(Box::new(

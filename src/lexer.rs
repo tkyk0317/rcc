@@ -35,7 +35,10 @@ impl<'a> LexicalAnalysis<'a> {
                 Some(v) => {
                     let token = match v {
                         s if true == s.is_alphabetic() || s == '_' => {
-                            if let Some(t) = self.generate_statement(s) {
+                            if let Some(t) = self.generate_type(s) {
+                                t
+                            }
+                            else if let Some(t) = self.generate_statement(s) {
                                 t
                             } else {
                                 self.generate_variable_token(s)
@@ -243,6 +246,21 @@ impl<'a> LexicalAnalysis<'a> {
     // 右シフト演算子チェック.
     fn is_right_shift(&self, v: char) -> bool {
         v == '>' && self.read() == '>'
+    }
+
+    // type作成
+    fn generate_type(&mut self, c: char) -> Option<TokenInfo> {
+        if true == self.is_type_int(c) {
+            self.skip(2);
+            Some(TokenInfo::new(Token::Int, "int".to_string()))
+        } else {
+            None
+        }
+    }
+
+    // int型チェック
+    fn is_type_int(&mut self, c: char) -> bool {
+        c == 'i' && self.read_string(2) == "nt"
     }
 
     // statement作成.
@@ -880,6 +898,41 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string()),
                 lexer.get_tokens()[12]
+            );
+        }
+    }
+
+    #[test]
+    fn test_type() {
+        {
+            let input = "int a = 2;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
             );
         }
     }
