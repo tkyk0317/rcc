@@ -397,7 +397,7 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(_, ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").pos * 4 + 4;
+                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p * 4 + 4;
                 self.generate(b);
                 self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
                 self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
@@ -409,7 +409,7 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, _t: &Type, v: &String) {
-        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").pos * 4 + 4;
+        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p * 4 + 4;
         self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
         self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
     }
@@ -571,7 +571,7 @@ impl<'a> Asm<'a> {
     fn generate_address(&mut self, a: &AstType) {
         match *a {
             AstType::Variable(ref _t, ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_address): error option value").pos * 4 + 4;
+                let pos = self.var_table.search(a).expect("asm.rs(generate_address): error option value").p * 4 + 4;
                 self.inst = format!("{}  lea -{}(%rbp), %rax\n", self.inst, pos);
                 self.inst = format!("{}  push %rax\n", self.inst);
             }

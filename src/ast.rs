@@ -159,12 +159,12 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Variable => {
                 // 既に同じシンボルが登録されていればエラー.
-                if None != self.func_table.search(&token.get_token_value()) {
+                if self.func_table.search(&token.get_token_value()).is_some() {
                     panic!("ast.rs(func_def): already define {}", token.get_token_value());
                 }
 
                 // 関数シンボルを登録.
-                self.func_table.push(token.get_token_value(), token.get_token_value().to_string());
+                self.func_table.push(token.get_token_value(), &Type::Int);
                 AstType::FuncDef(
                     t,
                     token.get_token_value(),
@@ -701,14 +701,13 @@ impl<'a> AstGen<'a> {
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
             Token::Variable => {
-                // 既に定義されていないとエラー
-                if None == self.var_table.search(&token.get_token_value()) &&
-                   None == self.func_table.search(&token.get_token_value()) {
-                    println!("{:?}", self.var_table);
-                    panic!("ast.rs(factor): Variable({:?}) is undefined", token)
-                }
+                // 定義済みシンボルから型を取得し、AST作成
+                let sym = self.var_table.search(&token.get_token_value())
+                              .unwrap_or_else(|| {
+                                  self.func_table.search(&token.get_token_value()).expect("ast.rs(factor): Variable is undefined")
+                              });
                 self.back(1);
-                self.variable(Type::Int)
+                self.variable(sym.t)
             }
             Token::LeftBracket => {
                 let tree = self.assign();
@@ -730,8 +729,8 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
-                if None == self.var_table.search(&token.get_token_value()) {
-                    self.var_table.push(token.get_token_value(), "".to_string());
+                if self.var_table.search(&token.get_token_value()).is_none() {
+                    self.var_table.push(token.get_token_value(), &t);
                 }
                 AstType::Variable(t, token.get_token_value())
             }
