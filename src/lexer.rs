@@ -28,7 +28,10 @@ impl<'a> LexicalAnalysis<'a> {
         // 終了まで読み込み、字句解析を行う.
         while false == self.is_eof() {
             // 空白部分は読み飛ばし.
-            self.skip_space();
+            if self.read().is_whitespace() {
+                self.skip(1);
+                continue;
+            }
 
             // 一文字読み取って、トークン生成.
             match self.next() {
@@ -173,11 +176,9 @@ impl<'a> LexicalAnalysis<'a> {
         self.pos > (self.input.len() - 1)
     }
 
-    // 空白読み飛ばし.
-    fn skip_space(&mut self) {
-        while false == self.is_eof() && true == self.read().is_whitespace() {
-            self.skip(1);
-        }
+    // 変数候補チェック.
+    fn is_variable(&self, c: char) -> bool {
+        c.is_alphabetic() || c == '_' || c.is_digit(10)
     }
 
     // 数値トークン生成.
@@ -196,12 +197,9 @@ impl<'a> LexicalAnalysis<'a> {
 
     // 変数トークン生成.
     fn generate_variable_token(&mut self, v: char) -> TokenInfo {
-        let is_variable = |s: char| s.is_alphabetic() || s == '_' || s.is_digit(10);
-
         let mut s = String::new();
         s.push(v);
-
-        while false == self.is_eof() && is_variable(self.read()) {
+        while false == self.is_eof() && self.is_variable(self.read()) {
             s.push(self.read());
             self.skip(1);
         }
@@ -260,7 +258,9 @@ impl<'a> LexicalAnalysis<'a> {
 
     // int型チェック
     fn is_type_int(&mut self, c: char) -> bool {
-        c == 'i' && self.read_string(2) == "nt"
+        let s = self.read_string(3);
+        c == 'i' && s.len() == 3 && &s[0..2] == "nt" &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_type_int): read error"))
     }
 
     // statement作成.
@@ -296,42 +296,58 @@ impl<'a> LexicalAnalysis<'a> {
 
     // if statementチェック.
     fn is_statement_if(&mut self, v: char) -> bool {
-        v == 'i' && 'f' == self.read()
+        let s = self.read_string(2);
+        v == 'i' && s.len() == 2 && "f" == &s[0..1] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_if): read error"))
     }
 
     // else statementチェック.
     fn is_statement_else(&mut self, v: char) -> bool {
-        v == 'e' && "lse" == self.read_string(3)
+        let s = self.read_string(4);
+        v == 'e' && s.len() == 4 && "lse" == &s[0..3] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_else): read error"))
     }
 
     // while statementチェック.
     fn is_statement_while(&mut self, v: char) -> bool {
-        v == 'w' && "hile" == self.read_string(4)
+        let s = self.read_string(5);
+        v == 'w' && s.len() == 5 && "hile" == &s[0..4] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_while): read error"))
     }
 
     // do-while statementチェック.
     fn is_statement_do(&mut self, v: char) -> bool {
-        v == 'd' && "o" == self.read_string(1)
+        let s = self.read_string(2);
+        v == 'd' && s.len() == 2 && "o" == &s[0..1] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_do): read error"))
     }
 
     // for statementチェック.
     fn is_statement_for(&mut self, v: char) -> bool {
-        v == 'f' && "or" == self.read_string(2)
+        let s = self.read_string(3);
+        v == 'f' && s.len() == 3 && "or" == &s[0..2] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_for): read error"))
     }
 
     // continue statementチェック.
     fn is_statement_continue(&mut self, v: char) -> bool {
-        v == 'c' && "ontinue" == self.read_string(7)
+        let s = self.read_string(8);
+        v == 'c' && s.len() == 8 && "ontinue" == &s[0..7] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_continue): read error"))
     }
 
     // break statementチェック.
     fn is_statement_break(&mut self, v: char) -> bool {
-        v == 'b' && "reak" == self.read_string(4)
+        let s = self.read_string(5);
+        v == 'b' && s.len() == 5 && "reak" == &s[0..4] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_break): read error"))
     }
 
     // return statementチェック.
     fn is_statement_return(&mut self, v: char) -> bool {
-        v == 'r' && "eturn" == self.read_string(5)
+        let s = self.read_string(6);
+        v == 'r' && s.len() == 6 && "eturn" == &s[0..5] &&
+        false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_return): read error"))
     }
 }
 
@@ -900,6 +916,28 @@ mod tests {
                 lexer.get_tokens()[12]
             );
         }
+        {
+            let input = "return 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Return, "return".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[3]
+            );
+        }
     }
 
     #[test]
@@ -909,7 +947,6 @@ mod tests {
             let mut lexer = LexicalAnalysis::new(&input);
 
             lexer.read_token();
-
             assert_eq!(
                 TokenInfo::new(Token::Int, "int".to_string()),
                 lexer.get_tokens()[0]
@@ -924,6 +961,250 @@ mod tests {
             );
             assert_eq!(
                 TokenInfo::new(Token::Number, "2".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+    }
+
+    #[test]
+    fn test_variable() {
+        {
+            let input = "int ifi = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "ifi".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int elsee = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "elsee".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int do_ = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "do_".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int while0 = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "while0".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int forf = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "forf".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int break_ = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "break_".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int continue1 = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "continue1".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string()),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "int return_val = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new(&input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string()),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Variable, "return_val".to_string()),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Assign, "=".to_string()),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "0".to_string()),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
