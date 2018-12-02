@@ -39,12 +39,7 @@ pub enum AstType {
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
     Do(Box<AstType>, Box<AstType>),    // ブロック部、条件式.
     If(Box<AstType>, Box<AstType>, Box<Option<AstType>>), // 条件式、真ブロック、偽ブロック.
-    For(
-        Box<Option<AstType>>,
-        Box<Option<AstType>>,
-        Box<Option<AstType>>,
-        Box<AstType>,
-    ), // 初期条件、終了条件、更新部、ブロック部.
+    For(Box<Option<AstType>>, Box<Option<AstType>>, Box<Option<AstType>>, Box<AstType>,), // 初期条件、終了条件、更新部、ブロック部.
     Continue(),
     Break(),
     Return(Box<AstType>),
@@ -89,6 +84,7 @@ impl AstType {
             | AstType::Do(_, _)
             | AstType::Continue()
             | AstType::Break()
+            | AstType::Return(_)
             | AstType::While(_, _) => false,
             _ => true,
         }
