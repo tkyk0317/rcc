@@ -6,6 +6,7 @@ mod map;
 mod string;
 mod symbol;
 mod token;
+mod arch;
 
 use asm::Asm;
 use ast::AstGen;
