@@ -169,7 +169,7 @@ impl<'a> Asm<'a> {
             AstType::Statement(ref s) => s.iter().for_each(|ast| {
                 self.generate(ast);
                 if ast.is_expr() {
-                    self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                    self.generate_pop_stack("eax");
                 }
             }),
             _ => panic!("asm.rs(generate_statement): not support expr"),
@@ -234,9 +234,9 @@ impl<'a> Asm<'a> {
 
         // 条件式部分生成.
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $1, %eax\n", self.inst); // 等しい場合は、1に設定されている.
-        self.inst = format!("{}  je .L{}\n", self.inst, label_end);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(1, "eax"); // 等しい場合は、1に設定されている.
+        self.generate_je_inst(label_end);
 
         // elseブロック生成.
         match c {
@@ -278,9 +278,9 @@ impl<'a> Asm<'a> {
         self.generate_label_inst(label_begin);
         self.generate(a);
         // conditionが偽であれば、ブロック終端へジャンプ.
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
-        self.inst = format!("{}  je .L{}\n", self.inst, label_end);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+        self.generate_je_inst(label_end);
 
         // ブロック部生成.
         // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
@@ -313,9 +313,10 @@ impl<'a> Asm<'a> {
         self.generate_label_inst(label_condition);
         self.generate(b);
         // conditionが真であれば、ブロック先頭へジャンプ.
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
-        self.inst = format!("{}  jne .L{}\n", self.inst, label_begin);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+
+        self.generate_jne_inst(label_begin);
         self.generate_label_inst(label_end);
 
         // 生成したcontinue/breakラベルを除去.
@@ -342,16 +343,16 @@ impl<'a> Asm<'a> {
         // 初期条件.
         if let Some(init) = a {
             self.generate(init);
-            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+            self.generate_pop_stack("eax");
         }
         self.generate_label_inst(label_begin);
 
         // 終了条件.
         if let Some(cond) = b {
             self.generate(cond);
-            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-            self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
-            self.inst = format!("{}  je .L{}\n", self.inst, label_end);
+            self.generate_pop_stack("eax");
+            self.generate_cmp_inst(0, "eax");
+            self.generate_je_inst(label_end);
         }
 
         // ブロック部.
@@ -361,7 +362,7 @@ impl<'a> Asm<'a> {
         // 変数変化部分生成
         if let Some(end) = c {
             self.generate(end);
-            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+            self.generate_pop_stack("eax");
         }
         self.generate_jmp_inst(label_begin);
         self.generate_label_inst(label_end);
@@ -387,7 +388,7 @@ impl<'a> Asm<'a> {
     fn generate_statement_return(&mut self, a: &AstType) {
         self.generate(a);
         if a.is_expr() {
-            self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+            self.generate_pop_stack("eax");
         }
         let label_no = self.label.get_return_label();
         self.generate_jmp_inst(label_no);
@@ -399,9 +400,9 @@ impl<'a> Asm<'a> {
             AstType::Variable(_, ref a) => {
                 let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p * 4 + 4;
                 self.generate(b);
-                self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+                self.generate_pop_stack("eax");
                 self.inst = format!("{}  movl %eax, -{}(%rbp)\n", self.inst, pos);
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+                self.generate_push_stack("eax");
             }
             _ => self.generate(b),
         }
@@ -411,7 +412,7 @@ impl<'a> Asm<'a> {
     fn generate_variable(&mut self, _t: &Type, v: &String) {
         let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p * 4 + 4;
         self.inst = format!("{}  movl -{}(%rbp), %eax\n", self.inst, pos);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        self.generate_push_stack("eax");
     }
 
     // 関数コール生成.
@@ -425,15 +426,16 @@ impl<'a> Asm<'a> {
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
                         // 関数引数をスタックからレジスタへ.
-                        self.inst = v.iter().zip(REGS.iter()).fold(self.inst.clone(), |s, d| {
-                            s + &self.pop_stack("eax") + &format!("  mov %rax, {}\n", d.1)
+                        v.iter().zip(REGS.iter()).for_each(|d| {
+                            self.generate_pop_stack("eax");
+                            self.inst = format!("{}  mov %rax, {}\n", self.inst, d.1);
                         });
                     }
                     _ => panic!("asm.rs(generate_call_func): Not Function Argment"),
                 }
 
                 self.inst = format!("{}  call {}\n", self.inst, self.generate_func_symbol(n));
-                self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+                self.generate_push_stack("eax");
             }
             _ => panic!("asm.rs(generate_call_func): Not Exists Function name"),
         }
@@ -451,27 +453,27 @@ impl<'a> Asm<'a> {
     // bit反転演算子生成.
     fn generate_bit_reverse(&mut self, a: &AstType) {
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.generate_pop_stack("eax");
         self.inst = format!("{}  notl %eax\n", self.inst);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        self.generate_push_stack("eax");
     }
 
     // Not演算子生成.
     fn generate_not(&mut self, a: &AstType) {
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
         self.inst = format!("{}  sete %al\n", self.inst);
         self.inst = format!("{}  movzbl %al, %eax\n", self.inst);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        self.generate_push_stack("eax");
     }
 
     // マイナス単項演算子生成.
     fn generate_unminus(&mut self, a: &AstType) {
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
+        self.generate_pop_stack("eax");
         self.inst = format!("{}  negl %eax\n", self.inst);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        self.generate_push_stack("eax");
     }
 
     // プラス単項演算子生成.
@@ -485,9 +487,9 @@ impl<'a> Asm<'a> {
         let label_end = self.label.next_label();
 
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n", self.inst);
-        self.inst = format!("{}  je .L{}\n", self.inst, label_false);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+        self.generate_je_inst(label_false);
 
         self.generate(b);
         self.generate_jmp_inst(label_end);
@@ -503,18 +505,20 @@ impl<'a> Asm<'a> {
         let label_end = self.label.next_label();
 
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, label_false);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+        self.generate_je_inst(label_false);
         self.generate(b);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n  je .L{}\n", self.inst, label_false);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+        self.generate_je_inst(label_false);
 
         self.inst = format!("{}{}", self.inst, "  movl $1, %eax\n");
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_false);
         self.inst = format!("{}  movl $0, %eax\n", self.inst);
         self.generate_label_inst(label_end);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        self.generate_push_stack("eax");
     }
 
     // ||演算子生成.
@@ -523,18 +527,20 @@ impl<'a> Asm<'a> {
         let label_end = self.label.next_label();
 
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, label_true);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+        self.generate_jne_inst(label_true);
         self.generate(b);
-        self.inst = format!("{}{}", self.inst, self.pop_stack("eax"));
-        self.inst = format!("{}  cmpl $0, %eax\n  jne .L{}\n", self.inst, label_true);
+        self.generate_pop_stack("eax");
+        self.generate_cmp_inst(0, "eax");
+        self.generate_jne_inst(label_true);
 
         self.inst = format!("{}{}", self.inst, "  movl $0, %eax\n");
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_true);
         self.inst = format!("{}  movl $1, %eax\n", self.inst);
         self.generate_label_inst(label_end);
-        self.inst = format!("{}{}", self.inst, self.push_stack("eax"));
+        self.generate_push_stack("eax");
     }
 
     // 数値生成.
@@ -550,20 +556,14 @@ impl<'a> Asm<'a> {
         self.generate(b);
 
         // 各演算子評価.
-        self.inst = format!(
-            "{}{}{}",
-            self.inst,
-            self.pop_stack("ecx"),
-            self.pop_stack("eax")
-        );
+        self.generate_pop_stack("ecx");
+        self.generate_pop_stack("eax");
         self.inst = format!("{}{}", self.inst, self.operator(ast));
 
         // 演算子に応じて退避するレジスタを変更.
         match *ast {
-            AstType::Remainder(_, _) => {
-                self.inst = format!("{}{}", self.inst, self.push_stack("edx"))
-            }
-            _ => self.inst = format!("{}{}", self.inst, self.push_stack("eax")),
+            AstType::Remainder(_, _) => self.generate_push_stack("edx"),
+            _ => self.generate_push_stack("eax"),
         }
     }
 
@@ -584,17 +584,17 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.inst = format!("{}  pop %rax\n", self.inst);
         self.inst = format!("{}  movl (%rax), %ecx\n", self.inst);
-        self.inst = format!("{}{}", self.inst, self.push_stack("ecx"));
+        self.generate_push_stack("ecx");
     }
 
     // スタックポップ.
-    fn pop_stack(&self, reg: &str) -> String {
-        format!("  movl 0(%rsp), %{}\n  add $4, %rsp\n", reg)
+    fn generate_pop_stack(&mut self, reg: &str) {
+        self.inst = format!("{}  movl 0(%rsp), %{}\n  add $4, %rsp\n", self.inst, reg);
     }
 
     // プッシュスタック
-    fn push_stack(&self, reg: &str) -> String {
-        format!("  sub $4, %rsp\n  movl %{}, 0(%rsp)\n", reg)
+    fn generate_push_stack(&mut self, reg: &str) {
+        self.inst = format!("{}  sub $4, %rsp\n  movl %{}, 0(%rsp)\n", self.inst, reg);
     }
 
     // 演算子アセンブラ生成.
@@ -627,5 +627,20 @@ impl<'a> Asm<'a> {
     // jmp命令生成.
     fn generate_jmp_inst(&mut self, no: usize) {
         self.inst = format!("{}  jmp .L{}\n", self.inst, no);
+    }
+
+    // je命令生成.
+    fn generate_je_inst(&mut self, no: usize) {
+        self.inst = format!("{}  je .L{}\n", self.inst, no);
+    }
+
+    // jne命令生成.
+    fn generate_jne_inst(&mut self, no: usize) {
+        self.inst = format!("{}  jne .L{}\n", self.inst, no);
+    }
+
+    // cmp命令生成.
+    fn generate_cmp_inst(&mut self, f: usize, r: &str) {
+        self.inst = format!("{}  cmpl ${}, %{}\n", self.inst, f, r);
     }
 }
