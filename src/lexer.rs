@@ -27,11 +27,8 @@ impl<'a> LexicalAnalysis<'a> {
     pub fn read_token(&mut self) {
         // 終了まで読み込み、字句解析を行う.
         while false == self.is_eof() {
-            // 空白部分は読み飛ばし.
-            if self.read().is_whitespace() {
-                self.skip(1);
-                continue;
-            }
+            // 空白、改行などは読み飛ばし.
+            self.skip_ascii_whitespace();
 
             // 一文字読み取って、トークン生成.
             match self.next() {
@@ -159,6 +156,13 @@ impl<'a> LexicalAnalysis<'a> {
         let s = self.input.chars().nth(self.pos);
         self.skip(1);
         s
+    }
+
+    // 空白や改行、タブをスキップ.
+    fn skip_ascii_whitespace(&mut self) {
+        while false == self.is_eof() && self.read().is_ascii_whitespace() {
+            self.skip(1);
+        }
     }
 
     // 文字をスキップ.
