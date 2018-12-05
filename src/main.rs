@@ -9,7 +9,6 @@ mod token;
 mod arch;
 mod semantic;
 
-use std::process::exit;
 use asm::Asm;
 use ast::AstGen;
 use lexer::LexicalAnalysis;
@@ -19,6 +18,7 @@ use semantic::Semantic;
 ///
 /// 成功時、アセンブリを返す。失敗時はエラーのVecを返す
 fn compile(inst: &str) -> Result<String, Vec<String>> {
+    // 字句解析
     let mut p = LexicalAnalysis::new(&inst);
     p.read_token();
 
@@ -42,15 +42,11 @@ fn main() {
     // 標準入力を字句解析
     let mut s = String::new();
     std::io::stdin().read_line(&mut s).unwrap();
+
+    // コンパイル実行
     match compile(&s) {
-        Ok(inst) => {
-            println!("{}", inst);
-            exit(0)
-        }
-        Err(errs)  => {
-            errs.iter().for_each(|e| println!("{:?}", e));
-            exit(-1)
-        }
+        Ok(inst) => println!("{}", inst),
+        Err(errs)  => errs.iter().for_each(|e| println!("{:?}", e)),
     }
 }
 
