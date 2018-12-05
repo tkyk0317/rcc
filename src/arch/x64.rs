@@ -102,6 +102,12 @@ impl Generator for X64 {
     fn mov(&self, src: &str, dst: &str) -> String {
         format!("  mov %{}, %{}\n", src, dst)
     }
+    fn mov_src(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  mov {}(%{}), %{}\n", n, src, dst)
+    }
+    fn mov_dst(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  mov %{}, {}(%{})\n", src, n, dst)
+    }
     fn movz(&self, src: &str, dst: &str) -> String {
         format!("  movzbl %{}, %{}\n", src, dst)
     }

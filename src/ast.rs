@@ -30,6 +30,7 @@ use token::TokenInfo;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Int,
+    IntPointer,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -164,7 +165,7 @@ impl<'a> AstGen<'a> {
                 }
 
                 // 関数シンボルを登録.
-                self.func_table.push(token.get_token_value(), &Type::Int);
+                self.func_table.push(token.get_token_value(), &t);
                 AstType::FuncDef(
                     t,
                     token.get_token_value(),
@@ -179,7 +180,8 @@ impl<'a> AstGen<'a> {
     // typeトークンチェック
     fn is_type_token(&mut self) -> bool {
         match self.next().get_token_type() {
-            Token::Int => true,
+            Token::Int
+            | Token::IntPointer => true,
             _ => false
         }
     }
@@ -189,6 +191,7 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::Int => Type::Int,
+            Token::IntPointer => Type::IntPointer,
             _ => panic!("ast.rs(generate_type): not support type {:?}", token)
         }
     }
@@ -698,6 +701,7 @@ impl<'a> AstGen<'a> {
             Token::Not => AstType::Not(Box::new(self.factor())),
             Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
             Token::Int => self.variable(Type::Int),
+            Token::IntPointer => self.variable(Type::IntPointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
             Token::Variable => {
@@ -4120,6 +4124,45 @@ mod tests {
                         ),
                         AstType::Return(Box::new(
                             AstType::Variable(Type::Int, "a".to_string())
+                        ))
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_type_pointer() {
+        {
+            let data = vec![
+                TokenInfo::new(Token::Int, "int".to_string()),
+                TokenInfo::new(Token::Variable, "main".to_string()),
+                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftBrace, "{".to_string()),
+                TokenInfo::new(Token::IntPointer, "int*".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::Return, "return".to_string()),
+                TokenInfo::new(Token::Variable, "a".to_string()),
+                TokenInfo::new(Token::SemiColon, ";".to_string()),
+                TokenInfo::new(Token::RightBrace, "}".to_string()),
+                TokenInfo::new(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::IntPointer, "a".to_string()),
+                        AstType::Return(Box::new(
+                            AstType::Variable(Type::IntPointer, "a".to_string())
                         ))
                     ]))
                 )

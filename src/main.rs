@@ -206,6 +206,8 @@ mod test {
             TestData { inst: "int main() { int x; int y; x = 7; y = 5; return *&x * *&y; }", ex_ret: 35 },
             TestData { inst: "int main() {\n\tint a = 10;\n    return a;\n }", ex_ret: 10 },
             TestData { inst: "int main() {\n\tint a = 12901;\n    return a == 12901;\n }", ex_ret: 1 },
+            TestData { inst: "int main() {\n\tint a = 9;\n\tint *b; b = &a; return *b;\n }", ex_ret: 9 },
+            TestData { inst: "int main() {\n\tint a = 9;\n\tint *b = &a; return 10 * *b;\n }", ex_ret: 90 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(&d.inst.to_string()), "Fail Test: No.{}, inst: {}", i, d.inst));
 

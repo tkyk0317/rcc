@@ -42,6 +42,7 @@ pub enum Token {
     SemiColon,        // セミコロン.
     Assign,           // 代入演算子.
     Int,              // int型.
+    IntPointer,       // intポインタ
     End,              // 終了.
 }
 

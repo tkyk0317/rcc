@@ -395,22 +395,41 @@ impl<'a> Asm<'a> {
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            AstType::Variable(_, ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p * 8 + 8;
+            AstType::Variable(ref t, ref a) => {
+                let offset = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p as i64 * 8 + 8;
                 self.generate(b);
-                self.generate_pop_stack("eax");
-                self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rbp", -(pos as i64)));
-                self.generate_push_stack("eax");
+                match *t {
+                    Type::Int => {
+                        self.generate_pop_stack("eax");
+                        self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rbp", -offset));
+                        self.generate_push_stack("eax");
+                    }
+                    Type::IntPointer => {
+                        self.inst = format!("{}{}", self.inst, self.gen.pop("rax"));
+                        self.inst = format!("{}{}", self.inst, self.gen.mov_dst("rax", "rbp", -offset));
+                        self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
+                    }
+                    _ => panic!("asm.rs(generate_assign): not support type {:?}", t)
+                }
             }
             _ => self.generate(b),
         }
     }
 
     // variable生成.
-    fn generate_variable(&mut self, _t: &Type, v: &String) {
-        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p * 8 + 8;
-        self.inst = format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -(pos as i64)));
-        self.generate_push_stack("eax");
+    fn generate_variable(&mut self, t: &Type, v: &String) {
+        let offset = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p as i64 * 8 + 8;
+        match *t {
+            Type::Int => {
+                self.inst = format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -offset));
+                self.generate_push_stack("eax");
+            }
+            Type::IntPointer => {
+                self.inst = format!("{}{}", self.inst, self.gen.mov_src("rbp", "rax", -offset));
+                self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
+            }
+            _ => panic!("asm.rs(generate_variable): not support type {:?}", t)
+        }
     }
 
     // 関数コール生成.
