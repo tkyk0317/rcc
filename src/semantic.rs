@@ -22,11 +22,13 @@ impl<'a> Semantic<'a> {
 
     // 解析開始
     pub fn exec(&self) -> Result<(), Vec<String>> {
-        let mut errs = vec![];
-        self.ast.get_tree().iter().for_each(|t| {
+        let errs = self.ast.get_tree().iter().fold(vec![], |mut acc, t| {
             match self.analysis(&t) {
-                Ok(_) => {},
-                Err(r) => errs.push(r),
+                Err(r) => {
+                    acc.push(r);
+                    acc
+                }
+                Ok(_) => acc,
             }
         });
         if errs.is_empty() { Ok(()) } else { Err(errs) }
