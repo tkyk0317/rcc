@@ -7,7 +7,9 @@ mod string;
 mod symbol;
 mod token;
 mod arch;
+mod semantic;
 
+use std::process::exit;
 use asm::Asm;
 use ast::AstGen;
 
@@ -23,12 +25,24 @@ fn main() {
     let mut ast_gen = AstGen::new(p.get_tokens());
     let ast_tree = ast_gen.parse();
 
-    // アセンブラへ変換.
-    let var_table = ast_gen.get_var_symbol_table();
-    let func_table = ast_gen.get_func_symbol_table();
-    let mut asm = Asm::new(&var_table, &func_table);
-    asm.exec(&ast_tree);
-    println!("{}", asm.get_inst());
+    // 意味解析
+    let vars = ast_gen.get_var_symbol_table();
+    let funcs = ast_gen.get_func_symbol_table();
+    let sem = semantic::Semantic::new(&ast_tree, &vars, &funcs);
+    let errs = sem.exec();
+    match errs {
+        Err(e) => {
+            e.iter().for_each(|s| println!("{:?}", s));
+            exit(-1);
+        }
+        Ok(_) => {
+            // アセンブラへ変換.
+            let mut asm = Asm::new(&vars, &funcs);
+            asm.exec(&ast_tree);
+            println!("{}", asm.get_inst());
+            exit(0);
+        }
+    };
 }
 
 #[cfg(test)]
@@ -55,18 +69,29 @@ mod test {
         let mut ast_gen = AstGen::new(p.get_tokens());
         let ast_tree = ast_gen.parse();
 
-        // アセンブラへ変換.
-        let var_table = ast_gen.get_var_symbol_table();
-        let func_table = ast_gen.get_func_symbol_table();
-        let mut asm = Asm::new(&var_table, &func_table);
-        asm.exec(&ast_tree);
+        // 意味解析
+        let vars = ast_gen.get_var_symbol_table();
+        let funcs = ast_gen.get_func_symbol_table();
+        let sem = semantic::Semantic::new(&ast_tree, &vars, &funcs);
+        let errs = sem.exec();
+        match errs {
+            Err(e) => {
+                println!("{:?}", e);
+                -1
+            }
+            Ok(_) => {
+                // アセンブラへ変換.
+                let mut asm = Asm::new(&vars, &funcs);
+                asm.exec(&ast_tree);
 
-        // gccを使用して実行.
-        {
-            BufWriter::new(fs::File::create("test.s").unwrap()).write_all(asm.get_inst().as_bytes()).unwrap();
+                // gccを使用して実行.
+                {
+                    BufWriter::new(fs::File::create("test.s").unwrap()).write_all(asm.get_inst().as_bytes()).unwrap();
+                }
+                let _ = Command::new("gcc").args(&["-g3", "test.s", "-o", "test"]).output();
+                Command::new("./test").status().unwrap().code().unwrap()
+            }
         }
-        let _ = Command::new("gcc").args(&["-g3", "test.s", "-o", "test"]).output();
-        Command::new("./test").status().unwrap().code().unwrap()
     }
 
     #[test]
@@ -208,6 +233,8 @@ mod test {
             TestData { inst: "int main() {\n\tint a = 12901;\n    return a == 12901;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint a = 9;\n\tint *b; b = &a; return *b;\n }", ex_ret: 9 },
             TestData { inst: "int main() {\n\tint a = 9;\n\tint *b = &a; return 10 * *b;\n }", ex_ret: 90 },
+            TestData { inst: "ttt main() {\n\treturn 1;\n }", ex_ret: -1 },
+            TestData { inst: "in main() {\n\treturn 1;\n }", ex_ret: -1 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(&d.inst.to_string()), "Fail Test: No.{}, inst: {}", i, d.inst));
 

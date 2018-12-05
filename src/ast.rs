@@ -31,6 +31,7 @@ use token::TokenInfo;
 pub enum Type {
     Int,
     IntPointer,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -101,7 +102,7 @@ pub struct AstGen<'a> {
 }
 
 pub struct AstTree {
-    tree: Vec<AstType>, // 抽象構文木.
+    pub tree: Vec<AstType>, // 抽象構文木.
 }
 
 // 抽象構文木.
@@ -152,7 +153,6 @@ impl<'a> AstGen<'a> {
     // func def.
     fn func_def(&mut self) -> AstType {
         // 型を取得.
-        if false == self.is_type_token() { panic!("ast.rs(func_def): Not Exists Return Type") }
         let t = self.generate_type();
 
         // 関数定義から始まらないとだめ（関数の中に様々な処理が入っている）.
@@ -180,7 +180,7 @@ impl<'a> AstGen<'a> {
     // typeトークンチェック
     fn is_type_token(&mut self) -> bool {
         match self.next().get_token_type() {
-            Token::Int
+            | Token::Int
             | Token::IntPointer => true,
             _ => false
         }
@@ -192,7 +192,7 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Int => Type::Int,
             Token::IntPointer => Type::IntPointer,
-            _ => panic!("ast.rs(generate_type): not support type {:?}", token)
+            _ => Type::Unknown(token.get_token_value()),
         }
     }
 
@@ -206,10 +206,7 @@ impl<'a> AstGen<'a> {
                 let args = AstType::Argment(self.recur_func_args(tmp));
 
                 // 閉じ括弧.
-                self.must_next(
-                    Token::RightParen,
-                    "ast.rs(func_arg): Not Exists RightParen",
-                );
+                self.must_next(Token::RightParen, "ast.rs(func_arg): Not Exists RightParen");
                 args
             }
             _ => panic!("ast.rs(func_arg): Not Exists LeftParen {:?}", token),
@@ -288,17 +285,11 @@ impl<'a> AstGen<'a> {
     //
     // ブロック部が一行の場合、asm部が期待しているAstType::Statementでexpression結果を包む
     fn statement_if(&mut self) -> AstType {
-        self.must_next(
-            Token::LeftParen,
-            "ast.rs(statement_if): Not Exists LeftParen",
-        );
+        self.must_next(Token::LeftParen, "ast.rs(statement_if): Not Exists LeftParen");
 
         // 条件式を解析.
         let condition = self.assign();
-        self.must_next(
-            Token::RightParen,
-            "ast.rs(statement_if): Not Exists RightParen",
-        );
+        self.must_next(Token::RightParen, "ast.rs(statement_if): Not Exists RightParen");
 
         // ifブロック内を解析.
         let stmt = if Token::LeftBrace == self.next().get_token_type() {
@@ -327,17 +318,11 @@ impl<'a> AstGen<'a> {
 
     // while statement.
     fn statement_while(&mut self) -> AstType {
-        self.must_next(
-            Token::LeftParen,
-            "ast.rs(statement_while): Not Exists LeftParen",
-        );
+        self.must_next(Token::LeftParen, "ast.rs(statement_while): Not Exists LeftParen");
 
         // 条件式を解析.
         let condition = self.assign();
-        self.must_next(
-            Token::RightParen,
-            "ast.rs(statement_while): Not Exists RightParen",
-        );
+        self.must_next(Token::RightParen, "ast.rs(statement_while): Not Exists RightParen");
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
     }
@@ -349,25 +334,16 @@ impl<'a> AstGen<'a> {
         self.must_next(Token::While, "ast.rs(statement_do): Not Exists while token");
 
         // 条件式を解析.
-        self.must_next(
-            Token::LeftParen,
-            "ast.rs(statement_do): Not Exists LeftParen",
-        );
+        self.must_next(Token::LeftParen, "ast.rs(statement_do): Not Exists LeftParen");
         let condition = self.assign();
-        self.must_next(
-            Token::RightParen,
-            "ast.rs(statement_while): Not Exists RightParen",
-        );
+        self.must_next(Token::RightParen, "ast.rs(statement_while): Not Exists RightParen");
 
         AstType::Do(Box::new(stmt), Box::new(condition))
     }
 
     // for statement.
     fn statement_for(&mut self) -> AstType {
-        self.must_next(
-            Token::LeftParen,
-            "ast.rs(statement_for): Not Exists LeftParen",
-        );
+        self.must_next(Token::LeftParen, "ast.rs(statement_for): Not Exists LeftParen");
 
         // 各種条件を解析.
         let begin = if Token::SemiColon == self.next().get_token_type() {
@@ -375,30 +351,21 @@ impl<'a> AstGen<'a> {
         } else {
             Some(self.assign())
         };
-        self.must_next(
-            Token::SemiColon,
-            "ast.rs(statement_for): Not Exists Semicolon",
-        );
+        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
 
         let condition = if Token::SemiColon == self.next().get_token_type() {
             None
         } else {
             Some(self.assign())
         };
-        self.must_next(
-            Token::SemiColon,
-            "ast.rs(statement_for): Not Exists Semicolon",
-        );
+        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
 
         let end = if Token::RightParen == self.next().get_token_type() {
             None
         } else {
             Some(self.assign())
         };
-        self.must_next(
-            Token::RightParen,
-            "ast.rs(statement_for): Not Exists RightParen",
-        );
+        self.must_next(Token::RightParen, "ast.rs(statement_for): Not Exists RightParen");
 
         AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
     }
@@ -465,10 +432,7 @@ impl<'a> AstGen<'a> {
                     Box::new(acc),
                     Box::new(self.argment(AstType::Argment(vec![]))),
                 );
-                self.must_next(
-                    Token::RightParen,
-                    "ast.rs(call_func): Not exists RightParen",
-                );
+                self.must_next(Token::RightParen, "ast.rs(call_func): Not exists RightParen");
                 call_func
             }
             _ => panic!("ast.rs(call_func): Not exists LeftParen"),
@@ -717,10 +681,7 @@ impl<'a> AstGen<'a> {
                 let tree = self.assign();
 
                 // 閉じカッコがあるかどうかチェック.
-                self.must_next(
-                    Token::RightParen,
-                    "ast.rs(factor): Not exists RightParen",
-                );
+                self.must_next(Token::RightParen, "ast.rs(factor): Not exists RightParen");
                 tree
             }
             _ => panic!("ast.rs(factor): failed in factor {:?}", token),
