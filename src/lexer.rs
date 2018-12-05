@@ -105,8 +105,8 @@ impl<'a> LexicalAnalysis<'a> {
                         '*' => TokenInfo::new(Token::Multi, v.to_string()),
                         '/' => TokenInfo::new(Token::Division, v.to_string()),
                         '%' => TokenInfo::new(Token::Remainder, v.to_string()),
-                        '(' => TokenInfo::new(Token::LeftBracket, v.to_string()),
-                        ')' => TokenInfo::new(Token::RightBracket, v.to_string()),
+                        '(' => TokenInfo::new(Token::LeftParen, v.to_string()),
+                        ')' => TokenInfo::new(Token::RightParen, v.to_string()),
                         '{' => TokenInfo::new(Token::LeftBrace, v.to_string()),
                         '}' => TokenInfo::new(Token::RightBrace, v.to_string()),
                         '?' => TokenInfo::new(Token::Question, v.to_string()),
@@ -877,7 +877,7 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -893,7 +893,7 @@ mod tests {
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 lexer.get_tokens()[5]
             );
             assert_eq!(

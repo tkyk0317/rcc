@@ -200,19 +200,19 @@ impl<'a> AstGen<'a> {
     fn func_args(&mut self) -> AstType {
         let token = self.next_consume();
         match token.get_token_type() {
-            Token::LeftBracket => {
+            Token::LeftParen => {
                 // 引数を処理.
                 let tmp = vec![];
                 let args = AstType::Argment(self.recur_func_args(tmp));
 
                 // 閉じ括弧.
                 self.must_next(
-                    Token::RightBracket,
-                    "ast.rs(func_arg): Not Exists RightBracket",
+                    Token::RightParen,
+                    "ast.rs(func_arg): Not Exists RightParen",
                 );
                 args
             }
-            _ => panic!("ast.rs(func_arg): Not Exists LeftBracket {:?}", token),
+            _ => panic!("ast.rs(func_arg): Not Exists LeftParen {:?}", token),
         }
     }
 
@@ -289,15 +289,15 @@ impl<'a> AstGen<'a> {
     // ブロック部が一行の場合、asm部が期待しているAstType::Statementでexpression結果を包む
     fn statement_if(&mut self) -> AstType {
         self.must_next(
-            Token::LeftBracket,
-            "ast.rs(statement_if): Not Exists LeftBracket",
+            Token::LeftParen,
+            "ast.rs(statement_if): Not Exists LeftParen",
         );
 
         // 条件式を解析.
         let condition = self.assign();
         self.must_next(
-            Token::RightBracket,
-            "ast.rs(statement_if): Not Exists RightBracket",
+            Token::RightParen,
+            "ast.rs(statement_if): Not Exists RightParen",
         );
 
         // ifブロック内を解析.
@@ -328,15 +328,15 @@ impl<'a> AstGen<'a> {
     // while statement.
     fn statement_while(&mut self) -> AstType {
         self.must_next(
-            Token::LeftBracket,
-            "ast.rs(statement_while): Not Exists LeftBracket",
+            Token::LeftParen,
+            "ast.rs(statement_while): Not Exists LeftParen",
         );
 
         // 条件式を解析.
         let condition = self.assign();
         self.must_next(
-            Token::RightBracket,
-            "ast.rs(statement_while): Not Exists RightBracket",
+            Token::RightParen,
+            "ast.rs(statement_while): Not Exists RightParen",
         );
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
@@ -350,13 +350,13 @@ impl<'a> AstGen<'a> {
 
         // 条件式を解析.
         self.must_next(
-            Token::LeftBracket,
-            "ast.rs(statement_do): Not Exists LeftBracket",
+            Token::LeftParen,
+            "ast.rs(statement_do): Not Exists LeftParen",
         );
         let condition = self.assign();
         self.must_next(
-            Token::RightBracket,
-            "ast.rs(statement_while): Not Exists RightBracket",
+            Token::RightParen,
+            "ast.rs(statement_while): Not Exists RightParen",
         );
 
         AstType::Do(Box::new(stmt), Box::new(condition))
@@ -365,8 +365,8 @@ impl<'a> AstGen<'a> {
     // for statement.
     fn statement_for(&mut self) -> AstType {
         self.must_next(
-            Token::LeftBracket,
-            "ast.rs(statement_for): Not Exists LeftBracket",
+            Token::LeftParen,
+            "ast.rs(statement_for): Not Exists LeftParen",
         );
 
         // 各種条件を解析.
@@ -390,14 +390,14 @@ impl<'a> AstGen<'a> {
             "ast.rs(statement_for): Not Exists Semicolon",
         );
 
-        let end = if Token::RightBracket == self.next().get_token_type() {
+        let end = if Token::RightParen == self.next().get_token_type() {
             None
         } else {
             Some(self.assign())
         };
         self.must_next(
-            Token::RightBracket,
-            "ast.rs(statement_for): Not Exists RightBracket",
+            Token::RightParen,
+            "ast.rs(statement_for): Not Exists RightParen",
         );
 
         AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
@@ -444,7 +444,7 @@ impl<'a> AstGen<'a> {
                         self.consume();
                         AstType::Assign(Box::new(var), Box::new(self.condition()))
                     }
-                    Token::LeftBracket => self.call_func(var),
+                    Token::LeftParen => self.call_func(var),
                     _ => {
                         // variable分を巻き戻し.
                         self.back(1);
@@ -460,18 +460,18 @@ impl<'a> AstGen<'a> {
     fn call_func(&mut self, acc: AstType) -> AstType {
         let token = self.next_consume();
         match token.get_token_type() {
-            Token::LeftBracket => {
+            Token::LeftParen => {
                 let call_func = AstType::CallFunc(
                     Box::new(acc),
                     Box::new(self.argment(AstType::Argment(vec![]))),
                 );
                 self.must_next(
-                    Token::RightBracket,
-                    "ast.rs(call_func): Not exists RightBracket",
+                    Token::RightParen,
+                    "ast.rs(call_func): Not exists RightParen",
                 );
                 call_func
             }
-            _ => panic!("ast.rs(call_func): Not exists LeftBracket"),
+            _ => panic!("ast.rs(call_func): Not exists LeftParen"),
         }
     }
 
@@ -480,7 +480,7 @@ impl<'a> AstGen<'a> {
         // 右括弧が表れるまで、引数とみなす
         let token = self.next();
         match token.get_token_type() {
-            Token::RightBracket => acc,
+            Token::RightParen => acc,
             Token::Variable | Token::Number => {
                 match acc {
                     AstType::Argment(a) => {
@@ -713,13 +713,13 @@ impl<'a> AstGen<'a> {
                 self.back(1);
                 self.variable(sym.t)
             }
-            Token::LeftBracket => {
+            Token::LeftParen => {
                 let tree = self.assign();
 
                 // 閉じカッコがあるかどうかチェック.
                 self.must_next(
-                    Token::RightBracket,
-                    "ast.rs(factor): Not exists RightBracket",
+                    Token::RightParen,
+                    "ast.rs(factor): Not exists RightParen",
                 );
                 tree
             }
@@ -789,8 +789,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
@@ -821,8 +821,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, '('.to_string()),
-                TokenInfo::new(Token::RightBracket, ')'.to_string()),
+                TokenInfo::new(Token::LeftParen, '('.to_string()),
+                TokenInfo::new(Token::RightParen, ')'.to_string()),
                 TokenInfo::new(Token::LeftBrace, '{'.to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
@@ -858,8 +858,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
@@ -904,8 +904,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
@@ -936,8 +936,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "100".to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
@@ -973,8 +973,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Minus, '-'.to_string()),
@@ -1019,8 +1019,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1051,8 +1051,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1088,8 +1088,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1134,8 +1134,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
@@ -1166,8 +1166,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
@@ -1203,8 +1203,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
@@ -1249,8 +1249,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1286,8 +1286,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
@@ -1323,8 +1323,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Division, '/'.to_string()),
@@ -1360,8 +1360,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, '1'.to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
@@ -1396,8 +1396,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LessThan, "<".to_string()),
@@ -1442,14 +1442,14 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -1475,16 +1475,16 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -1518,8 +1518,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Plus, '+'.to_string()),
@@ -1559,8 +1559,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1600,8 +1600,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1650,8 +1650,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1700,8 +1700,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1746,8 +1746,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1796,8 +1796,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1842,8 +1842,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::Multi, '*'.to_string()),
@@ -1893,8 +1893,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalAnd, "&&".to_string()),
@@ -1924,8 +1924,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
@@ -1965,8 +1965,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
@@ -2027,8 +2027,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
@@ -2058,8 +2058,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
@@ -2099,8 +2099,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
@@ -2164,8 +2164,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LogicalOr, "||".to_string()),
@@ -2209,8 +2209,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
@@ -2248,14 +2248,14 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
                 TokenInfo::new(Token::Question, "?".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Number, "10".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "11".to_string()),
@@ -2263,7 +2263,7 @@ mod tests {
                 TokenInfo::new(Token::Number, "12".to_string()),
                 TokenInfo::new(Token::Colon, ":".to_string()),
                 TokenInfo::new(Token::Number, "13".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::Colon, ":".to_string()),
                 TokenInfo::new(Token::Number, "5".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -2306,8 +2306,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -2335,8 +2335,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -2367,15 +2367,15 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Minus, "-".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -2401,8 +2401,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -2434,8 +2434,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Not, "!".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -2463,15 +2463,15 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Not, "!".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -2497,8 +2497,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::BitReverse, "~".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
@@ -2530,8 +2530,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LeftShift, "<<".to_string()),
@@ -2561,8 +2561,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::RightShift, ">>".to_string()),
@@ -2592,8 +2592,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
@@ -2628,8 +2628,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::LessThan, "<".to_string()),
@@ -2669,8 +2669,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::And, "&".to_string()),
@@ -2700,8 +2700,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitOr, "&".to_string()),
@@ -2731,8 +2731,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::BitXor, "^".to_string()),
@@ -2762,8 +2762,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "2".to_string()),
                 TokenInfo::new(Token::And, "&".to_string()),
@@ -2802,8 +2802,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -2834,8 +2834,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -2871,8 +2871,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -2913,8 +2913,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -2950,8 +2950,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -2991,18 +2991,18 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -3037,21 +3037,21 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -3088,26 +3088,26 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Comma, ",".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
                 TokenInfo::new(Token::Comma, ",".to_string()),
                 TokenInfo::new(Token::Variable, "c".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
@@ -3152,8 +3152,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3199,8 +3199,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3250,8 +3250,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3261,8 +3261,8 @@ mod tests {
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "test".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
@@ -3309,13 +3309,13 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Comma, ",".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "b".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "c".to_string()),
@@ -3353,18 +3353,18 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::If, "if".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3415,8 +3415,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -3428,11 +3428,11 @@ mod tests {
                 TokenInfo::new(Token::Variable, "e".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::If, "if".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3490,18 +3490,18 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::If, "if".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::Else, "else".to_string()),
@@ -3547,18 +3547,18 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3603,18 +3603,18 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3667,14 +3667,14 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::For, "for".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3716,11 +3716,11 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::For, "for".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "i".to_string()),
                 TokenInfo::new(Token::Assign, "=".to_string()),
@@ -3735,7 +3735,7 @@ mod tests {
                 TokenInfo::new(Token::Variable, "i".to_string()),
                 TokenInfo::new(Token::Plus, "+".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
@@ -3793,8 +3793,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Do, "do".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
@@ -3810,11 +3810,11 @@ mod tests {
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
             ];
@@ -3853,8 +3853,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Do, "do".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
@@ -3872,11 +3872,11 @@ mod tests {
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
             ];
@@ -3912,8 +3912,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Do, "do".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
@@ -3931,11 +3931,11 @@ mod tests {
                 TokenInfo::new(Token::SemiColon, ";".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::While, "while".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
                 TokenInfo::new(Token::Equal, "==".to_string()),
                 TokenInfo::new(Token::Number, "3".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::RightBrace, "}".to_string()),
                 TokenInfo::new(Token::End, "End".to_string()),
             ];
@@ -3975,8 +3975,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Return, "return".to_string()),
                 TokenInfo::new(Token::Number, "1".to_string()),
@@ -4006,8 +4006,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -4045,8 +4045,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -4089,8 +4089,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),
@@ -4137,8 +4137,8 @@ mod tests {
             let data = vec![
                 TokenInfo::new(Token::Int, "int".to_string()),
                 TokenInfo::new(Token::Variable, "main".to_string()),
-                TokenInfo::new(Token::LeftBracket, "(".to_string()),
-                TokenInfo::new(Token::RightBracket, ")".to_string()),
+                TokenInfo::new(Token::LeftParen, "(".to_string()),
+                TokenInfo::new(Token::RightParen, ")".to_string()),
                 TokenInfo::new(Token::LeftBrace, "{".to_string()),
                 TokenInfo::new(Token::IntPointer, "int*".to_string()),
                 TokenInfo::new(Token::Variable, "a".to_string()),

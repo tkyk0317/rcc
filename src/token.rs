@@ -34,8 +34,8 @@ pub enum Token {
     Multi,            // 乗算演算子.
     Division,         // 除算演算子.
     Remainder,        // 余り演算子.
-    LeftBracket,      // 左括弧.
-    RightBracket,     // 右括弧.
+    LeftParen,        // 左括弧.
+    RightParen,       // 右括弧.
     LeftBrace,        // 左波括弧.
     RightBrace,       // 右波括弧.
     Not,              // 否定演算子.
