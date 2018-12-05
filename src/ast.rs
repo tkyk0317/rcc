@@ -1,6 +1,5 @@
 use symbol::SymbolTable;
-use token::Token;
-use token::TokenInfo;
+use token::{Token, TokenInfo};
 
 // 文法.
 //   <FuncDef> ::= VARIABLE '()' <FuncBody>

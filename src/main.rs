@@ -12,13 +12,14 @@ mod semantic;
 use std::process::exit;
 use asm::Asm;
 use ast::AstGen;
+use lexer::LexicalAnalysis;
+use semantic::Semantic;
 
-#[doc = "メイン関数"]
-fn main() {
-    // 標準入力を字句解析
-    let mut s = String::new();
-    std::io::stdin().read_line(&mut s).unwrap();
-    let mut p = lexer::LexicalAnalysis::new(&s);
+/// コンパイルスタート
+///
+/// 成功時、アセンブリを返す。失敗時はエラーのVecを返す
+fn compile(inst: &str) -> Result<String, Vec<String>> {
+    let mut p = LexicalAnalysis::new(&inst);
     p.read_token();
 
     // AST作成
@@ -28,21 +29,29 @@ fn main() {
     // 意味解析
     let vars = ast_gen.get_var_symbol_table();
     let funcs = ast_gen.get_func_symbol_table();
-    let sem = semantic::Semantic::new(&ast_tree, &vars, &funcs);
-    let errs = sem.exec();
-    match errs {
-        Err(e) => {
-            e.iter().for_each(|s| println!("{:?}", s));
-            exit(-1);
+    Semantic::new(&ast_tree, &vars, &funcs).exec()?;
+
+    // アセンブラへ変換.
+    let mut asm = Asm::new(&vars, &funcs);
+    asm.exec(&ast_tree);
+    Ok(asm.get_inst())
+}
+
+#[doc = "メイン関数"]
+fn main() {
+    // 標準入力を字句解析
+    let mut s = String::new();
+    std::io::stdin().read_line(&mut s).unwrap();
+    match compile(&s) {
+        Ok(inst) => {
+            println!("{}", inst);
+            exit(0)
         }
-        Ok(_) => {
-            // アセンブラへ変換.
-            let mut asm = Asm::new(&vars, &funcs);
-            asm.exec(&ast_tree);
-            println!("{}", asm.get_inst());
-            exit(0);
+        Err(errs)  => {
+            errs.iter().for_each(|e| println!("{:?}", e));
+            exit(-1)
         }
-    };
+    }
 }
 
 #[cfg(test)]
@@ -61,32 +70,13 @@ mod test {
     // 評価関数.
     //
     // 引数で指定された文字列をコンパイル→実行、exitコードを返す
-    fn eval(inst: &String) -> i32 {
-        let mut p = lexer::LexicalAnalysis::new(inst);
-        p.read_token();
-
-        // AST作成
-        let mut ast_gen = AstGen::new(p.get_tokens());
-        let ast_tree = ast_gen.parse();
-
-        // 意味解析
-        let vars = ast_gen.get_var_symbol_table();
-        let funcs = ast_gen.get_func_symbol_table();
-        let sem = semantic::Semantic::new(&ast_tree, &vars, &funcs);
-        let errs = sem.exec();
-        match errs {
-            Err(e) => {
-                println!("{:?}", e);
-                -1
-            }
-            Ok(_) => {
-                // アセンブラへ変換.
-                let mut asm = Asm::new(&vars, &funcs);
-                asm.exec(&ast_tree);
-
+    fn eval(inst: &str) -> i32 {
+        match compile(inst) {
+            Err(_) => -1,
+            Ok(inst) => {
                 // gccを使用して実行.
                 {
-                    BufWriter::new(fs::File::create("test.s").unwrap()).write_all(asm.get_inst().as_bytes()).unwrap();
+                    BufWriter::new(fs::File::create("test.s").unwrap()).write_all(inst.as_bytes()).unwrap();
                 }
                 let _ = Command::new("gcc").args(&["-g3", "test.s", "-o", "test"]).output();
                 Command::new("./test").status().unwrap().code().unwrap()
@@ -236,7 +226,7 @@ mod test {
             TestData { inst: "ttt main() {\n\treturn 1;\n }", ex_ret: -1 },
             TestData { inst: "in main() {\n\treturn 1;\n }", ex_ret: -1 },
         ]
-        .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(&d.inst.to_string()), "Fail Test: No.{}, inst: {}", i, d.inst));
+        .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 
         // ファイル削除
         let _ = fs::remove_file("test.s");

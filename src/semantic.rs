@@ -1,7 +1,5 @@
 use std::result::Result;
-use ast::AstTree;
-use ast::AstType;
-use ast::Type;
+use ast::{AstTree, AstType, Type};
 use symbol::SymbolTable;
 
 #[doc = "意味解析部"]

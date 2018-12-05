@@ -1,16 +1,15 @@
-use token::Token;
-use token::TokenInfo;
+use token::{Token, TokenInfo};
 
 #[doc = " 字句解析"]
 pub struct LexicalAnalysis<'a> {
-    input: &'a String,
+    input: &'a str,
     pos: usize,
     tokens: Vec<TokenInfo>,
 }
 
 impl<'a> LexicalAnalysis<'a> {
     // コンストラクタ.
-    pub fn new(input: &'a String) -> LexicalAnalysis {
+    pub fn new(input: &'a str) -> LexicalAnalysis {
         LexicalAnalysis {
             input: input,
             pos: 0,

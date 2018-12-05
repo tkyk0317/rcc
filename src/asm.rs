@@ -1,11 +1,8 @@
-use ast::AstTree;
-use ast::AstType;
-use ast::Type;
+use ast::{AstTree, AstType, Type};
 use config::Config;
 use std::process;
 use symbol::SymbolTable;
-use arch::Generator;
-use arch::x64::X64;
+use arch::{Generator, x64::X64};
 
 #[doc = "ラベル管理"]
 struct Label {
