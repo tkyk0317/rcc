@@ -189,7 +189,7 @@ impl<'a> Asm<'a> {
             "".to_string()
         };
 
-        let pos = self.var_table.count() * 4;
+        let pos = self.var_table.count() * 8;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!("{}{}", start, self.gen.push("rbp"));
         start = format!("{}{}", start, self.gen.mov("rsp", "rbp"));
@@ -199,7 +199,7 @@ impl<'a> Asm<'a> {
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self) {
-        let pos = self.var_table.count() * 4;
+        let pos = self.var_table.count() * 8;
         let mut end = self.gen.add(pos, "rsp");
         end = format!("{}{}", end, self.gen.pop("rbp"));
         end = format!("{}{}", end, self.gen.ret());
@@ -208,8 +208,8 @@ impl<'a> Asm<'a> {
 
     // 関数引数生成.
     fn generate_func_args(&mut self, a: &AstType) {
-        // レジスタからスタックへ引数を移動(SPを4バイトずつ移動しながら).
-        let st = 4;
+        // レジスタからスタックへ引数を移動(SPを8バイトずつ移動しながら).
+        let st = 8;
         match *a {
             AstType::Argment(ref args) => {
                 args.iter().zip(REGS.iter()).fold(st, |p, d| {
@@ -219,7 +219,7 @@ impl<'a> Asm<'a> {
                         self.gen.mov(&d.1, "rax"),
                         self.gen.movl_dst("eax", "rbp", -(p as i64))
                     );
-                    p + 4
+                    p + 8
                 });
             }
             _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
@@ -396,7 +396,7 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(_, ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p * 4 + 4;
+                let pos = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p * 8 + 8;
                 self.generate(b);
                 self.generate_pop_stack("eax");
                 self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rbp", -(pos as i64)));
@@ -408,7 +408,7 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, _t: &Type, v: &String) {
-        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p * 4 + 4;
+        let pos = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p * 8 + 8;
         self.inst = format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -(pos as i64)));
         self.generate_push_stack("eax");
     }
@@ -544,7 +544,7 @@ impl<'a> Asm<'a> {
     // 数値生成.
     fn generate_factor(&mut self, a: i64) {
         // 数値.
-        self.inst = format!("{}{}", self.inst, self.gen.sub(4, "rsp"));
+        self.inst = format!("{}{}", self.inst, self.gen.sub(8, "rsp"));
         self.inst = format!("{}{}", self.inst, self.gen.movl_imm_dst(a, "rsp", 0));
     }
 
@@ -569,7 +569,7 @@ impl<'a> Asm<'a> {
     fn generate_address(&mut self, a: &AstType) {
         match *a {
             AstType::Variable(ref _t, ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_address): error option value").p * 4 + 4;
+                let pos = self.var_table.search(a).expect("asm.rs(generate_address): error option value").p * 8 + 8;
                 self.inst = format!("{}{}", self.inst, self.gen.lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
             }

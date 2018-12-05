@@ -7,10 +7,10 @@ impl X64 {
 }
 impl Generator for X64 {
     fn pop_stack(&self, reg: &str) -> String {
-        format!("  movl 0(%rsp), %{}\n  add $4, %rsp\n", reg)
+        format!("  movl 0(%rsp), %{}\n  add $8, %rsp\n", reg)
     }
     fn push_stack(&self, reg: &str) -> String {
-        format!("  sub $4, %rsp\n  movl %{}, 0(%rsp)\n", reg)
+        format!("  sub $8, %rsp\n  movl %{}, 0(%rsp)\n", reg)
     }
     fn push(&self, reg: &str) -> String {
         format!("  push %{}\n", reg)
