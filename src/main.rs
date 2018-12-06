@@ -63,6 +63,14 @@ mod test {
         ex_ret: i32,
     }
 
+    // アセンブラ書き込み
+    fn create_asm_file(inst: &str) -> Result<(), Box<std::error::Error>> {
+        let mut file = fs::File::create("test.s")?;
+        file.write_all(inst.as_bytes())?;
+        file.flush()?;
+        Ok(())
+    }
+
     // 評価関数.
     //
     // 引数で指定された文字列をコンパイル→実行、exitコードを返す
@@ -71,10 +79,9 @@ mod test {
             Err(_) => -1,
             Ok(inst) => {
                 // gccを使用して実行.
-                {
-                    BufWriter::new(fs::File::create("test.s").unwrap()).write_all(inst.as_bytes()).unwrap();
-                }
-                let _ = Command::new("gcc").args(&["-g3", "test.s", "-o", "test"]).output();
+                create_asm_file(&inst);
+                let c = Command::new("gcc").args(&["-g3", "./test.s", "-o", "test"]).output();
+                println!("gcc: {:?}", c.unwrap());
                 Command::new("./test").status().unwrap().code().unwrap()
             }
         }

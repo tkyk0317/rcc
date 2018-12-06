@@ -1,14 +1,17 @@
 use std::env;
+use std::process::Command;
 
 // 設定データ.
 pub struct Config {}
 
 impl Config {
     pub fn is_mac() -> bool {
-        // 環境変数が設定されている場合、mac.
-        match env::var("TARGET") {
-            Ok(_) => true,
-            _ => false,
+        // macで動作しているかチェック.
+        let uname = Command::new("uname").output().expect("uname is error");
+        if String::from_utf8_lossy(&uname.stdout).find("Darwin").is_some() {
+            true
+        } else {
+            false
         }
     }
 }
