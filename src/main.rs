@@ -80,8 +80,7 @@ mod test {
             Ok(inst) => {
                 // gccを使用して実行.
                 create_asm_file(&inst);
-                let c = Command::new("gcc").args(&["-g3", "./test.s", "-o", "test"]).output();
-                println!("gcc: {:?}", c.unwrap());
+                let _ = Command::new("gcc").args(&["-g3", "./test.s", "-o", "test"]).output();
                 Command::new("./test").status().unwrap().code().unwrap()
             }
         }
