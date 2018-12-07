@@ -1,4 +1,3 @@
-use std::env;
 use std::process::Command;
 
 // 設定データ.

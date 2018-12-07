@@ -147,7 +147,7 @@ impl<'a> Asm<'a> {
             | AstType::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
             AstType::Address(ref a) => self.generate_address(a),
             AstType::Indirect(ref a) => self.generate_indirect(a),
-            _ => panic!("asm.rs(generate): not support expression"),
+            _ => panic!("{} {}: not support expression", file!(), line!()),
         }
     }
 
@@ -173,7 +173,7 @@ impl<'a> Asm<'a> {
                     self.generate_pop_stack("eax");
                 }
             }),
-            _ => panic!("asm.rs(generate_statement): not support expr"),
+            _ => panic!("{} {}: not support expr", file!(), line!()),
         }
     }
 
@@ -219,7 +219,7 @@ impl<'a> Asm<'a> {
                     p + 8
                 });
             }
-            _ => panic!("asm.rs(generate_func_args): not support expr {:?}", a),
+            _ => panic!("{} {}: not support expr {:?}", file!(), line!(), a),
         }
     }
 
@@ -406,7 +406,7 @@ impl<'a> Asm<'a> {
                         self.inst = format!("{}{}", self.inst, self.gen.mov_dst("rax", "rbp", -offset));
                         self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
                     }
-                    _ => panic!("asm.rs(generate_assign): not support type {:?}", t)
+                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
                 }
             }
             _ => self.generate(b),
@@ -425,7 +425,7 @@ impl<'a> Asm<'a> {
                 self.inst = format!("{}{}", self.inst, self.gen.mov_src("rbp", "rax", -offset));
                 self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
             }
-            _ => panic!("asm.rs(generate_variable): not support type {:?}", t)
+            _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
         }
     }
 
@@ -445,13 +445,13 @@ impl<'a> Asm<'a> {
                             self.inst = format!("{}{}", self.inst, self.gen.mov("rax", &d.1));
                         });
                     }
-                    _ => panic!("asm.rs(generate_call_func): Not Function Argment"),
+                    _ => panic!("{} {}: Not Function Argment", file!(), line!()),
                 }
 
                 self.inst = format!("{}{}", self.inst, self.gen.call(&self.generate_func_symbol(n)));
                 self.generate_push_stack("eax");
             }
-            _ => panic!("asm.rs(generate_call_func): Not Exists Function name"),
+            _ => panic!("{} {}: Not Exists Function name", file!(), line!()),
         }
     }
 
@@ -589,7 +589,7 @@ impl<'a> Asm<'a> {
                 self.inst = format!("{}{}", self.inst, self.gen.lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
             }
-            _ => panic!("asm.rs(generate_address): Not Support Ast {:?}", a)
+            _ => panic!("{} {}: Not Support Ast {:?}", file!(), line!(), a)
         }
     }
 

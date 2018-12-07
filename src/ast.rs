@@ -160,7 +160,7 @@ impl<'a> AstGen<'a> {
             Token::Variable => {
                 // 既に同じシンボルが登録されていればエラー.
                 if self.func_table.search(&token.get_token_value()).is_some() {
-                    panic!("ast.rs(func_def): already define {}", token.get_token_value());
+                    panic!("{} {}: already define {}", file!(), line!(), token.get_token_value());
                 }
 
                 // 関数シンボルを登録.
@@ -172,7 +172,7 @@ impl<'a> AstGen<'a> {
                     Box::new(self.statement()),
                 )
             }
-            _ => panic!("ast.rs(func_def): Not Exists Function def {:?}", token),
+            _ => panic!("{} {}: Not Exists Function def {:?}", file!(), line!(), token),
         }
     }
 
@@ -208,7 +208,7 @@ impl<'a> AstGen<'a> {
                 self.must_next(Token::RightParen, "ast.rs(func_arg): Not Exists RightParen");
                 args
             }
-            _ => panic!("ast.rs(func_arg): Not Exists LeftParen {:?}", token),
+            _ => panic!("{} {}: Not Exists LeftParen {:?}", file!(), line!(), token),
         }
     }
 
@@ -434,7 +434,7 @@ impl<'a> AstGen<'a> {
                 self.must_next(Token::RightParen, "ast.rs(call_func): Not exists RightParen");
                 call_func
             }
-            _ => panic!("ast.rs(call_func): Not exists LeftParen"),
+            _ => panic!("{} {}: Not exists LeftParen", file!(), line!()),
         }
     }
 
@@ -464,7 +464,7 @@ impl<'a> AstGen<'a> {
                             AstType::Argment(args)
                         }
                     }
-                    _ => panic!("ast.rs(argment): Error"),
+                    _ => panic!("{} {}: Error", file!(), line!()),
                 }
             }
             _ => acc,
@@ -533,7 +533,7 @@ impl<'a> AstGen<'a> {
             Token::BitOr => AstType::BitOr(Box::new(left), Box::new(right)),
             Token::And => AstType::BitAnd(Box::new(left), Box::new(right)),
             Token::BitXor => AstType::BitXor(Box::new(left), Box::new(right)),
-            _ => panic!("sub_bit_operator: Not Support Token {:?}", ope),
+            _ => panic!("{} {}: Not Support Token {:?}", file!(), line!(), ope),
         };
 
         let token = self.next();
@@ -562,7 +562,7 @@ impl<'a> AstGen<'a> {
             Token::GreaterThan => AstType::GreaterThan(Box::new(left), Box::new(right)),
             Token::LessThanEqual => AstType::LessThanEqual(Box::new(left), Box::new(right)),
             Token::GreaterThanEqual => AstType::GreaterThanEqual(Box::new(left), Box::new(right)),
-            _ => panic!("Not Support Token Type {:?}", ope),
+            _ => panic!("{} {}: Not Support Token Type {:?}", file!(), line!(), ope),
         };
 
         let ope_type = self.next().get_token_type();
@@ -591,7 +591,7 @@ impl<'a> AstGen<'a> {
         let create = |ope: Token, left, right| match ope {
             Token::LeftShift => AstType::LeftShift(Box::new(left), Box::new(right)),
             Token::RightShift => AstType::RightShift(Box::new(left), Box::new(right)),
-            _ => panic!("Not Support Token {:?}", ope),
+            _ => panic!("{} {}: Not Support Token {:?}", file!(), line!(), ope),
         };
 
         let token = self.next();
@@ -670,9 +670,9 @@ impl<'a> AstGen<'a> {
             Token::Variable => {
                 // 定義済みシンボルから型を取得し、AST作成
                 let sym = self.var_table.search(&token.get_token_value())
-                              .unwrap_or_else(|| {
-                                  self.func_table.search(&token.get_token_value()).expect("ast.rs(factor): Variable is undefined")
-                              });
+                    .unwrap_or_else(|| {
+                        self.func_table.search(&token.get_token_value()).expect("ast.rs(factor): Variable is undefined")
+                    });
                 self.back(1);
                 self.variable(sym.t)
             }
@@ -683,7 +683,7 @@ impl<'a> AstGen<'a> {
                 self.must_next(Token::RightParen, "ast.rs(factor): Not exists RightParen");
                 tree
             }
-            _ => panic!("ast.rs(factor): failed in factor {:?}", token),
+            _ => panic!("{} {}: failed in factor {:?}", file!(), line!(), token),
         }
     }
 
@@ -698,7 +698,7 @@ impl<'a> AstGen<'a> {
                 }
                 AstType::Variable(t, token.get_token_value())
             }
-            _ => panic!("ast.rs(variable): not support token {:?}", token),
+            _ => panic!("{} {}: not support token {:?}", file!(), line!(), token),
         }
     }
 
@@ -733,7 +733,7 @@ impl<'a> AstGen<'a> {
     fn must_next(&mut self, t: Token, m: &str) {
         let token = self.next_consume();
         if token.get_token_type() != t {
-            panic!("{} {:?}", m, token)
+            panic!("{} {}: {} {:?}", file!(), line!(), m, token)
         }
     }
 }

@@ -12,9 +12,9 @@ pub struct Semantic<'a> {
 impl<'a> Semantic<'a> {
     pub fn new(ast: &'a AstTree, vars: &'a SymbolTable, funcs: &'a SymbolTable) -> Self {
         Semantic {
-             ast: ast,
-             vars: vars,
-             funcs: funcs,
+            ast: ast,
+            vars: vars,
+            funcs: funcs,
         }
     }
 

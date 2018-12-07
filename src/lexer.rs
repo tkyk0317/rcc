@@ -115,7 +115,7 @@ impl<'a> LexicalAnalysis<'a> {
                         '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                             self.generate_number_token(v)
                         }
-                        _ => panic!("Not Support Lexer {}", v),
+                        _ => panic!("{} {}: Not Support Lexer {}", file!(), line!(), v),
                     };
                     self.tokens.push(token);
                 }
