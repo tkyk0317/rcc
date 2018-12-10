@@ -38,7 +38,13 @@ impl<'a> Semantic<'a> {
             AstType::FuncDef(ref t, ref name, ref args, ref stmt) => {
                 match t {
                     Type::Unknown(n) => Err(format!("Cannot found Type: {:?}", n)),
-                    _ => Ok(())
+                    _ => {
+                        if self.funcs.search(name).is_none() {
+                            Err(format!("Cannot found function name: {}", name))
+                        } else {
+                            Ok(())
+                        }
+                    }
                 }
             },
             _ => Ok(())
@@ -48,6 +54,7 @@ impl<'a> Semantic<'a> {
 
 #[test]
 fn test_func_type() {
+    // 正常系
     {
         let ast = vec![
             AstType::FuncDef(
@@ -62,9 +69,13 @@ fn test_func_type() {
             )
         ];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree, &SymbolTable::new(), &SymbolTable::new()).exec();
+        let mut funcs = SymbolTable::new();
+        funcs.push("main".to_string(), &Type::Int);
+        let vars = SymbolTable::new();
+        let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_ok());
     }
+    // 型がおかしい
     {
         let ast = vec![
             AstType::FuncDef(
@@ -79,7 +90,30 @@ fn test_func_type() {
             )
         ];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree, &SymbolTable::new(), &SymbolTable::new()).exec();
+        let mut funcs = SymbolTable::new();
+        funcs.push("main".to_string(), &Type::Int);
+        let vars = SymbolTable::new();
+        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        assert!(r.is_err());
+    }
+    // 関数が登録されていない
+    {
+        let ast = vec![
+            AstType::FuncDef(
+                Type::Int,
+                "main".to_string(),
+                Box::new(AstType::Argment(vec![])),
+                Box::new(AstType::Statement(vec![
+                    AstType::Return(Box::new(
+                        AstType::Variable(Type::Int, "".to_string())
+                    ))
+                ]))
+            )
+        ];
+        let tree = AstTree { tree: ast };
+        let funcs = SymbolTable::new();
+        let vars = SymbolTable::new();
+        let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
     }
 }
