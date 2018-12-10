@@ -19,7 +19,7 @@ use semantic::Semantic;
 /// 成功時、アセンブリを返す。失敗時はエラーのVecを返す
 fn compile(inst: &str) -> Result<String, Vec<String>> {
     // 字句解析
-    let mut p = LexicalAnalysis::new(&inst);
+    let mut p = LexicalAnalysis::new("stdin".to_string(), &inst);
     p.read_token();
 
     // AST作成

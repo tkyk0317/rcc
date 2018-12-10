@@ -46,20 +46,36 @@ pub enum Token {
     End,              // 終了.
 }
 
+// 位置情報
+#[derive(Debug, Clone, PartialEq)]
+pub struct PosInfo {
+    name: String,
+    row: usize,
+    pub col: usize,
+}
+
+impl PosInfo {
+    pub fn new(name: String, row: usize, col: usize) -> Self {
+        PosInfo { name: name, row: row, col: col }
+    }
+}
+
 // トークンデータ.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TokenInfo {
     token: Token, // トークン種別.
     val: String,  // 内容.
+    pub pos: PosInfo,  // 位置情報.
 }
 
 // トークン実装.
 impl TokenInfo {
     // コンストラクタ.
-    pub fn new(token: Token, val: String) -> TokenInfo {
+    pub fn new(token: Token, val: String, pos: (String, usize, usize)) -> TokenInfo {
         TokenInfo {
             token: token,
             val: val,
+            pos: PosInfo::new(pos.0, pos.1, pos.2),
         }
     }
 
