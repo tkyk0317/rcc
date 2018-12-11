@@ -9,6 +9,11 @@ pub struct Semantic<'a> {
     funcs: &'a SymbolTable,
 }
 
+// 解析結果返却マクロ
+macro_rules! analyzed {
+    ($e: expr) => { if $e.is_empty() { Ok(()) } else { Err($e) }}
+}
+
 impl<'a> Semantic<'a> {
     pub fn new(ast: &'a AstTree, vars: &'a SymbolTable, funcs: &'a SymbolTable) -> Self {
         Semantic {
@@ -29,7 +34,7 @@ impl<'a> Semantic<'a> {
                 Ok(_) => init,
             }
         });
-        if errs.is_empty() { Ok(()) } else { Err(errs) }
+        analyzed!(errs)
     }
 
     // 解析
@@ -56,7 +61,7 @@ impl<'a> Semantic<'a> {
         if let Err(ref mut e) = self.analysis(stmt) {
             errs.append(e);
         }
-        if errs.is_empty() { Ok(()) } else { Err(errs) }
+        analyzed!(errs)
     }
 
     // statement解析
@@ -70,7 +75,7 @@ impl<'a> Semantic<'a> {
                 }
             }
         });
-        if errs.is_empty() { Ok(()) } else { Err(errs) }
+        analyzed!(errs)
     }
 
     // return文解析
@@ -88,7 +93,7 @@ impl<'a> Semantic<'a> {
         if self.vars.search(n).is_none() {
             errs.push(format!("Cannot found variable: {}", n));
         }
-        if errs.is_empty() { Ok(()) } else { Err(errs) }
+        analyzed!(errs)
     }
 }
 
