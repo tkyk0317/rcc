@@ -55,7 +55,7 @@ mod test {
     use super::*;
     use std::process::Command;
     use std::fs;
-    use std::io::{BufWriter, Write};
+    use std::io::{Write};
 
     // テスト用データ構造体
     struct TestData<'a> {
@@ -227,6 +227,9 @@ mod test {
             TestData { inst: "int main() {\n\tint a = 9;\n\tint *b = &a; return 10 * *b;\n }", ex_ret: 90 },
             TestData { inst: "ttt main() {\n\treturn 1;\n }", ex_ret: -1 },
             TestData { inst: "in main() {\n\treturn 1;\n }", ex_ret: -1 },
+            TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; *a = 20;\nreturn b;\n }", ex_ret: 20 },
+            TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; int c = 99; *a = c;\nreturn b;\n }", ex_ret: 99 },
+            TestData { inst: "int main() {int* a; int b = 123; a = &b; int* c; int d = 89; c = &d; *a = *c; return b;\n }", ex_ret: 89 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 

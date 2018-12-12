@@ -12,15 +12,6 @@ struct Label {
     return_label: usize,
 }
 
-#[doc = "アセンブラ生成部"]
-pub struct Asm<'a> {
-    inst: String,
-    var_table: &'a SymbolTable,
-    func_table: &'a SymbolTable,
-    label: Label,
-    gen: Box<Generator>,
-}
-
 impl Label {
     // コンストラクタ.
     pub fn new() -> Self {
@@ -83,6 +74,15 @@ impl Label {
 
 // 関数引数レジスタ.
 const REGS: &'static [&str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+
+#[doc = "アセンブラ生成部"]
+pub struct Asm<'a> {
+    inst: String,
+    var_table: &'a SymbolTable,
+    func_table: &'a SymbolTable,
+    label: Label,
+    gen: Box<Generator>,
+}
 
 impl<'a> Asm<'a> {
     // コンストラクタ.
@@ -389,6 +389,37 @@ impl<'a> Asm<'a> {
         self.generate_jmp_inst(label_no);
     }
 
+    // 右辺代入式
+    fn generate_rhs_assign_indirect(&mut self, a: &AstType) {
+        match *a {
+            AstType::Indirect(ref b) => self.generate_rhs_assign_indirect(b),
+            AstType::Variable(ref t, _) => {
+                self.generate(a);
+                match *t {
+                    Type::Int => {
+                        self.generate_pop_stack("eax");
+                        self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
+                    }
+                    Type::IntPointer => {
+                        self.generate_pop_stack("eax");
+                        self.inst = format!("{}{}{}{}",
+                            self.inst,
+                            self.gen.pop("rax"),
+                            self.gen.mov_dst("rax", "rcx", 0),
+                            self.gen.push("rax"));
+                    }
+                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
+                };
+            }
+            AstType::Factor(_) => {
+                self.generate(a);
+                self.generate_pop_stack("eax");
+                self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
+            }
+            _ => panic!("{} {}: not support AstType {:?}", file!(), line!(), a)
+        }
+    }
+
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
@@ -402,12 +433,20 @@ impl<'a> Asm<'a> {
                         self.generate_push_stack("eax");
                     }
                     Type::IntPointer => {
-                        self.inst = format!("{}{}", self.inst, self.gen.pop("rax"));
-                        self.inst = format!("{}{}", self.inst, self.gen.mov_dst("rax", "rbp", -offset));
-                        self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
+                        self.inst = format!("{}{}{}{}",
+                            self.inst,
+                            self.gen.pop("rax"),
+                            self.gen.mov_dst("rax", "rbp", -offset),
+                            self.gen.push("rax"));
                     }
                     _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
                 }
+            }
+            AstType::Indirect(ref a) => {
+                self.generate(a);
+                self.inst = format!("{}{}", self.inst, self.gen.pop("rcx"));
+                self.generate_rhs_assign_indirect(b);
+                self.generate_push_stack("eax");
             }
             _ => self.generate(b),
         }
@@ -421,10 +460,7 @@ impl<'a> Asm<'a> {
                 self.inst = format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -offset));
                 self.generate_push_stack("eax");
             }
-            Type::IntPointer => {
-                self.inst = format!("{}{}", self.inst, self.gen.mov_src("rbp", "rax", -offset));
-                self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
-            }
+            Type::IntPointer => self.inst = format!("{}{}{}", self.inst, self.gen.mov_src("rbp", "rax", -offset), self.gen.push("rax")),
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
         }
     }
