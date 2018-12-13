@@ -493,32 +493,24 @@ impl<'a> AstGen<'a> {
     fn argment(&mut self, acc: AstType) -> AstType {
         // 右括弧が表れるまで、引数とみなす
         let token = self.next();
-        match token.get_token_type() {
-            Token::RightParen => acc,
-            Token::Variable | Token::Number => {
-                match acc {
-                    AstType::Argment(a) => {
-                        let mut args = a;
+        if Token::RightParen == token.get_token_type() {
+            acc
+        } else {
+            match acc {
+                AstType::Argment(a) => {
+                    let mut args = a;
+                    args.push(self.assign());
 
-                        if Token::Variable == token.get_token_type() {
-                            args.push(AstType::Variable(Type::Int, token.get_token_value()));
-                        } else {
-                            args.push(self.number(token));
-                        }
+                    // カンマがあれば引き続き、引数とみなす.
+                    if Token::Comma == self.next().get_token_type() {
                         self.next_consume();
-
-                        // カンマがあれば引き続き、引数とみなす.
-                        if Token::Comma == self.next().get_token_type() {
-                            self.next_consume();
-                            self.argment(AstType::Argment(args))
-                        } else {
-                            AstType::Argment(args)
-                        }
+                        self.argment(AstType::Argment(args))
+                    } else {
+                        AstType::Argment(args)
                     }
-                    _ => panic!("{} {}: Error", file!(), line!()),
                 }
+                _ => panic!("{} {}: Not Support AstType {:?}", file!(), line!(), acc),
             }
-            _ => acc,
         }
     }
 
@@ -726,7 +718,10 @@ impl<'a> AstGen<'a> {
                     .unwrap_or_else(|| {
                         self.func_table
                             .search(&token.get_token_value())
-                            .expect("ast.rs(factor): Variable is undefined")
+                            .expect(&format!(
+                                "ast.rs(factor): Variable is undefined {:?}",
+                                token
+                            ))
                     });
                 self.back(1);
                 self.variable(sym.t)
@@ -3077,6 +3072,9 @@ mod tests {
                 create_token(Token::LeftParen, "(".to_string()),
                 create_token(Token::RightParen, ")".to_string()),
                 create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "b".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
                 create_token(Token::Variable, "a".to_string()),
                 create_token(Token::LeftParen, "(".to_string()),
                 create_token(Token::Variable, "b".to_string()),
@@ -3107,26 +3105,29 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::CallFunc(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                        Box::new(AstType::Argment(vec![AstType::Variable(
-                            Type::Int,
-                            'b'.to_string()
-                        )]),)
-                    ),])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, "b".to_string()),
+                        AstType::CallFunc(
+                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Argment(vec![AstType::Variable(
+                                Type::Int,
+                                'b'.to_string()
+                            )]),)
+                        ),
+                    ])),
                 )
             );
         }
         {
             let data = vec![
                 create_token(Token::Int, "int".to_string()),
-                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Variable, "test".to_string()),
                 create_token(Token::LeftParen, "(".to_string()),
                 create_token(Token::Int, "int".to_string()),
-                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Variable, "x".to_string()),
                 create_token(Token::Comma, ",".to_string()),
                 create_token(Token::Int, "int".to_string()),
-                create_token(Token::Variable, "b".to_string()),
+                create_token(Token::Variable, "y".to_string()),
                 create_token(Token::RightParen, ")".to_string()),
                 create_token(Token::LeftBrace, "{".to_string()),
                 create_token(Token::RightBrace, "}".to_string()),
@@ -3135,7 +3136,13 @@ mod tests {
                 create_token(Token::LeftParen, "(".to_string()),
                 create_token(Token::RightParen, ")".to_string()),
                 create_token(Token::LeftBrace, "{".to_string()),
-                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "b".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "c".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "test".to_string()),
                 create_token(Token::LeftParen, "(".to_string()),
                 create_token(Token::Variable, "b".to_string()),
                 create_token(Token::Comma, ",".to_string()),
@@ -3153,10 +3160,10 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
-                    "a".to_string(),
+                    "test".to_string(),
                     Box::new(AstType::Argment(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
-                        AstType::Variable(Type::Int, "b".to_string()),
+                        AstType::Variable(Type::Int, "x".to_string()),
+                        AstType::Variable(Type::Int, "y".to_string()),
                     ])),
                     Box::new(AstType::Statement(vec![]))
                 )
@@ -3167,13 +3174,17 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::CallFunc(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                        Box::new(AstType::Argment(vec![
-                            AstType::Variable(Type::Int, 'b'.to_string()),
-                            AstType::Variable(Type::Int, 'c'.to_string()),
-                        ]))
-                    ),])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, 'b'.to_string()),
+                        AstType::Variable(Type::Int, 'c'.to_string()),
+                        AstType::CallFunc(
+                            Box::new(AstType::Variable(Type::Int, "test".to_string())),
+                            Box::new(AstType::Argment(vec![
+                                AstType::Variable(Type::Int, 'b'.to_string()),
+                                AstType::Variable(Type::Int, 'c'.to_string()),
+                            ]))
+                        ),
+                    ])),
                 )
             )
         }
