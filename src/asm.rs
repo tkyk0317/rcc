@@ -129,9 +129,9 @@ impl<'a> Asm<'a> {
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::Variable(ref t, ref a) => self.generate_variable(t, a),
             AstType::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
-            AstType::Plus(ref a, ref b)
-            | AstType::Minus(ref a, ref b)
-            | AstType::Multiple(ref a, ref b)
+            AstType::Plus(ref a, ref b) => self.generate_plus(a, b),
+            AstType::Minus(ref a, ref b) => self.generate_minus(a, b),
+            AstType::Multiple(ref a, ref b)
             | AstType::Division(ref a, ref b)
             | AstType::Remainder(ref a, ref b)
             | AstType::Equal(ref a, ref b)
@@ -190,14 +190,14 @@ impl<'a> Asm<'a> {
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!("{}{}", start, self.gen.push("rbp"));
         start = format!("{}{}", start, self.gen.mov("rsp", "rbp"));
-        start = format!("{}{}", start, self.gen.sub(pos, "rsp"));
+        start = format!("{}{}", start, self.gen.sub_imm(pos, "rsp"));
         self.inst = format!("{}", start);
     }
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self) {
         let pos = self.var_table.count() * 8;
-        let mut end = self.gen.add(pos, "rsp");
+        let mut end = self.gen.add_imm(pos, "rsp");
         end = format!("{}{}", end, self.gen.pop("rbp"));
         end = format!("{}{}", end, self.gen.ret());
         self.inst = format!("{}{}", self.inst, end);
@@ -596,8 +596,73 @@ impl<'a> Asm<'a> {
     // 数値生成.
     fn generate_factor(&mut self, a: i64) {
         // 数値.
-        self.inst = format!("{}{}", self.inst, self.gen.sub(8, "rsp"));
+        self.inst = format!("{}{}", self.inst, self.gen.sub_imm(8, "rsp"));
         self.inst = format!("{}{}", self.inst, self.gen.movl_imm_dst(a, "rsp", 0));
+    }
+
+    // ポインタ同士の加算
+    fn generate_plus_with_pointer(&mut self, a: &AstType, b: &AstType) {
+        self.generate(a);
+        self.generate(b);
+        self.generate_pop_stack("eax");
+        self.inst = format!("{}{}", self.inst, self.gen.mov_imm("rdx", 4));
+        self.inst = format!("{}{}", self.inst, self.gen.mul("rdx"));
+        self.inst = format!("{}{}", self.inst, self.gen.pop("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen.add("rax", "rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen.push("rcx"));
+    }
+
+    // 加算
+    fn generate_plus(&mut self, a: &AstType, b: &AstType) {
+        match (a, b) {
+            // ポインタ演算チェック
+            (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _))
+                if *t1 == Type::IntPointer && *t2 == Type::Int => self.generate_plus_with_pointer(a, b),
+            (AstType::Variable(ref t1, _), AstType::Factor(_))
+                if *t1 == Type::IntPointer => self.generate_plus_with_pointer(a, b),
+            _ => {
+                self.generate(a);
+                self.generate(b);
+
+                // 加算処理
+                self.generate_pop_stack("ecx");
+                self.generate_pop_stack("eax");
+                self.inst = format!("{}{}", self.inst, self.gen.plus());
+                self.generate_push_stack("eax");
+            }
+        }
+    }
+
+    // ポインタ同士の減算
+    fn generate_minus_with_pointer(&mut self, a: &AstType, b: &AstType) {
+        self.generate(a);
+        self.generate(b);
+        self.generate_pop_stack("eax");
+        self.inst = format!("{}{}", self.inst, self.gen.mov_imm("rdx", 4));
+        self.inst = format!("{}{}", self.inst, self.gen.mul("rdx"));
+        self.inst = format!("{}{}", self.inst, self.gen.pop("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen.sub("rax", "rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen.push("rcx"));
+    }
+
+    // 減算
+    fn generate_minus(&mut self, a: &AstType, b: &AstType) {
+        match (a, b) {
+            (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _))
+                if *t1 == Type::IntPointer &&  *t2 == Type::Int => self.generate_minus_with_pointer(a, b),
+            (AstType::Variable(ref t1, _), AstType::Factor(_))
+                if *t1 == Type::IntPointer => self.generate_minus_with_pointer(a, b),
+            _ => {
+                self.generate(a);
+                self.generate(b);
+
+                // 加算処理
+                self.generate_pop_stack("ecx");
+                self.generate_pop_stack("eax");
+                self.inst = format!("{}{}", self.inst, self.gen.minus());
+                self.generate_push_stack("eax");
+            }
+        }
     }
 
     // 演算子生成.
@@ -650,9 +715,7 @@ impl<'a> Asm<'a> {
     // 演算子アセンブラ生成.
     fn operator(&self, ope: &AstType) -> String {
         match *ope {
-            AstType::Multiple(_, _) => self.gen.mul(),
-            AstType::Plus(_, _) => self.gen.plus(),
-            AstType::Minus(_, _) => self.gen.minus(),
+            AstType::Multiple(_, _) => self.gen.multiple(),
             AstType::Equal(_, _) => self.gen.equal(),
             AstType::NotEqual(_, _) => self.gen.not_equal(),
             AstType::LessThan(_, _) => self.gen.less_than(),

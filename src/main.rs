@@ -230,6 +230,10 @@ mod test {
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; *a = 20;\nreturn b;\n }", ex_ret: 20 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; int c = 99; *a = c;\nreturn b;\n }", ex_ret: 99 },
             TestData { inst: "int main() {int* a; int b = 123; a = &b; int* c; int d = 89; c = &d; *a = *c; return b;\n }", ex_ret: 89 },
+            TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a + 2; int* c = &b; c = c + 2; \nreturn c == a;\n }", ex_ret: 1 },
+            TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; c = c - 4; \nreturn c == a;\n }", ex_ret: 1 },
+            TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a + 2; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
+            TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 

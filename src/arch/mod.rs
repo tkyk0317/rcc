@@ -10,7 +10,8 @@ pub trait Generator {
     fn je(&self, no: usize) -> String;
     fn jne(&self, no: usize) -> String;
     fn cmpl(&self, f: usize, r: &str) -> String;
-    fn mul(&self) -> String;
+    fn mul(&self, reg: &str) -> String;
+    fn multiple(&self) -> String;
     fn plus(&self) -> String;
     fn minus(&self) -> String;
     fn equal(&self) -> String;
@@ -29,12 +30,15 @@ pub trait Generator {
     fn not(&self, reg: &str) -> String;
     fn set(&self, reg: &str) -> String;
     fn neg(&self, reg: &str) -> String;
-    fn add(&self, i: usize, reg: &str) -> String;
-    fn sub(&self, i: usize, reg: &str) -> String;
+    fn add(&self, src: &str, dst: &str) -> String;
+    fn add_imm(&self, i: usize, reg: &str) -> String;
+    fn sub(&self, src: &str, dst: &str) -> String;
+    fn sub_imm(&self, i: usize, reg: &str) -> String;
     fn ret(&self) -> String;
     fn mov(&self, src: &str, dst: &str) -> String;
     fn mov_src(&self, src: &str, dst: &str, n: i64) -> String;
     fn mov_dst(&self, src: &str, dst: &str, n: i64) -> String;
+    fn mov_imm(&self, dst: &str, n: i64) -> String;
     fn movz(&self, src: &str, dst: &str) -> String;
     fn movl_imm(&self, n: i64, reg: &str) -> String;
     fn movl_dst(&self, src: &str, dst: &str, n: i64) -> String;

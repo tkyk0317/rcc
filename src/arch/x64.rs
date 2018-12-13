@@ -33,8 +33,11 @@ impl Generator for X64 {
     fn cmpl(&self, f: usize, r: &str) -> String {
         format!("  cmpl ${}, %{}\n", f, r)
     }
-    fn mul(&self) -> String {
-       "  imull %ecx\n".to_string()
+    fn mul(&self, reg: &str) -> String {
+        format!("  mul %{}\n", reg)
+    }
+    fn multiple(&self) -> String {
+        "  imull %ecx\n".to_string()
     }
     fn plus(&self) -> String {
         "  addl %ecx, %eax\n".to_string()
@@ -90,10 +93,16 @@ impl Generator for X64 {
     fn neg(&self, reg: &str) -> String {
         format!("  negl %{}\n", reg)
     }
-    fn sub(&self, i: usize, reg: &str) -> String {
+    fn sub(&self, src: &str, dst: &str) -> String {
+        format!("  sub %{}, %{}\n", src, dst)
+    }
+    fn sub_imm(&self, i: usize, reg: &str) -> String {
         format!("  sub ${}, %{}\n", i, reg)
     }
-    fn add(&self, i: usize, reg: &str) -> String {
+    fn add(&self, src: &str, dst: &str) -> String {
+        format!("  add %{}, %{}\n", src, dst)
+    }
+    fn add_imm(&self, i: usize, reg: &str) -> String {
         format!("  add ${}, %{}\n", i, reg)
     }
     fn ret(&self) -> String {
@@ -107,6 +116,9 @@ impl Generator for X64 {
     }
     fn mov_dst(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  mov %{}, {}(%{})\n", src, n, dst)
+    }
+    fn mov_imm(&self, dst: &str, n: i64) -> String {
+        format!("  mov ${}, %{}\n", n, dst)
     }
     fn movz(&self, src: &str, dst: &str) -> String {
         format!("  movzbl %{}, %{}\n", src, dst)
