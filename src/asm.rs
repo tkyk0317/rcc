@@ -1,8 +1,8 @@
+use arch::{x64::X64, Generator};
 use ast::{AstTree, AstType, Type};
 use config::Config;
 use std::process;
 use symbol::SymbolTable;
-use arch::{Generator, x64::X64};
 
 #[doc = "ラベル管理"]
 struct Label {
@@ -48,11 +48,12 @@ impl Label {
     }
     // continueラベル削除.
     pub fn remove_continue(&mut self, no: usize) {
-        self.continue_labels = self.continue_labels
-                                   .iter()
-                                   .cloned()
-                                   .filter(|d| *d != no)
-                                   .collect();
+        self.continue_labels = self
+            .continue_labels
+            .iter()
+            .cloned()
+            .filter(|d| *d != no)
+            .collect();
     }
     // breakラベル追加.
     pub fn push_break(&mut self, no: usize) {
@@ -64,11 +65,12 @@ impl Label {
     }
     // breakラベル削除.
     pub fn remove_break(&mut self, no: usize) {
-        self.break_labels = self.break_labels
-                                .iter()
-                                .cloned()
-                                .filter(|d| *d != no)
-                                .collect();
+        self.break_labels = self
+            .break_labels
+            .iter()
+            .cloned()
+            .filter(|d| *d != no)
+            .collect();
     }
 }
 
@@ -369,13 +371,19 @@ impl<'a> Asm<'a> {
 
     // continue文生成.
     fn generate_statement_continue(&mut self) {
-        let no = self.label.pop_continue().expect("asm.rs(generate_statement_continue): invalid continue label");
+        let no = self
+            .label
+            .pop_continue()
+            .expect("asm.rs(generate_statement_continue): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
     // break文生成.
     fn generate_statement_break(&mut self) {
-        let no = self.label.pop_break().expect("asm.rs(generate_statement_break): invalid continue label");
+        let no = self
+            .label
+            .pop_break()
+            .expect("asm.rs(generate_statement_break): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
@@ -402,13 +410,15 @@ impl<'a> Asm<'a> {
                     }
                     Type::IntPointer => {
                         self.generate_pop_stack("eax");
-                        self.inst = format!("{}{}{}{}",
+                        self.inst = format!(
+                            "{}{}{}{}",
                             self.inst,
                             self.gen.pop("rax"),
                             self.gen.mov_dst("rax", "rcx", 0),
-                            self.gen.push("rax"));
+                            self.gen.push("rax")
+                        );
                     }
-                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
+                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
                 };
             }
             AstType::Factor(_) => {
@@ -416,7 +426,7 @@ impl<'a> Asm<'a> {
                 self.generate_pop_stack("eax");
                 self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
             }
-            _ => panic!("{} {}: not support AstType {:?}", file!(), line!(), a)
+            _ => panic!("{} {}: not support AstType {:?}", file!(), line!(), a),
         }
     }
 
@@ -424,22 +434,29 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(ref t, ref a) => {
-                let offset = self.var_table.search(a).expect("asm.rs(generate_assign): error option value").p as i64 * 8 + 8;
+                let ret = self
+                    .var_table
+                    .search(a)
+                    .expect("asm.rs(generate_assign): error option value");
+                let offset = ret.p as i64 * 8 + 8;
                 self.generate(b);
                 match *t {
                     Type::Int => {
                         self.generate_pop_stack("eax");
-                        self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rbp", -offset));
+                        self.inst =
+                            format!("{}{}", self.inst, self.gen.movl_dst("eax", "rbp", -offset));
                         self.generate_push_stack("eax");
                     }
                     Type::IntPointer => {
-                        self.inst = format!("{}{}{}{}",
+                        self.inst = format!(
+                            "{}{}{}{}",
                             self.inst,
                             self.gen.pop("rax"),
                             self.gen.mov_dst("rax", "rbp", -offset),
-                            self.gen.push("rax"));
+                            self.gen.push("rax")
+                        );
                     }
-                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
+                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
                 }
             }
             AstType::Indirect(ref a) => {
@@ -454,14 +471,25 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, t: &Type, v: &String) {
-        let offset = self.var_table.search(v).expect("asm.rs(generate_variable): error option value").p as i64 * 8 + 8;
+        let ret = self
+            .var_table
+            .search(v)
+            .expect("asm.rs(generate_variable): error option value");
+        let offset = ret.p as i64 * 8 + 8;
         match *t {
             Type::Int => {
                 self.inst = format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -offset));
                 self.generate_push_stack("eax");
             }
-            Type::IntPointer => self.inst = format!("{}{}{}", self.inst, self.gen.mov_src("rbp", "rax", -offset), self.gen.push("rax")),
-            _ => panic!("{} {}: not support type {:?}", file!(), line!(), t)
+            Type::IntPointer => {
+                self.inst = format!(
+                    "{}{}{}",
+                    self.inst,
+                    self.gen.mov_src("rbp", "rax", -offset),
+                    self.gen.push("rax")
+                )
+            }
+            _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
     }
 
@@ -484,7 +512,11 @@ impl<'a> Asm<'a> {
                     _ => panic!("{} {}: Not Function Argment", file!(), line!()),
                 }
 
-                self.inst = format!("{}{}", self.inst, self.gen.call(&self.generate_func_symbol(n)));
+                self.inst = format!(
+                    "{}{}",
+                    self.inst,
+                    self.gen.call(&self.generate_func_symbol(n))
+                );
                 self.generate_push_stack("eax");
             }
             _ => panic!("{} {}: Not Exists Function name", file!(), line!()),
@@ -617,9 +649,13 @@ impl<'a> Asm<'a> {
         match (a, b) {
             // ポインタ演算チェック
             (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _))
-                if *t1 == Type::IntPointer && *t2 == Type::Int => self.generate_plus_with_pointer(a, b),
-            (AstType::Variable(ref t1, _), AstType::Factor(_))
-                if *t1 == Type::IntPointer => self.generate_plus_with_pointer(a, b),
+                if *t1 == Type::IntPointer && *t2 == Type::Int =>
+            {
+                self.generate_plus_with_pointer(a, b)
+            }
+            (AstType::Variable(ref t1, _), AstType::Factor(_)) if *t1 == Type::IntPointer => {
+                self.generate_plus_with_pointer(a, b)
+            }
             _ => {
                 self.generate(a);
                 self.generate(b);
@@ -649,9 +685,13 @@ impl<'a> Asm<'a> {
     fn generate_minus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
             (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _))
-                if *t1 == Type::IntPointer &&  *t2 == Type::Int => self.generate_minus_with_pointer(a, b),
-            (AstType::Variable(ref t1, _), AstType::Factor(_))
-                if *t1 == Type::IntPointer => self.generate_minus_with_pointer(a, b),
+                if *t1 == Type::IntPointer && *t2 == Type::Int =>
+            {
+                self.generate_minus_with_pointer(a, b)
+            }
+            (AstType::Variable(ref t1, _), AstType::Factor(_)) if *t1 == Type::IntPointer => {
+                self.generate_minus_with_pointer(a, b)
+            }
             _ => {
                 self.generate(a);
                 self.generate(b);
@@ -686,11 +726,15 @@ impl<'a> Asm<'a> {
     fn generate_address(&mut self, a: &AstType) {
         match *a {
             AstType::Variable(ref _t, ref a) => {
-                let pos = self.var_table.search(a).expect("asm.rs(generate_address): error option value").p * 8 + 8;
+                let ret = self
+                    .var_table
+                    .search(a)
+                    .expect("asm.rs(generate_address): error option value");
+                let pos = ret.p * 8 + 8;
                 self.inst = format!("{}{}", self.inst, self.gen.lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
             }
-            _ => panic!("{} {}: Not Support Ast {:?}", file!(), line!(), a)
+            _ => panic!("{} {}: Not Support Ast {:?}", file!(), line!(), a),
         }
     }
 
@@ -725,7 +769,7 @@ impl<'a> Asm<'a> {
             AstType::LeftShift(_, _) => self.gen.left_shift(),
             AstType::RightShift(_, _) => self.gen.right_shift(),
             AstType::BitAnd(_, _) => self.gen.bit_and(),
-            AstType::BitOr(_, _) =>  self.gen.bit_or(),
+            AstType::BitOr(_, _) => self.gen.bit_or(),
             AstType::BitXor(_, _) => self.gen.bit_xor(),
             AstType::Division(_, _) | AstType::Remainder(_, _) => self.gen.bit_division(),
             _ => process::abort(),

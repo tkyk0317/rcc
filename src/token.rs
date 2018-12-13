@@ -56,16 +56,20 @@ pub struct PosInfo {
 
 impl PosInfo {
     pub fn new(name: String, row: usize, col: usize) -> Self {
-        PosInfo { name: name, row: row, col: col }
+        PosInfo {
+            name: name,
+            row: row,
+            col: col,
+        }
     }
 }
 
 // トークンデータ.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TokenInfo {
-    token: Token, // トークン種別.
-    val: String,  // 内容.
-    pub pos: PosInfo,  // 位置情報.
+    token: Token,     // トークン種別.
+    val: String,      // 内容.
+    pub pos: PosInfo, // 位置情報.
 }
 
 // トークン実装.

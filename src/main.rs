@@ -1,13 +1,13 @@
+mod arch;
 mod asm;
 mod ast;
 mod config;
 mod lexer;
 mod map;
+mod semantic;
 mod string;
 mod symbol;
 mod token;
-mod arch;
-mod semantic;
 
 use asm::Asm;
 use ast::AstGen;
@@ -46,16 +46,16 @@ fn main() {
     // コンパイル実行
     match compile(&s) {
         Ok(inst) => println!("{}", inst),
-        Err(errs)  => errs.iter().for_each(|e| println!("{:?}", e)),
+        Err(errs) => errs.iter().for_each(|e| println!("{:?}", e)),
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::process::Command;
     use std::fs;
-    use std::io::{Write};
+    use std::io::Write;
+    use std::process::Command;
 
     // テスト用データ構造体
     struct TestData<'a> {
@@ -80,7 +80,9 @@ mod test {
             Ok(inst) => {
                 // gccを使用して実行.
                 let _ = create_asm_file(&inst);
-                let _ = Command::new("gcc").args(&["-g3", "./test.s", "-o", "test"]).output();
+                let _ = Command::new("gcc")
+                    .args(&["-g3", "./test.s", "-o", "test"])
+                    .output();
                 Command::new("./test").status().unwrap().code().unwrap()
             }
         }
@@ -234,6 +236,7 @@ mod test {
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; c = c - 4; \nreturn c == a;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a + 2; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
+
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 

@@ -40,9 +40,13 @@ impl<'a> LexicalAnalysis<'a> {
                 Some(v) => {
                     let token = match v {
                         s if true == s.is_alphabetic() || s == '_' => {
-                            if let Some(t) = self.generate_type(s) { t }
-                            else if let Some(t) = self.generate_statement(s) { t }
-                            else { self.generate_variable_token(s) }
+                            if let Some(t) = self.generate_type(s) {
+                                t
+                            } else if let Some(t) = self.generate_statement(s) {
+                                t
+                            } else {
+                                self.generate_variable_token(s)
+                            }
                         }
                         '=' => {
                             if true == self.is_equal(v) {
@@ -64,7 +68,8 @@ impl<'a> LexicalAnalysis<'a> {
                         }
                         '>' => {
                             if true == self.is_greater_than_equal(v) {
-                                let t = self.create_token(Token::GreaterThanEqual, ">=".to_string());
+                                let t =
+                                    self.create_token(Token::GreaterThanEqual, ">=".to_string());
                                 self.skip(1);
                                 t
                             } else if true == self.is_right_shift(v) {
@@ -209,10 +214,8 @@ impl<'a> LexicalAnalysis<'a> {
         s.push(v);
 
         while false == self.is_eof() && true == self.read().is_digit(10) {
-            s.push(
-                self.next()
-                    .expect("lexer.rs(generate_number_token): cannot read next char"),
-            );
+            let n = self.next();
+            s.push(n.expect("lexer.rs(generate_number_token): cannot read next char"));
         }
         self.create_token(Token::Number, s)
     }
@@ -285,8 +288,7 @@ impl<'a> LexicalAnalysis<'a> {
                 let mut t = self.create_token(Token::IntPointer, "int*".to_string());
                 t.pos.col = col;
                 Some(t)
-            }
-            else {
+            } else {
                 // 位置が先頭を指し示すように修正
                 let mut t = self.create_token(Token::Int, "int".to_string());
                 t.pos.col = col;
@@ -300,7 +302,11 @@ impl<'a> LexicalAnalysis<'a> {
     // int型チェック
     fn is_type_int(&mut self, c: char) -> bool {
         let s = self.read_string(3);
-        c == 'i' && s.len() == 3 && &s[0..2] == "nt" && false == self.is_variable(s.chars().last().expect("lexer.rs(is_type_int): read error"))
+        let l = s.chars().last();
+        c == 'i'
+            && s.len() == 3
+            && &s[0..2] == "nt"
+            && false == self.is_variable(l.expect("lexer.rs(is_type_int): read error"))
     }
 
     // ポインタ演算子が存在するか.
@@ -352,49 +358,81 @@ impl<'a> LexicalAnalysis<'a> {
     // if statementチェック.
     fn is_statement_if(&mut self, v: char) -> bool {
         let s = self.read_string(2);
-        v == 'i' && s.len() == 2 && "f" == &s[0..1] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_if): read error"))
+        let l = s.chars().last();
+        v == 'i'
+            && s.len() == 2
+            && "f" == &s[0..1]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_if): read error"))
     }
 
     // else statementチェック.
     fn is_statement_else(&mut self, v: char) -> bool {
         let s = self.read_string(4);
-        v == 'e' && s.len() == 4 && "lse" == &s[0..3] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_else): read error"))
+        let l = s.chars().last();
+        v == 'e'
+            && s.len() == 4
+            && "lse" == &s[0..3]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_else): read error"))
     }
 
     // while statementチェック.
     fn is_statement_while(&mut self, v: char) -> bool {
         let s = self.read_string(5);
-        v == 'w' && s.len() == 5 && "hile" == &s[0..4] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_while): read error"))
+        let l = s.chars().last();
+        v == 'w'
+            && s.len() == 5
+            && "hile" == &s[0..4]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_while): read error"))
     }
 
     // do-while statementチェック.
     fn is_statement_do(&mut self, v: char) -> bool {
         let s = self.read_string(2);
-        v == 'd' && s.len() == 2 && "o" == &s[0..1] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_do): read error"))
+        let l = s.chars().last();
+        v == 'd'
+            && s.len() == 2
+            && "o" == &s[0..1]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_do): read error"))
     }
 
     // for statementチェック.
     fn is_statement_for(&mut self, v: char) -> bool {
         let s = self.read_string(3);
-        v == 'f' && s.len() == 3 && "or" == &s[0..2] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_for): read error"))
+        let l = s.chars().last();
+        v == 'f'
+            && s.len() == 3
+            && "or" == &s[0..2]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_for): read error"))
     }
 
     // continue statementチェック.
     fn is_statement_continue(&mut self, v: char) -> bool {
         let s = self.read_string(8);
-        v == 'c' && s.len() == 8 && "ontinue" == &s[0..7] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_continue): read error"))
+        let l = s.chars().last();
+        v == 'c'
+            && s.len() == 8
+            && "ontinue" == &s[0..7]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_continue): read error"))
     }
 
     // break statementチェック.
     fn is_statement_break(&mut self, v: char) -> bool {
         let s = self.read_string(5);
-        v == 'b' && s.len() == 5 && "reak" == &s[0..4] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_break): read error"))
+        let l = s.chars().last();
+        v == 'b'
+            && s.len() == 5
+            && "reak" == &s[0..4]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_break): read error"))
     }
 
     // return statementチェック.
     fn is_statement_return(&mut self, v: char) -> bool {
         let s = self.read_string(6);
-        v == 'r' && s.len() == 6 && "eturn" == &s[0..5] && false == self.is_variable(s.chars().last().expect("lexer.rs(is_statement_return): read error"))
+        let l = s.chars().last();
+        v == 'r'
+            && s.len() == 6
+            && "eturn" == &s[0..5]
+            && false == self.is_variable(l.expect("lexer.rs(is_statement_return): read error"))
     }
 }
 
@@ -423,7 +461,11 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Division, "/".to_string(), ("test.c".to_string(), 1, 7)),
+                TokenInfo::new(
+                    Token::Division,
+                    "/".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
@@ -435,7 +477,11 @@ mod tests {
                 lexer.get_tokens()[5]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "7".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::Number,
+                    "7".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[6]
             );
             assert_eq!(
@@ -454,7 +500,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::GreaterThanEqual, ">=".to_string(), ("test.c".to_string(), 1, 3)),
+                TokenInfo::new(
+                    Token::GreaterThanEqual,
+                    ">=".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -477,7 +527,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::LessThanEqual, "<=".to_string(), ("test.c".to_string(), 1, 3)),
+                TokenInfo::new(
+                    Token::LessThanEqual,
+                    "<=".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -523,7 +577,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::NotEqual, "!=".to_string(), ("test.c".to_string(), 1, 3)),
+                TokenInfo::new(
+                    Token::NotEqual,
+                    "!=".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -546,7 +604,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftShift, "<<".to_string(), ("test.c".to_string(), 1, 3)),
+                TokenInfo::new(
+                    Token::LeftShift,
+                    "<<".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -569,7 +631,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightShift, ">>".to_string(), ("test.c".to_string(), 1, 3)),
+                TokenInfo::new(
+                    Token::RightShift,
+                    ">>".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -588,7 +654,11 @@ mod tests {
             lexer.read_token();
 
             assert_eq!(
-                TokenInfo::new(Token::BitReverse, "~".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::BitReverse,
+                    "~".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
@@ -619,7 +689,11 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
@@ -646,7 +720,11 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
@@ -654,11 +732,19 @@ mod tests {
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::GreaterThanEqual, ">=".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::GreaterThanEqual,
+                    ">=".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::Number,
+                    "2".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[6]
             );
             assert_eq!(
@@ -673,7 +759,11 @@ mod tests {
             lexer.read_token();
 
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
@@ -693,7 +783,11 @@ mod tests {
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
@@ -708,7 +802,11 @@ mod tests {
             lexer.read_token();
 
             assert_eq!(
-                TokenInfo::new(Token::Variable, "_a_aa".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "_a_aa".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
@@ -724,11 +822,19 @@ mod tests {
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::Number,
+                    "2".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 14)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 14)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
@@ -743,7 +849,11 @@ mod tests {
             lexer.read_token();
 
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
@@ -751,11 +861,19 @@ mod tests {
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "b".to_string(), ("test.c".to_string(), 1, 4)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "b".to_string(),
+                    ("test.c".to_string(), 1, 4)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
@@ -770,11 +888,19 @@ mod tests {
             lexer.read_token();
 
             assert_eq!(
-                TokenInfo::new(Token::LeftBrace, "{".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::LeftBrace,
+                    "{".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 3)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -782,15 +908,27 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "b".to_string(), ("test.c".to_string(), 1, 7)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "b".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 8)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 8)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightBrace, "}".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::RightBrace,
+                    "}".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
@@ -809,11 +947,19 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftBrace, "{".to_string(), ("test.c".to_string(), 1, 4)),
+                TokenInfo::new(
+                    Token::LeftBrace,
+                    "{".to_string(),
+                    ("test.c".to_string(), 1, 4)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "i".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "i".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
@@ -821,15 +967,27 @@ mod tests {
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::Number,
+                    "2".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightBrace, "}".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::RightBrace,
+                    "}".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[6]
             );
             assert_eq!(
@@ -848,11 +1006,19 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftBrace, "{".to_string(), ("test.c".to_string(), 1, 4)),
+                TokenInfo::new(
+                    Token::LeftBrace,
+                    "{".to_string(),
+                    ("test.c".to_string(), 1, 4)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "i".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "i".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
@@ -860,43 +1026,83 @@ mod tests {
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::Number,
+                    "2".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightBrace, "}".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::RightBrace,
+                    "}".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[6]
             );
             assert_eq!(
-                TokenInfo::new(Token::Else, "else".to_string(), ("test.c".to_string(), 1, 15)),
+                TokenInfo::new(
+                    Token::Else,
+                    "else".to_string(),
+                    ("test.c".to_string(), 1, 15)
+                ),
                 lexer.get_tokens()[7]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftBrace, "{".to_string(), ("test.c".to_string(), 1, 20)),
+                TokenInfo::new(
+                    Token::LeftBrace,
+                    "{".to_string(),
+                    ("test.c".to_string(), 1, 20)
+                ),
                 lexer.get_tokens()[8]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "e".to_string(), ("test.c".to_string(), 1, 22)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "e".to_string(),
+                    ("test.c".to_string(), 1, 22)
+                ),
                 lexer.get_tokens()[9]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 24)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 24)
+                ),
                 lexer.get_tokens()[10]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "3".to_string(), ("test.c".to_string(), 1, 26)),
+                TokenInfo::new(
+                    Token::Number,
+                    "3".to_string(),
+                    ("test.c".to_string(), 1, 26)
+                ),
                 lexer.get_tokens()[11]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 27)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 27)
+                ),
                 lexer.get_tokens()[12]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightBrace, "}".to_string(), ("test.c".to_string(), 1, 29)),
+                TokenInfo::new(
+                    Token::RightBrace,
+                    "}".to_string(),
+                    ("test.c".to_string(), 1, 29)
+                ),
                 lexer.get_tokens()[13]
             );
             assert_eq!(
@@ -911,15 +1117,27 @@ mod tests {
             lexer.read_token();
 
             assert_eq!(
-                TokenInfo::new(Token::While, "while".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::While,
+                    "while".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftParen, "(".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::LeftParen,
+                    "(".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 7)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
@@ -927,35 +1145,67 @@ mod tests {
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "b".to_string(), ("test.c".to_string(), 1, 12)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "b".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightParen, ")".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::RightParen,
+                    ")".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[5]
             );
             assert_eq!(
-                TokenInfo::new(Token::LeftBrace, "{".to_string(), ("test.c".to_string(), 1, 15)),
+                TokenInfo::new(
+                    Token::LeftBrace,
+                    "{".to_string(),
+                    ("test.c".to_string(), 1, 15)
+                ),
                 lexer.get_tokens()[6]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "c".to_string(), ("test.c".to_string(), 1, 17)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "c".to_string(),
+                    ("test.c".to_string(), 1, 17)
+                ),
                 lexer.get_tokens()[7]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 19)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 19)
+                ),
                 lexer.get_tokens()[8]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "3".to_string(), ("test.c".to_string(), 1, 21)),
+                TokenInfo::new(
+                    Token::Number,
+                    "3".to_string(),
+                    ("test.c".to_string(), 1, 21)
+                ),
                 lexer.get_tokens()[9]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 22)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 22)
+                ),
                 lexer.get_tokens()[10]
             );
             assert_eq!(
-                TokenInfo::new(Token::RightBrace, "}".to_string(), ("test.c".to_string(), 1, 24)),
+                TokenInfo::new(
+                    Token::RightBrace,
+                    "}".to_string(),
+                    ("test.c".to_string(), 1, 24)
+                ),
                 lexer.get_tokens()[11]
             );
             assert_eq!(
@@ -969,7 +1219,11 @@ mod tests {
 
             lexer.read_token();
             assert_eq!(
-                TokenInfo::new(Token::Return, "return".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::Return,
+                    "return".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
@@ -977,7 +1231,11 @@ mod tests {
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 9)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 9)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
@@ -999,7 +1257,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -1011,7 +1273,11 @@ mod tests {
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1033,7 +1299,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "ifi".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "ifi".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -1041,11 +1311,19 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 12)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1063,19 +1341,35 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "elsee".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "elsee".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 14)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 14)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1093,7 +1387,11 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "do_".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "do_".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -1101,11 +1399,19 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 12)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1123,19 +1429,35 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "while0".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "while0".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 12)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 14)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 14)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 15)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 15)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1153,19 +1475,35 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "forf".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "forf".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 12)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 13)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1183,19 +1521,35 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "break_".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "break_".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 12)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 14)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 14)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 15)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 15)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1213,19 +1567,35 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "continue1".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "continue1".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 15)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 15)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 17)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 17)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 18)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 18)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1243,19 +1613,35 @@ mod tests {
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "return_val".to_string(), ("test.c".to_string(), 1, 5)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "return_val".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
-                TokenInfo::new(Token::Assign, "=".to_string(), ("test.c".to_string(), 1, 16)),
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 16)
+                ),
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "0".to_string(), ("test.c".to_string(), 1, 18)),
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 18)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 19)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 19)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1269,11 +1655,19 @@ mod tests {
 
             lexer.read_token();
             assert_eq!(
-                TokenInfo::new(Token::IntPointer, "int*".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::IntPointer,
+                    "int*".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -1281,11 +1675,19 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::Number,
+                    "2".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(
@@ -1299,11 +1701,19 @@ mod tests {
 
             lexer.read_token();
             assert_eq!(
-                TokenInfo::new(Token::IntPointer, "int*".to_string(), ("test.c".to_string(), 1, 1)),
+                TokenInfo::new(
+                    Token::IntPointer,
+                    "int*".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
                 lexer.get_tokens()[0]
             );
             assert_eq!(
-                TokenInfo::new(Token::Variable, "a".to_string(), ("test.c".to_string(), 1, 6)),
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
                 lexer.get_tokens()[1]
             );
             assert_eq!(
@@ -1311,11 +1721,19 @@ mod tests {
                 lexer.get_tokens()[2]
             );
             assert_eq!(
-                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 10)),
+                TokenInfo::new(
+                    Token::Number,
+                    "2".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
                 lexer.get_tokens()[3]
             );
             assert_eq!(
-                TokenInfo::new(Token::SemiColon, ";".to_string(), ("test.c".to_string(), 1, 11)),
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 11)
+                ),
                 lexer.get_tokens()[4]
             );
             assert_eq!(

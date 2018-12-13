@@ -1,6 +1,6 @@
+use ast::Type;
 #[doc = "シンボルテーブル"]
 use map::Map;
-use ast::Type;
 
 #[derive(Debug)]
 pub struct SymbolTable {
@@ -59,10 +59,7 @@ mod test {
             assert_eq!(s.count(), 1);
             assert_eq!(
                 s.search(&"key".to_string()),
-                Some(Meta {
-                    p: 0,
-                    t: Type::Int,
-                })
+                Some(Meta { p: 0, t: Type::Int })
             )
         }
         {

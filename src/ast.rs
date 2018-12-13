@@ -40,7 +40,12 @@ pub enum AstType {
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
     Do(Box<AstType>, Box<AstType>),    // ブロック部、条件式.
     If(Box<AstType>, Box<AstType>, Box<Option<AstType>>), // 条件式、真ブロック、偽ブロック.
-    For(Box<Option<AstType>>, Box<Option<AstType>>, Box<Option<AstType>>, Box<AstType>,), // 初期条件、終了条件、更新部、ブロック部.
+    For(
+        Box<Option<AstType>>,
+        Box<Option<AstType>>,
+        Box<Option<AstType>>,
+        Box<AstType>,
+    ), // 初期条件、終了条件、更新部、ブロック部.
     Continue(),
     Break(),
     Return(Box<AstType>),
@@ -160,7 +165,12 @@ impl<'a> AstGen<'a> {
             Token::Variable => {
                 // 既に同じシンボルが登録されていればエラー.
                 if self.func_table.search(&token.get_token_value()).is_some() {
-                    panic!("{} {}: already define {}", file!(), line!(), token.get_token_value());
+                    panic!(
+                        "{} {}: already define {}",
+                        file!(),
+                        line!(),
+                        token.get_token_value()
+                    );
                 }
 
                 // 関数シンボルを登録.
@@ -172,16 +182,20 @@ impl<'a> AstGen<'a> {
                     Box::new(self.statement()),
                 )
             }
-            _ => panic!("{} {}: Not Exists Function def {:?}", file!(), line!(), token),
+            _ => panic!(
+                "{} {}: Not Exists Function def {:?}",
+                file!(),
+                line!(),
+                token
+            ),
         }
     }
 
     // typeトークンチェック
     fn is_type_token(&mut self) -> bool {
         match self.next().get_token_type() {
-            | Token::Int
-            | Token::IntPointer => true,
-            _ => false
+            Token::Int | Token::IntPointer => true,
+            _ => false,
         }
     }
 
@@ -228,8 +242,7 @@ impl<'a> AstGen<'a> {
         if Token::Comma == comma.get_token_type() {
             self.consume();
             self.recur_func_args(args)
-        }
-        else {
+        } else {
             args.clone()
         }
     }
@@ -284,11 +297,17 @@ impl<'a> AstGen<'a> {
     //
     // ブロック部が一行の場合、asm部が期待しているAstType::Statementでexpression結果を包む
     fn statement_if(&mut self) -> AstType {
-        self.must_next(Token::LeftParen, "ast.rs(statement_if): Not Exists LeftParen");
+        self.must_next(
+            Token::LeftParen,
+            "ast.rs(statement_if): Not Exists LeftParen",
+        );
 
         // 条件式を解析.
         let condition = self.assign();
-        self.must_next(Token::RightParen, "ast.rs(statement_if): Not Exists RightParen");
+        self.must_next(
+            Token::RightParen,
+            "ast.rs(statement_if): Not Exists RightParen",
+        );
 
         // ifブロック内を解析.
         let stmt = if Token::LeftBrace == self.next().get_token_type() {
@@ -317,11 +336,17 @@ impl<'a> AstGen<'a> {
 
     // while statement.
     fn statement_while(&mut self) -> AstType {
-        self.must_next(Token::LeftParen, "ast.rs(statement_while): Not Exists LeftParen");
+        self.must_next(
+            Token::LeftParen,
+            "ast.rs(statement_while): Not Exists LeftParen",
+        );
 
         // 条件式を解析.
         let condition = self.assign();
-        self.must_next(Token::RightParen, "ast.rs(statement_while): Not Exists RightParen");
+        self.must_next(
+            Token::RightParen,
+            "ast.rs(statement_while): Not Exists RightParen",
+        );
 
         AstType::While(Box::new(condition), Box::new(self.statement()))
     }
@@ -333,16 +358,25 @@ impl<'a> AstGen<'a> {
         self.must_next(Token::While, "ast.rs(statement_do): Not Exists while token");
 
         // 条件式を解析.
-        self.must_next(Token::LeftParen, "ast.rs(statement_do): Not Exists LeftParen");
+        self.must_next(
+            Token::LeftParen,
+            "ast.rs(statement_do): Not Exists LeftParen",
+        );
         let condition = self.assign();
-        self.must_next(Token::RightParen, "ast.rs(statement_while): Not Exists RightParen");
+        self.must_next(
+            Token::RightParen,
+            "ast.rs(statement_while): Not Exists RightParen",
+        );
 
         AstType::Do(Box::new(stmt), Box::new(condition))
     }
 
     // for statement.
     fn statement_for(&mut self) -> AstType {
-        self.must_next(Token::LeftParen, "ast.rs(statement_for): Not Exists LeftParen");
+        self.must_next(
+            Token::LeftParen,
+            "ast.rs(statement_for): Not Exists LeftParen",
+        );
 
         // 各種条件を解析.
         let begin = if Token::SemiColon == self.next().get_token_type() {
@@ -350,23 +384,37 @@ impl<'a> AstGen<'a> {
         } else {
             Some(self.assign())
         };
-        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
+        self.must_next(
+            Token::SemiColon,
+            "ast.rs(statement_for): Not Exists Semicolon",
+        );
 
         let condition = if Token::SemiColon == self.next().get_token_type() {
             None
         } else {
             Some(self.assign())
         };
-        self.must_next(Token::SemiColon, "ast.rs(statement_for): Not Exists Semicolon");
+        self.must_next(
+            Token::SemiColon,
+            "ast.rs(statement_for): Not Exists Semicolon",
+        );
 
         let end = if Token::RightParen == self.next().get_token_type() {
             None
         } else {
             Some(self.assign())
         };
-        self.must_next(Token::RightParen, "ast.rs(statement_for): Not Exists RightParen");
+        self.must_next(
+            Token::RightParen,
+            "ast.rs(statement_for): Not Exists RightParen",
+        );
 
-        AstType::For(Box::new(begin), Box::new(condition), Box::new(end), Box::new(self.statement()))
+        AstType::For(
+            Box::new(begin),
+            Box::new(condition),
+            Box::new(end),
+            Box::new(self.statement()),
+        )
     }
 
     // continue statement.
@@ -431,7 +479,10 @@ impl<'a> AstGen<'a> {
                     Box::new(acc),
                     Box::new(self.argment(AstType::Argment(vec![]))),
                 );
-                self.must_next(Token::RightParen, "ast.rs(call_func): Not exists RightParen");
+                self.must_next(
+                    Token::RightParen,
+                    "ast.rs(call_func): Not exists RightParen",
+                );
                 call_func
             }
             _ => panic!("{} {}: Not exists LeftParen", file!(), line!()),
@@ -669,9 +720,13 @@ impl<'a> AstGen<'a> {
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
             Token::Variable => {
                 // 定義済みシンボルから型を取得し、AST作成
-                let sym = self.var_table.search(&token.get_token_value())
+                let sym = self
+                    .var_table
+                    .search(&token.get_token_value())
                     .unwrap_or_else(|| {
-                        self.func_table.search(&token.get_token_value()).expect("ast.rs(factor): Variable is undefined")
+                        self.func_table
+                            .search(&token.get_token_value())
+                            .expect("ast.rs(factor): Variable is undefined")
                     });
                 self.back(1);
                 self.variable(sym.t)
@@ -704,17 +759,27 @@ impl<'a> AstGen<'a> {
 
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
-        AstType::Factor(token.get_token_value().parse::<i64>().expect("ast.rs(number): cannot convert i64"))
+        AstType::Factor(
+            token
+                .get_token_value()
+                .parse::<i64>()
+                .expect("ast.rs(number): cannot convert i64"),
+        )
     }
 
     // トークン読み取り.
     fn next(&mut self) -> &'a TokenInfo {
-        self.tokens.get(self.current_pos).expect("ast.rs(next): cannot read next value")
+        self.tokens
+            .get(self.current_pos)
+            .expect("ast.rs(next): cannot read next value")
     }
 
     // 読み取り位置更新.
     fn next_consume(&mut self) -> &'a TokenInfo {
-        let token = self.tokens.get(self.current_pos).expect("ast.rs(next_consume): cannot read next value");
+        let token = self
+            .tokens
+            .get(self.current_pos)
+            .expect("ast.rs(next_consume): cannot read next value");
         self.current_pos += 1;
         token
     }
@@ -3029,9 +3094,10 @@ mod tests {
                 AstType::FuncDef(
                     Type::Int,
                     "a".to_string(),
-                    Box::new(AstType::Argment(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
-                    ])),
+                    Box::new(AstType::Argment(vec![AstType::Variable(
+                        Type::Int,
+                        "a".to_string()
+                    ),])),
                     Box::new(AstType::Statement(vec![]))
                 )
             );
@@ -3043,7 +3109,10 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
                         Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                        Box::new(AstType::Argment(vec![AstType::Variable(Type::Int, 'b'.to_string())]),)
+                        Box::new(AstType::Argment(vec![AstType::Variable(
+                            Type::Int,
+                            'b'.to_string()
+                        )]),)
                     ),])),
                 )
             );
@@ -3499,7 +3568,8 @@ mod tests {
                                 Box::new(AstType::Variable(Type::Int, "e".to_string())),
                                 Box::new(AstType::Factor(9))
                             )])))
-                    ),]))
+                        ),
+                    ]))
                 )
             );
         }
@@ -3559,7 +3629,8 @@ mod tests {
                                     Box::new(AstType::Factor(10))
                                 )
                             ]))
-                    )]))
+                        )
+                    ]))
                 )
             );
         }
@@ -3994,9 +4065,7 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, "a".to_string()),
-                        AstType::Return(Box::new(
-                            AstType::Variable(Type::Int, "a".to_string())
-                        ))
+                        AstType::Return(Box::new(AstType::Variable(Type::Int, "a".to_string())))
                     ]))
                 )
             );
@@ -4038,13 +4107,14 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, "a".to_string()),
-                         AstType::Assign(
+                        AstType::Assign(
                             Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            Box::new(AstType::Address(Box::new(AstType::Variable(Type::Int, "a".to_string())))),
+                            Box::new(AstType::Address(Box::new(AstType::Variable(
+                                Type::Int,
+                                "a".to_string()
+                            )))),
                         ),
-                        AstType::Return(Box::new(
-                            AstType::Variable(Type::Int, "a".to_string())
-                        ))
+                        AstType::Return(Box::new(AstType::Variable(Type::Int, "a".to_string())))
                     ]))
                 )
             );
@@ -4082,13 +4152,14 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, "a".to_string()),
-                         AstType::Assign(
+                        AstType::Assign(
                             Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            Box::new(AstType::Indirect(Box::new(AstType::Variable(Type::Int, "a".to_string())))),
+                            Box::new(AstType::Indirect(Box::new(AstType::Variable(
+                                Type::Int,
+                                "a".to_string()
+                            )))),
                         ),
-                        AstType::Return(Box::new(
-                            AstType::Variable(Type::Int, "a".to_string())
-                        ))
+                        AstType::Return(Box::new(AstType::Variable(Type::Int, "a".to_string())))
                     ]))
                 )
             );
@@ -4125,14 +4196,15 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::IntPointer, "a".to_string()),
-                        AstType::Return(Box::new(
-                            AstType::Variable(Type::IntPointer, "a".to_string())
-                        ))
+                        AstType::Return(Box::new(AstType::Variable(
+                            Type::IntPointer,
+                            "a".to_string()
+                        )))
                     ]))
                 )
             );
         }
-{
+        {
             let data = vec![
                 create_token(Token::Int, "int".to_string()),
                 create_token(Token::Variable, "main".to_string()),
@@ -4160,9 +4232,10 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::IntPointer, "a".to_string()),
-                        AstType::Return(Box::new(
-                            AstType::Variable(Type::IntPointer, "a".to_string())
-                        ))
+                        AstType::Return(Box::new(AstType::Variable(
+                            Type::IntPointer,
+                            "a".to_string()
+                        )))
                     ]))
                 )
             );
@@ -4207,13 +4280,12 @@ mod tests {
                         AstType::Variable(Type::Int, "a".to_string()),
                         AstType::Assign(
                             Box::new(AstType::Variable(Type::IntPointer, "b".to_string())),
-                            Box::new(AstType::Address(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            ))
+                            Box::new(AstType::Address(Box::new(AstType::Variable(
+                                Type::Int,
+                                "a".to_string()
+                            )),))
                         ),
-                        AstType::Return(
-                            Box::new(AstType::Factor(1)),
-                        )
+                        AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )
             );
@@ -4259,19 +4331,19 @@ mod tests {
                         AstType::Variable(Type::Int, "a".to_string()),
                         AstType::Assign(
                             Box::new(AstType::Variable(Type::IntPointer, "b".to_string())),
-                            Box::new(AstType::Address(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                            ))
+                            Box::new(AstType::Address(Box::new(AstType::Variable(
+                                Type::Int,
+                                "a".to_string()
+                            )),))
                         ),
                         AstType::Assign(
-                            Box::new(AstType::Indirect(
-                                Box::new(AstType::Variable(Type::IntPointer, "b".to_string())),
-                            )),
+                            Box::new(AstType::Indirect(Box::new(AstType::Variable(
+                                Type::IntPointer,
+                                "b".to_string()
+                            )),)),
                             Box::new(AstType::Factor(120)),
                         ),
-                        AstType::Return(
-                            Box::new(AstType::Factor(1)),
-                        )
+                        AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )
             );
@@ -4316,9 +4388,7 @@ mod tests {
                             Box::new(AstType::Variable(Type::IntPointer, "a".to_string())),
                             Box::new(AstType::Factor(1)),
                         ),
-                        AstType::Return(
-                            Box::new(AstType::Factor(1)),
-                        )
+                        AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )
             );
@@ -4359,9 +4429,7 @@ mod tests {
                             Box::new(AstType::Variable(Type::IntPointer, "a".to_string())),
                             Box::new(AstType::Factor(1)),
                         ),
-                        AstType::Return(
-                            Box::new(AstType::Factor(1)),
-                        )
+                        AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )
             );
