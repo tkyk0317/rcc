@@ -13,6 +13,9 @@ use asm::Asm;
 use ast::AstGen;
 use lexer::LexicalAnalysis;
 use semantic::Semantic;
+use std::env;
+use std::fs::File;
+use std::io::Read;
 
 /// コンパイルスタート
 ///
@@ -39,9 +42,25 @@ fn compile(inst: &str) -> Result<String, Vec<String>> {
 
 #[doc = "メイン関数"]
 fn main() {
-    // 標準入力を字句解析
+    // コマンドライン引数評価
+    let args: Vec<String> = env::args().collect();
+
+    // 引数チェック
+    if args.len() < 2 {
+        panic!("Usage: rcc [--input] [filename]")
+    }
+
+    // 入力ソースを決定
     let mut s = String::new();
-    std::io::stdin().read_line(&mut s).unwrap();
+    match &*args[1] {
+        "--input" => {
+            std::io::stdin().read_line(&mut s).unwrap();
+        }
+        _ => {
+            let mut f = File::open(&args[1]).expect(&format!("not found file {}", args[1]));
+            f.read_to_string(&mut s).expect("read file error");
+        }
+    };
 
     // コンパイル実行
     match compile(&s) {
