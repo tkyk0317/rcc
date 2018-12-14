@@ -448,26 +448,23 @@ impl<'a> AstGen<'a> {
 
     // assign.
     fn assign(&mut self) -> AstType {
-        match self.next().get_token_type() {
-            Token::Variable => {
-                // 代入演算子判定.
+        let token = self.next_consume();
+        let next_token = self.next();
+        match token.get_token_type() {
+            Token::Variable if Token::Assign == next_token.get_token_type() => {
+                // Variableトークンへ位置を戻す
+                self.back(1);
                 let var = self.factor();
-                let next_token = self.next();
-                match var {
-                    AstType::CallFunc(_, _) => var,
-                    AstType::Variable(_, _) if Token::Assign == next_token.get_token_type() => {
-                        self.consume();
-                        AstType::Assign(Box::new(var), Box::new(self.condition()))
-                    }
-                    AstType::Variable(_, _) => {
-                        // variable分を巻き戻し.
-                        self.back(1);
-                        self.condition()
-                    }
-                    _ => panic!("{} {}: illeagal AstType {:?}", file!(), line!(), var),
-                }
+
+                // Assignトークン消費
+                self.consume();
+                AstType::Assign(Box::new(var), Box::new(self.condition()))
             }
-            _ => self.condition(),
+            _ => {
+                // Variableトークンへ位置を戻す
+                self.back(1);
+                self.condition()
+            }
         }
     }
 
