@@ -196,8 +196,8 @@ mod test {
             TestData { inst: "int test() { return 1; } int main() { return test(); }", ex_ret: 1 },
             TestData { inst: "int test() { int a; a = 1; return a + 19;} int main() { return test(); }", ex_ret: 20 },
             TestData { inst: "int test() { return 1; } int main() { test(); return 10; }", ex_ret: 10 },
-            TestData { inst: "int test(int a) { return a + 1; } int main() { return test(1); }", ex_ret: 2 },
-            TestData { inst: "int test(int a) { a = a * 2; return a + 10; } int main() { int b; b = 10; return test(b); }", ex_ret: 30 },
+            TestData { inst: "int test(int x) { return x + 1; } int main() { return test(1); }", ex_ret: 2 },
+            TestData { inst: "int test(int x) { x = x * 2; return x + 10; } int main() { int b; b = 10; return test(b); }", ex_ret: 30 },
             TestData { inst: "int main() { int a; a = 0; if (10 == 10) { a = 2; a = a * 9; } return a; }", ex_ret: 18 },
             TestData { inst: "int main() { if (10 != 10) { int a; a = 2; a * 9; } return 2; }", ex_ret: 2 },
             TestData { inst: "int main() { if (2 == 10) { int a; a = 2; a * 9; } return 11; }", ex_ret: 11 },
@@ -209,7 +209,7 @@ mod test {
             TestData { inst: "int main() { int a; a = 8; int b; b = 1; a = a + b; return a; }", ex_ret: 9 },
             TestData { inst: "int main() { int i; i = 0; for (i = 0 ; i < 2 ; i = i + 1) {;} return 11; }", ex_ret: 11 },
             TestData { inst: "int main() { int a; a = 0; int i; i = 0; for (i = 0 ; i < 10 ; i = i + 1) { a = a + 1;} return a; }", ex_ret: 10 },
-            TestData { inst: "int test(int a, int b) { return a + b; } int main() { return test(1, 4); }", ex_ret: 5 },
+            TestData { inst: "int test(int x, int y) { return x + y; } int main() { return test(1, 4); }", ex_ret: 5 },
             TestData { inst: "int main() { int a; a = 0; do { a = a + 1; } while (a <= 2); return a; }", ex_ret: 3 },
             TestData { inst: "int main() { int i; i = 0; while (1) { i = i + 1; if (i < 100) { continue; } else { break; } } return i; }", ex_ret: 100 },
             TestData { inst: "int main() { int i; i = 0; do { i = i + 1; if (i < 100) { continue; } else { break; } } while(1); return i; }", ex_ret: 100 },
@@ -236,7 +236,8 @@ mod test {
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; c = c - 4; \nreturn c == a;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a + 2; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
-            TestData { inst: "int test(int a) { return a; } int main() { int a = 3; return test(a - 1); }", ex_ret: 2 },
+            TestData { inst: "int test(int x) { return x; } int main() { int a = 3; return test(a - 1); }", ex_ret: 2 },
+            TestData { inst: "int test(int x) { if (x == 0) return 0; else return 1 + test(x - 1); } int main() { return test(10); }", ex_ret: 10 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 

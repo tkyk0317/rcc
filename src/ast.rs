@@ -448,22 +448,23 @@ impl<'a> AstGen<'a> {
 
     // assign.
     fn assign(&mut self) -> AstType {
-        let left = self.next();
-        match left.get_token_type() {
+        match self.next().get_token_type() {
             Token::Variable => {
                 // 代入演算子判定.
                 let var = self.factor();
-                match self.next().get_token_type() {
-                    Token::Assign => {
+                let next_token = self.next();
+                match var {
+                    AstType::CallFunc(_, _) => var,
+                    AstType::Variable(_, _) if Token::Assign == next_token.get_token_type() => {
                         self.consume();
                         AstType::Assign(Box::new(var), Box::new(self.condition()))
                     }
-                    Token::LeftParen => self.call_func(var),
-                    _ => {
+                    AstType::Variable(_, _) => {
                         // variable分を巻き戻し.
                         self.back(1);
                         self.condition()
                     }
+                    _ => panic!("{} {}: illeagal AstType {:?}", file!(), line!(), var),
                 }
             }
             _ => self.condition(),
@@ -710,26 +711,19 @@ impl<'a> AstGen<'a> {
             Token::IntPointer => self.variable(Type::IntPointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
-            Token::Variable => {
-                // 定義済みシンボルから型を取得し、AST作成
-                let sym = self
-                    .var_table
-                    .search(&token.get_token_value())
-                    .unwrap_or_else(|| {
-                        self.func_table
-                            .search(&token.get_token_value())
-                            .expect(&format!(
-                                "ast.rs(factor): Variable is undefined {:?}",
-                                token
-                            ))
-                    });
+            Token::Variable if self.var_table.search(&token.get_token_value()).is_some() => {
+                let sym = self.var_table.search(&token.get_token_value()).unwrap();
                 self.back(1);
                 self.variable(sym.t)
             }
+            Token::Variable if self.func_table.search(&token.get_token_value()).is_some() => {
+                self.back(1);
+                let sym = self.func_table.search(&token.get_token_value()).unwrap();
+                let f_sym = self.variable_func(sym.t);
+                self.call_func(f_sym)
+            }
             Token::LeftParen => {
                 let tree = self.assign();
-
-                // 閉じカッコがあるかどうかチェック.
                 self.must_next(Token::RightParen, "ast.rs(factor): Not exists RightParen");
                 tree
             }
@@ -752,6 +746,15 @@ impl<'a> AstGen<'a> {
         }
     }
 
+    // function name.
+    fn variable_func(&mut self, t: Type) -> AstType {
+        // 関数名は定義時に登録されている為、シンボルテーブルには追加しない
+        let token = self.next_consume();
+        match token.get_token_type() {
+            Token::Variable => AstType::Variable(t, token.get_token_value()),
+            _ => panic!("{} {}: not support token {:?}", file!(), line!(), token),
+        }
+    }
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
         AstType::Factor(
@@ -3063,7 +3066,7 @@ mod tests {
                 create_token(Token::Variable, "a".to_string()),
                 create_token(Token::LeftParen, "(".to_string()),
                 create_token(Token::Int, "int".to_string()),
-                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Variable, "x".to_string()),
                 create_token(Token::RightParen, ")".to_string()),
                 create_token(Token::LeftBrace, "{".to_string()),
                 create_token(Token::RightBrace, "}".to_string()),
@@ -3094,7 +3097,7 @@ mod tests {
                     "a".to_string(),
                     Box::new(AstType::Argment(vec![AstType::Variable(
                         Type::Int,
-                        "a".to_string()
+                        "x".to_string()
                     ),])),
                     Box::new(AstType::Statement(vec![]))
                 )
