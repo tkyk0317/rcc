@@ -236,7 +236,8 @@ mod test {
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; c = c - 4; \nreturn c == a;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a + 2; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
             TestData { inst: "int main() {\n\tint* a; int b = 123; a = &b; a = a - 4; int* c = &b; \nreturn c != a;\n }", ex_ret: 1 },
-            TestData { inst: "int test(int a) { return a; } int main() { int a = 3; return test(a - 1); }", ex_ret: 2 },
+            TestData { inst: "int test(int x) { if(x == 0) return 1; return 2; } int main() { return test(1); }", ex_ret: 2 },
+            TestData { inst: "int test(int x) { if(x == 0) return 1; return 2; } int main() { return test(0); }", ex_ret: 1 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 
