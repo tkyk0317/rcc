@@ -233,33 +233,36 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate_pop_stack("eax");
         self.generate_cmp_inst(1, "eax"); // 等しい場合は、1に設定されている.
-        self.generate_je_inst(label_end);
 
         // elseブロック生成.
         match c {
             Some(e) => {
-                let label_else = self.label.next_label();
+                // if条件が満たされているとき、ifラベルへ
+                let label_if = self.label.next_label();
+                self.generate_je_inst(label_if);
 
                 // elseブロック生成.
                 // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
                 self.generate(e);
-                self.generate_jmp_inst(label_else);
+                self.generate_jmp_inst(label_end);
 
                 // ifブロック部生成.
                 // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-                self.generate_label_inst(label_end);
+                self.generate_label_inst(label_if);
                 self.generate(b);
-
-                // 終端ラベル.
-                self.generate_label_inst(label_else);
+                self.generate_jmp_inst(label_end);
             }
             _ => {
+                // if条件が満たされていない場合、endラベルへ
+                self.generate_jne_inst(label_end);
+
                 // ifブロック部生成.
                 // block部はAstType::Statementなので、演算結果に対するスタック操作は行わない.
-                self.generate_label_inst(label_end);
                 self.generate(b);
             }
         }
+        // 終端ラベル
+        self.generate_label_inst(label_end);
     }
 
     // while statement生成.
