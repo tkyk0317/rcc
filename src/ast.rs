@@ -29,8 +29,14 @@ use token::{Token, TokenInfo};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Int,
-    IntPointer,
     Unknown(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Structure {
+    Identifier,
+    Pointer,
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,7 +80,7 @@ pub enum AstType {
     BitReverse(Box<AstType>),
     Assign(Box<AstType>, Box<AstType>),
     Factor(i64),
-    Variable(Type, String),
+    Variable(Type, Structure, String),
     CallFunc(Box<AstType>, Box<AstType>),
     Argment(Vec<AstType>),
     Address(Box<AstType>),
@@ -157,7 +163,7 @@ impl<'a> AstGen<'a> {
     // func def.
     fn func_def(&mut self) -> AstType {
         // 型を取得.
-        let t = self.generate_type();
+        let (t, s) = self.generate_type();
 
         // 関数定義から始まらないとだめ（関数の中に様々な処理が入っている）.
         let token = self.next_consume();
@@ -174,7 +180,7 @@ impl<'a> AstGen<'a> {
                 }
 
                 // 関数シンボルを登録.
-                self.func_table.push(token.get_token_value(), &t);
+                self.func_table.push(token.get_token_value(), &t, &s);
                 AstType::FuncDef(
                     t,
                     token.get_token_value(),
@@ -200,12 +206,12 @@ impl<'a> AstGen<'a> {
     }
 
     // type.
-    fn generate_type(&mut self) -> Type {
+    fn generate_type(&mut self) -> (Type, Structure) {
         let token = self.next_consume();
         match token.get_token_type() {
-            Token::Int => Type::Int,
-            Token::IntPointer => Type::IntPointer,
-            _ => Type::Unknown(token.get_token_value()),
+            Token::Int => (Type::Int, Structure::Identifier),
+            Token::IntPointer => (Type::Int, Structure::Pointer),
+            _ => (Type::Unknown(token.get_token_value()), Structure::Unknown),
         }
     }
 
@@ -704,19 +710,19 @@ impl<'a> AstGen<'a> {
             Token::Minus => AstType::UnMinus(Box::new(self.factor())),
             Token::Not => AstType::Not(Box::new(self.factor())),
             Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
-            Token::Int => self.variable(Type::Int),
-            Token::IntPointer => self.variable(Type::IntPointer),
+            Token::Int => self.variable(Type::Int, Structure::Identifier),
+            Token::IntPointer => self.variable(Type::Int, Structure::Pointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
             Token::Variable if self.var_table.search(&token.get_token_value()).is_some() => {
                 let sym = self.var_table.search(&token.get_token_value()).unwrap();
                 self.back(1);
-                self.variable(sym.t)
+                self.variable(sym.t, sym.s)
             }
             Token::Variable if self.func_table.search(&token.get_token_value()).is_some() => {
                 self.back(1);
                 let sym = self.func_table.search(&token.get_token_value()).unwrap();
-                let f_sym = self.variable_func(sym.t);
+                let f_sym = self.variable_func(sym.t, sym.s);
                 self.call_func(f_sym)
             }
             Token::LeftParen => {
@@ -729,29 +735,30 @@ impl<'a> AstGen<'a> {
     }
 
     // variable.
-    fn variable(&mut self, t: Type) -> AstType {
+    fn variable(&mut self, t: Type, s: Structure) -> AstType {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
                 if self.var_table.search(&token.get_token_value()).is_none() {
-                    self.var_table.push(token.get_token_value(), &t);
+                    self.var_table.push(token.get_token_value(), &t, &s);
                 }
-                AstType::Variable(t, token.get_token_value())
+                AstType::Variable(t, s, token.get_token_value())
             }
             _ => panic!("{} {}: not support token {:?}", file!(), line!(), token),
         }
     }
 
     // function name.
-    fn variable_func(&mut self, t: Type) -> AstType {
+    fn variable_func(&mut self, t: Type, s: Structure) -> AstType {
         // 関数名は定義時に登録されている為、シンボルテーブルには追加しない
         let token = self.next_consume();
         match token.get_token_type() {
-            Token::Variable => AstType::Variable(t, token.get_token_value()),
+            Token::Variable => AstType::Variable(t, s, token.get_token_value()),
             _ => panic!("{} {}: not support token {:?}", file!(), line!(), token),
         }
     }
+
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
         AstType::Factor(
@@ -2848,7 +2855,11 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),
                         Box::new(AstType::Factor(3))
                     ),])),
                 )
@@ -2882,7 +2893,11 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),
                         Box::new(AstType::Plus(
                             Box::new(AstType::Factor(3)),
                             Box::new(AstType::Factor(1)),
@@ -2921,9 +2936,13 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::LogicalAnd(
                                 Box::new(AstType::Factor(3)),
                                 Box::new(AstType::Factor(1)),
@@ -2961,7 +2980,11 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),
                         Box::new(AstType::Multiple(
                             Box::new(AstType::Factor(3)),
                             Box::new(AstType::Factor(1)),
@@ -2998,7 +3021,11 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),
                         Box::new(AstType::BitOr(
                             Box::new(AstType::Factor(3)),
                             Box::new(AstType::Factor(1)),
@@ -3051,7 +3078,11 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::CallFunc(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),
                         Box::new(AstType::Argment(vec![]))
                     ),])),
                 )
@@ -3094,6 +3125,7 @@ mod tests {
                     "a".to_string(),
                     Box::new(AstType::Argment(vec![AstType::Variable(
                         Type::Int,
+                        Structure::Identifier,
                         "x".to_string()
                     ),])),
                     Box::new(AstType::Statement(vec![]))
@@ -3106,11 +3138,16 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "b".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "b".to_string()),
                         AstType::CallFunc(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Argment(vec![AstType::Variable(
                                 Type::Int,
+                                Structure::Identifier,
                                 'b'.to_string()
                             )]),)
                         ),
@@ -3162,8 +3199,8 @@ mod tests {
                     Type::Int,
                     "test".to_string(),
                     Box::new(AstType::Argment(vec![
-                        AstType::Variable(Type::Int, "x".to_string()),
-                        AstType::Variable(Type::Int, "y".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "x".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "y".to_string()),
                     ])),
                     Box::new(AstType::Statement(vec![]))
                 )
@@ -3175,13 +3212,25 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, 'b'.to_string()),
-                        AstType::Variable(Type::Int, 'c'.to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, 'b'.to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, 'c'.to_string()),
                         AstType::CallFunc(
-                            Box::new(AstType::Variable(Type::Int, "test".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "test".to_string()
+                            )),
                             Box::new(AstType::Argment(vec![
-                                AstType::Variable(Type::Int, 'b'.to_string()),
-                                AstType::Variable(Type::Int, 'c'.to_string()),
+                                AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    'b'.to_string()
+                                ),
+                                AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    'c'.to_string()
+                                ),
                             ]))
                         ),
                     ])),
@@ -3225,13 +3274,25 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(3))
                         ),
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Plus(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                                 Box::new(AstType::Factor(3)),
                             ))
                         ),
@@ -3272,13 +3333,25 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(3))
                         ),
                         AstType::Plus(
                             Box::new(AstType::Multiple(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                             )),
                             Box::new(AstType::Factor(1))
                         ),
@@ -3327,7 +3400,11 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),
                         Box::new(AstType::Factor(3))
                     ),])),
                 )
@@ -3339,7 +3416,11 @@ mod tests {
                     "test".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "b".to_string()
+                        )),
                         Box::new(AstType::Factor(1))
                     ),])),
                 )
@@ -3379,11 +3460,15 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
-                        AstType::Variable(Type::Int, "b".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "b".to_string()),
                     ])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
-                        Box::new(AstType::Variable(Type::Int, "c".to_string())),
+                        Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "c".to_string()
+                        )),
                         Box::new(AstType::Factor(3))
                     ),])),
                 )
@@ -3432,16 +3517,24 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::If(
                             Box::new(AstType::Equal(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                                 Box::new(AstType::Factor(3))
                             )),
                             Box::new(AstType::Statement(vec![
                                 AstType::Factor(1),
                                 AstType::Assign(
-                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Variable(
+                                        Type::Int,
+                                        Structure::Identifier,
+                                        "b".to_string()
+                                    )),
                                     Box::new(AstType::Factor(10))
                                 )
                             ],)),
@@ -3506,23 +3599,35 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
-                        AstType::Variable(Type::Int, "b".to_string()),
-                        AstType::Variable(Type::Int, "e".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "b".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "e".to_string()),
                         AstType::If(
                             Box::new(AstType::Equal(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                                 Box::new(AstType::Factor(3))
                             )),
                             Box::new(AstType::Statement(vec![
                                 AstType::Factor(1),
                                 AstType::Assign(
-                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Variable(
+                                        Type::Int,
+                                        Structure::Identifier,
+                                        "b".to_string()
+                                    )),
                                     Box::new(AstType::Factor(10))
                                 )
                             ],)),
                             Box::new(Some(AstType::Statement(vec![AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "e".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "e".to_string()
+                                )),
                                 Box::new(AstType::Factor(9))
                             )],))),
                         ),
@@ -3568,15 +3673,23 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::If(
                             Box::new(AstType::Equal(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                                 Box::new(AstType::Factor(3))
                             )),
                             Box::new(AstType::Statement(vec![AstType::Factor(1)])),
                             Box::new(Some(AstType::Statement(vec![AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "e".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "e".to_string()
+                                )),
                                 Box::new(AstType::Factor(9))
                             )])))
                         ),
@@ -3627,16 +3740,24 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::While(
                             Box::new(AstType::Equal(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                                 Box::new(AstType::Factor(3))
                             )),
                             Box::new(AstType::Statement(vec![
                                 AstType::Factor(1),
                                 AstType::Assign(
-                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Variable(
+                                        Type::Int,
+                                        Structure::Identifier,
+                                        "b".to_string()
+                                    )),
                                     Box::new(AstType::Factor(10))
                                 )
                             ]))
@@ -3686,21 +3807,29 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::While(
                             Box::new(AstType::Equal(
-                                Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "a".to_string()
+                                )),
                                 Box::new(AstType::Factor(3))
                             )),
                             Box::new(AstType::Statement(vec![
                                 AstType::Factor(1),
                                 AstType::Assign(
-                                    Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                    Box::new(AstType::Variable(
+                                        Type::Int,
+                                        Structure::Identifier,
+                                        "b".to_string()
+                                    )),
                                     Box::new(AstType::Factor(10))
                                 )
                             ],))
                         ),
-                        AstType::Variable(Type::Int, "b".to_string())
+                        AstType::Variable(Type::Int, Structure::Identifier, "b".to_string())
                     ]))
                 )
             );
@@ -3750,7 +3879,11 @@ mod tests {
                         Box::new(AstType::Statement(vec![
                             AstType::Factor(1),
                             AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "b".to_string()
+                                )),
                                 Box::new(AstType::Factor(10))
                             )
                         ],))
@@ -3806,24 +3939,44 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::For(
                         Box::new(Some(AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "i".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "i".to_string()
+                            )),
                             Box::new(AstType::Factor(0))
                         ),)),
                         Box::new(Some(AstType::LessThan(
-                            Box::new(AstType::Variable(Type::Int, "i".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "i".to_string()
+                            )),
                             Box::new(AstType::Factor(10))
                         ),)),
                         Box::new(Some(AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "i".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "i".to_string()
+                            )),
                             Box::new(AstType::Plus(
-                                Box::new(AstType::Variable(Type::Int, "i".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "i".to_string()
+                                )),
                                 Box::new(AstType::Factor(1))
                             ))
                         ))),
                         Box::new(AstType::Statement(vec![
                             AstType::Factor(1),
                             AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "b".to_string()
+                                )),
                                 Box::new(AstType::Factor(10))
                             )
                         ],))
@@ -3877,14 +4030,22 @@ mod tests {
                     Box::new(AstType::Statement(vec![AstType::Do(
                         Box::new(AstType::Statement(vec![
                             AstType::Factor(1),
-                            AstType::Variable(Type::Int, "a".to_string()),
+                            AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                             AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "b".to_string()
+                                )),
                                 Box::new(AstType::Factor(10))
                             )
                         ],)),
                         Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(3))
                         )),
                     )]))
@@ -3939,15 +4100,23 @@ mod tests {
                     Box::new(AstType::Statement(vec![AstType::Do(
                         Box::new(AstType::Statement(vec![
                             AstType::Factor(1),
-                            AstType::Variable(Type::Int, "a".to_string()),
+                            AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                             AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "b".to_string()
+                                )),
                                 Box::new(AstType::Factor(10))
                             ),
                             AstType::Continue(),
                         ],)),
                         Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(3))
                         )),
                     )]))
@@ -3997,16 +4166,24 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
                         Box::new(AstType::Statement(vec![
-                            AstType::Variable(Type::Int, "a".to_string()),
+                            AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                             AstType::Factor(1),
                             AstType::Assign(
-                                Box::new(AstType::Variable(Type::Int, "b".to_string())),
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Identifier,
+                                    "b".to_string()
+                                )),
                                 Box::new(AstType::Factor(10))
                             ),
                             AstType::Break(),
                         ],)),
                         Box::new(AstType::Equal(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(3))
                         )),
                     )]))
@@ -4075,8 +4252,12 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
-                        AstType::Return(Box::new(AstType::Variable(Type::Int, "a".to_string())))
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::Return(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )))
                     ]))
                 )
             );
@@ -4117,15 +4298,24 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Address(Box::new(AstType::Variable(
                                 Type::Int,
+                                Structure::Identifier,
                                 "a".to_string()
                             )))),
                         ),
-                        AstType::Return(Box::new(AstType::Variable(Type::Int, "a".to_string())))
+                        AstType::Return(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )))
                     ]))
                 )
             );
@@ -4162,15 +4352,24 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::Int, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Indirect(Box::new(AstType::Variable(
                                 Type::Int,
+                                Structure::Identifier,
                                 "a".to_string()
                             )))),
                         ),
-                        AstType::Return(Box::new(AstType::Variable(Type::Int, "a".to_string())))
+                        AstType::Return(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )))
                     ]))
                 )
             );
@@ -4206,9 +4405,10 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::IntPointer, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Pointer, "a".to_string()),
                         AstType::Return(Box::new(AstType::Variable(
-                            Type::IntPointer,
+                            Type::Int,
+                            Structure::Pointer,
                             "a".to_string()
                         )))
                     ]))
@@ -4242,9 +4442,10 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::IntPointer, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Pointer, "a".to_string()),
                         AstType::Return(Box::new(AstType::Variable(
-                            Type::IntPointer,
+                            Type::Int,
+                            Structure::Pointer,
                             "a".to_string()
                         )))
                     ]))
@@ -4288,11 +4489,16 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::IntPointer, "b".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Pointer,
+                                "b".to_string()
+                            )),
                             Box::new(AstType::Address(Box::new(AstType::Variable(
                                 Type::Int,
+                                Structure::Identifier,
                                 "a".to_string()
                             )),))
                         ),
@@ -4339,17 +4545,23 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::Assign(
-                            Box::new(AstType::Variable(Type::IntPointer, "b".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Pointer,
+                                "b".to_string()
+                            )),
                             Box::new(AstType::Address(Box::new(AstType::Variable(
                                 Type::Int,
+                                Structure::Identifier,
                                 "a".to_string()
                             )),))
                         ),
                         AstType::Assign(
                             Box::new(AstType::Indirect(Box::new(AstType::Variable(
-                                Type::IntPointer,
+                                Type::Int,
+                                Structure::Pointer,
                                 "b".to_string()
                             )),)),
                             Box::new(AstType::Factor(120)),
@@ -4394,9 +4606,13 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::IntPointer, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Pointer, "a".to_string()),
                         AstType::Plus(
-                            Box::new(AstType::Variable(Type::IntPointer, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Pointer,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(1)),
                         ),
                         AstType::Return(Box::new(AstType::Factor(1)),)
@@ -4435,9 +4651,13 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::IntPointer, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Pointer, "a".to_string()),
                         AstType::Minus(
-                            Box::new(AstType::Variable(Type::IntPointer, "a".to_string())),
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Pointer,
+                                "a".to_string()
+                            )),
                             Box::new(AstType::Factor(1)),
                         ),
                         AstType::Return(Box::new(AstType::Factor(1)),)

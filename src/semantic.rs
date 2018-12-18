@@ -1,4 +1,4 @@
-use ast::{AstTree, AstType, Type};
+use ast::{AstTree, AstType, Structure, Type};
 use std::result::Result;
 use symbol::SymbolTable;
 
@@ -51,7 +51,7 @@ impl<'a> Semantic<'a> {
             AstType::Argment(ref args) => self.analysis_argment(args),
             AstType::Statement(ref stmt) => self.analysis_statement(stmt),
             AstType::Return(ref s) => self.analysis_return(s),
-            AstType::Variable(ref t, ref n) => self.analysis_variable(t, n),
+            AstType::Variable(ref t, ref s, ref n) => self.analysis_variable(t, s, n),
             AstType::Plus(ref a, ref b)
             | AstType::Minus(ref a, ref b)
             | AstType::Multiple(ref a, ref b)
@@ -122,7 +122,7 @@ impl<'a> Semantic<'a> {
     fn analysis_arithmetic(&self, a: &AstType, b: &AstType) -> Result<(), Vec<String>> {
         // 左辺、右辺の型チェック
         let check_both_side = |l: &AstType, r: &AstType| match (l, r) {
-            (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _)) => {
+            (AstType::Variable(ref t1, _, _), AstType::Variable(ref t2, _, _)) => {
                 if t1 != t2 {
                     Some(format!("Both Type Difference: {:?} {:?}", t1, t2))
                 } else {
@@ -149,7 +149,7 @@ impl<'a> Semantic<'a> {
     }
 
     // 変数定義解析
-    fn analysis_variable(&self, t: &Type, n: &String) -> Result<(), Vec<String>> {
+    fn analysis_variable(&self, t: &Type, _s: &Structure, n: &String) -> Result<(), Vec<String>> {
         let mut errs = vec![];
         match t {
             Type::Unknown(n) => errs.push(format!("Cannot found Type: {:?}", n)),
@@ -171,14 +171,14 @@ fn test_func_type() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int);
+        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_ok());
     }
@@ -189,14 +189,14 @@ fn test_func_type() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int);
+        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
@@ -208,13 +208,13 @@ fn test_func_type() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let funcs = SymbolTable::new();
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int);
+        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
@@ -226,13 +226,13 @@ fn test_func_type() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let funcs = SymbolTable::new();
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int);
+        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
@@ -248,12 +248,12 @@ fn test_variable() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let vars = SymbolTable::new();
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
@@ -266,14 +266,22 @@ fn test_variable() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Unknown("aaaa".to_string()), "a".to_string()),
+                AstType::Variable(
+                    Type::Unknown("aaaa".to_string()),
+                    Structure::Identifier,
+                    "a".to_string(),
+                ),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Unknown("aaaa".to_string()));
+        vars.push(
+            "a".to_string(),
+            &Type::Unknown("aaaa".to_string()),
+            &Structure::Unknown,
+        );
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
@@ -290,22 +298,35 @@ fn test_arithmetic() {
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
                 AstType::Plus(
-                    Box::new(AstType::Variable(Type::Int, "a1".to_string())),
+                    Box::new(AstType::Variable(
+                        Type::Int,
+                        Structure::Identifier,
+                        "a1".to_string(),
+                    )),
                     Box::new(AstType::Variable(
                         Type::Unknown("aaaa".to_string()),
+                        Structure::Identifier,
                         "a2".to_string(),
                     )),
                 ),
-                AstType::Return(Box::new(AstType::Variable(Type::Int, "r".to_string()))),
+                AstType::Return(Box::new(AstType::Variable(
+                    Type::Int,
+                    Structure::Identifier,
+                    "r".to_string(),
+                ))),
             ])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int);
-        vars.push("a2".to_string(), &Type::Unknown("aaaa".to_string()));
-        vars.push("r".to_string(), &Type::Int);
+        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
+        vars.push(
+            "a2".to_string(),
+            &Type::Unknown("aaaa".to_string()),
+            &Structure::Unknown,
+        );
+        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
@@ -317,22 +338,35 @@ fn test_arithmetic() {
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
                 AstType::Multiple(
-                    Box::new(AstType::Variable(Type::Int, "a1".to_string())),
+                    Box::new(AstType::Variable(
+                        Type::Int,
+                        Structure::Identifier,
+                        "a1".to_string(),
+                    )),
                     Box::new(AstType::Variable(
                         Type::Unknown("aaaa".to_string()),
+                        Structure::Identifier,
                         "a2".to_string(),
                     )),
                 ),
-                AstType::Return(Box::new(AstType::Variable(Type::Int, "r".to_string()))),
+                AstType::Return(Box::new(AstType::Variable(
+                    Type::Int,
+                    Structure::Identifier,
+                    "r".to_string(),
+                ))),
             ])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int);
-        vars.push("a2".to_string(), &Type::Unknown("aaaa".to_string()));
-        vars.push("r".to_string(), &Type::Int);
+        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
+        vars.push(
+            "a2".to_string(),
+            &Type::Unknown("aaaa".to_string()),
+            &Structure::Unknown,
+        );
+        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
@@ -344,22 +378,35 @@ fn test_arithmetic() {
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
                 AstType::Minus(
-                    Box::new(AstType::Variable(Type::Int, "a1".to_string())),
+                    Box::new(AstType::Variable(
+                        Type::Int,
+                        Structure::Identifier,
+                        "a1".to_string(),
+                    )),
                     Box::new(AstType::Variable(
                         Type::Unknown("aaaa".to_string()),
+                        Structure::Identifier,
                         "a2".to_string(),
                     )),
                 ),
-                AstType::Return(Box::new(AstType::Variable(Type::Int, "r".to_string()))),
+                AstType::Return(Box::new(AstType::Variable(
+                    Type::Int,
+                    Structure::Identifier,
+                    "r".to_string(),
+                ))),
             ])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int);
-        vars.push("a2".to_string(), &Type::Unknown("aaaa".to_string()));
-        vars.push("r".to_string(), &Type::Int);
+        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
+        vars.push(
+            "a2".to_string(),
+            &Type::Unknown("aaaa".to_string()),
+            &Structure::Unknown,
+        );
+        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
@@ -371,22 +418,35 @@ fn test_arithmetic() {
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
                 AstType::Division(
-                    Box::new(AstType::Variable(Type::Int, "a1".to_string())),
+                    Box::new(AstType::Variable(
+                        Type::Int,
+                        Structure::Identifier,
+                        "a1".to_string(),
+                    )),
                     Box::new(AstType::Variable(
                         Type::Unknown("aaaa".to_string()),
+                        Structure::Identifier,
                         "a2".to_string(),
                     )),
                 ),
-                AstType::Return(Box::new(AstType::Variable(Type::Int, "r".to_string()))),
+                AstType::Return(Box::new(AstType::Variable(
+                    Type::Int,
+                    Structure::Identifier,
+                    "r".to_string(),
+                ))),
             ])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int);
-        vars.push("a2".to_string(), &Type::Unknown("aaaa".to_string()));
-        vars.push("r".to_string(), &Type::Int);
+        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
+        vars.push(
+            "a2".to_string(),
+            &Type::Unknown("aaaa".to_string()),
+            &Structure::Unknown,
+        );
+        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
@@ -402,17 +462,18 @@ fn test_func_argment() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![AstType::Variable(
                 Type::Int,
+                Structure::Identifier,
                 "a".to_string(),
             )])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int);
+        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_ok());
     }
@@ -423,17 +484,18 @@ fn test_func_argment() {
             "main".to_string(),
             Box::new(AstType::Argment(vec![AstType::Variable(
                 Type::Unknown("a".to_string()),
+                Structure::Identifier,
                 "a".to_string(),
             )])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int);
+        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
@@ -443,19 +505,35 @@ fn test_func_argment() {
             Type::Int,
             "main".to_string(),
             Box::new(AstType::Argment(vec![
-                AstType::Variable(Type::Unknown("a".to_string()), "a".to_string()),
-                AstType::Variable(Type::Unknown("b".to_string()), "b".to_string()),
+                AstType::Variable(
+                    Type::Unknown("a".to_string()),
+                    Structure::Identifier,
+                    "a".to_string(),
+                ),
+                AstType::Variable(
+                    Type::Unknown("b".to_string()),
+                    Structure::Identifier,
+                    "b".to_string(),
+                ),
             ])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, "a".to_string()),
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
             ))])),
         )];
         let tree = AstTree { tree: ast };
         let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int);
+        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
         let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Unknown("a".to_string()));
-        vars.push("b".to_string(), &Type::Unknown("b".to_string()));
+        vars.push(
+            "a".to_string(),
+            &Type::Unknown("a".to_string()),
+            &Structure::Unknown,
+        );
+        vars.push(
+            "b".to_string(),
+            &Type::Unknown("b".to_string()),
+            &Structure::Unknown,
+        );
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);

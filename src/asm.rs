@@ -1,5 +1,5 @@
 use arch::{x64::X64, Generator};
-use ast::{AstTree, AstType, Type};
+use ast::{AstTree, AstType, Structure, Type};
 use config::Config;
 use std::process;
 use symbol::SymbolTable;
@@ -129,7 +129,7 @@ impl<'a> Asm<'a> {
             AstType::Not(ref a) => self.generate_not(a),
             AstType::BitReverse(ref a) => self.generate_bit_reverse(a),
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
-            AstType::Variable(ref t, ref a) => self.generate_variable(t, a),
+            AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
             AstType::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
             AstType::Plus(ref a, ref b) => self.generate_plus(a, b),
             AstType::Minus(ref a, ref b) => self.generate_minus(a, b),
@@ -404,22 +404,24 @@ impl<'a> Asm<'a> {
     fn generate_rhs_assign_indirect(&mut self, a: &AstType) {
         match *a {
             AstType::Indirect(ref b) => self.generate_rhs_assign_indirect(b),
-            AstType::Variable(ref t, _) => {
+            AstType::Variable(ref t, ref s, _) => {
                 self.generate(a);
                 match *t {
                     Type::Int => {
-                        self.generate_pop_stack("eax");
-                        self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
-                    }
-                    Type::IntPointer => {
-                        self.generate_pop_stack("eax");
-                        self.inst = format!(
-                            "{}{}{}{}",
-                            self.inst,
-                            self.gen.pop("rax"),
-                            self.gen.mov_dst("rax", "rcx", 0),
-                            self.gen.push("rax")
-                        );
+                        if *s == Structure::Identifier {
+                            self.generate_pop_stack("eax");
+                            self.inst =
+                                format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
+                        } else {
+                            self.generate_pop_stack("eax");
+                            self.inst = format!(
+                                "{}{}{}{}",
+                                self.inst,
+                                self.gen.pop("rax"),
+                                self.gen.mov_dst("rax", "rcx", 0),
+                                self.gen.push("rax")
+                            );
+                        }
                     }
                     _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
                 };
@@ -436,7 +438,7 @@ impl<'a> Asm<'a> {
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            AstType::Variable(ref t, ref a) => {
+            AstType::Variable(ref t, ref s, ref a) => {
                 let ret = self
                     .var_table
                     .search(a)
@@ -445,19 +447,23 @@ impl<'a> Asm<'a> {
                 self.generate(b);
                 match *t {
                     Type::Int => {
-                        self.generate_pop_stack("eax");
-                        self.inst =
-                            format!("{}{}", self.inst, self.gen.movl_dst("eax", "rbp", -offset));
-                        self.generate_push_stack("eax");
-                    }
-                    Type::IntPointer => {
-                        self.inst = format!(
-                            "{}{}{}{}",
-                            self.inst,
-                            self.gen.pop("rax"),
-                            self.gen.mov_dst("rax", "rbp", -offset),
-                            self.gen.push("rax")
-                        );
+                        if *s == Structure::Identifier {
+                            self.generate_pop_stack("eax");
+                            self.inst = format!(
+                                "{}{}",
+                                self.inst,
+                                self.gen.movl_dst("eax", "rbp", -offset)
+                            );
+                            self.generate_push_stack("eax");
+                        } else {
+                            self.inst = format!(
+                                "{}{}{}{}",
+                                self.inst,
+                                self.gen.pop("rax"),
+                                self.gen.mov_dst("rax", "rbp", -offset),
+                                self.gen.push("rax")
+                            );
+                        }
                     }
                     _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
                 }
@@ -473,7 +479,7 @@ impl<'a> Asm<'a> {
     }
 
     // variable生成.
-    fn generate_variable(&mut self, t: &Type, v: &String) {
+    fn generate_variable(&mut self, t: &Type, s: &Structure, v: &String) {
         let ret = self
             .var_table
             .search(v)
@@ -481,16 +487,18 @@ impl<'a> Asm<'a> {
         let offset = ret.p as i64 * 8 + 8;
         match *t {
             Type::Int => {
-                self.inst = format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -offset));
-                self.generate_push_stack("eax");
-            }
-            Type::IntPointer => {
-                self.inst = format!(
-                    "{}{}{}",
-                    self.inst,
-                    self.gen.mov_src("rbp", "rax", -offset),
-                    self.gen.push("rax")
-                )
+                if *s == Structure::Identifier {
+                    self.inst =
+                        format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -offset));
+                    self.generate_push_stack("eax");
+                } else {
+                    self.inst = format!(
+                        "{}{}{}",
+                        self.inst,
+                        self.gen.mov_src("rbp", "rax", -offset),
+                        self.gen.push("rax")
+                    );
+                }
             }
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
@@ -500,7 +508,7 @@ impl<'a> Asm<'a> {
     fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
         match *a {
             // 関数名.
-            AstType::Variable(_, ref n) => {
+            AstType::Variable(_, _, ref n) => {
                 match *b {
                     AstType::Argment(ref v) => {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
@@ -651,12 +659,14 @@ impl<'a> Asm<'a> {
     fn generate_plus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
             // ポインタ演算チェック
-            (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _))
-                if *t1 == Type::IntPointer && *t2 == Type::Int =>
+            (AstType::Variable(ref t1, ref s1, _), AstType::Variable(ref t2, _, _))
+                if *s1 == Structure::Pointer && *t2 == Type::Int =>
             {
                 self.generate_plus_with_pointer(a, b)
             }
-            (AstType::Variable(ref t1, _), AstType::Factor(_)) if *t1 == Type::IntPointer => {
+            (AstType::Variable(ref t1, ref s1, _), AstType::Factor(_))
+                if *s1 == Structure::Pointer =>
+            {
                 self.generate_plus_with_pointer(a, b)
             }
             _ => {
@@ -687,12 +697,14 @@ impl<'a> Asm<'a> {
     // 減算
     fn generate_minus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
-            (AstType::Variable(ref t1, _), AstType::Variable(ref t2, _))
-                if *t1 == Type::IntPointer && *t2 == Type::Int =>
+            (AstType::Variable(ref t1, ref s1, _), AstType::Variable(ref t2, _, _))
+                if *s1 == Structure::Pointer && *t2 == Type::Int =>
             {
                 self.generate_minus_with_pointer(a, b)
             }
-            (AstType::Variable(ref t1, _), AstType::Factor(_)) if *t1 == Type::IntPointer => {
+            (AstType::Variable(ref t1, ref s1, _), AstType::Factor(_))
+                if *s1 == Structure::Pointer =>
+            {
                 self.generate_minus_with_pointer(a, b)
             }
             _ => {
@@ -728,7 +740,7 @@ impl<'a> Asm<'a> {
     // アドレス演算子.
     fn generate_address(&mut self, a: &AstType) {
         match *a {
-            AstType::Variable(ref _t, ref a) => {
+            AstType::Variable(ref _t, ref _s, ref a) => {
                 let ret = self
                     .var_table
                     .search(a)

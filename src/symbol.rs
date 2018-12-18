@@ -1,4 +1,4 @@
-use ast::Type;
+use ast::{Structure, Type};
 #[doc = "シンボルテーブル"]
 use map::Map;
 
@@ -12,6 +12,7 @@ pub struct SymbolTable {
 pub struct Meta {
     pub p: usize,
     pub t: Type,
+    pub s: Structure,
 }
 
 impl SymbolTable {
@@ -24,12 +25,13 @@ impl SymbolTable {
     }
 
     #[doc = "シンボル追加"]
-    pub fn push(&mut self, k: String, t: &Type) -> bool {
+    pub fn push(&mut self, k: String, t: &Type, s: &Structure) -> bool {
         let res = self.map.add(
             k,
             Meta {
                 p: self.count,
                 t: t.clone(),
+                s: s.clone(),
             },
         );
         self.count += 1;
@@ -55,16 +57,20 @@ mod test {
     fn test() {
         {
             let mut s = SymbolTable::new();
-            s.push("key".to_string(), &Type::Int);
+            s.push("key".to_string(), &Type::Int, &Structure::Identifier);
             assert_eq!(s.count(), 1);
             assert_eq!(
                 s.search(&"key".to_string()),
-                Some(Meta { p: 0, t: Type::Int })
+                Some(Meta {
+                    p: 0,
+                    t: Type::Int,
+                    s: Structure::Identifier
+                })
             )
         }
         {
             let mut s = SymbolTable::new();
-            s.push("key".to_string(), &Type::Int);
+            s.push("key".to_string(), &Type::Int, &Structure::Identifier);
             assert_eq!(s.count(), 1);
             assert_eq!(s.search(&"not_exist_key".to_string()), None)
         }
