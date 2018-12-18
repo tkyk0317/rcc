@@ -83,7 +83,6 @@ pub struct Asm<'a> {
     var_table: &'a SymbolTable,
     func_table: &'a SymbolTable,
     label: Label,
-    gen: Box<Generator>,
 }
 
 impl<'a> Asm<'a> {
@@ -94,8 +93,12 @@ impl<'a> Asm<'a> {
             var_table: var_table,
             func_table: func_table,
             label: Label::new(),
-            gen: Box::new(X64::new()),
         }
+    }
+
+    // アセンブラ生成部取得
+    fn gen_asm(&self) -> impl Generator {
+        X64
     }
 
     // アセンブラ取得
@@ -190,18 +193,18 @@ impl<'a> Asm<'a> {
 
         let pos = self.var_table.count() * 8;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
-        start = format!("{}{}", start, self.gen.push("rbp"));
-        start = format!("{}{}", start, self.gen.mov("rsp", "rbp"));
-        start = format!("{}{}", start, self.gen.sub_imm(pos, "rsp"));
+        start = format!("{}{}", start, self.gen_asm().push("rbp"));
+        start = format!("{}{}", start, self.gen_asm().mov("rsp", "rbp"));
+        start = format!("{}{}", start, self.gen_asm().sub_imm(pos, "rsp"));
         self.inst = format!("{}", start);
     }
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self) {
         let pos = self.var_table.count() * 8;
-        let mut end = self.gen.add_imm(pos, "rsp");
-        end = format!("{}{}", end, self.gen.pop("rbp"));
-        end = format!("{}{}", end, self.gen.ret());
+        let mut end = self.gen_asm().add_imm(pos, "rsp");
+        end = format!("{}{}", end, self.gen_asm().pop("rbp"));
+        end = format!("{}{}", end, self.gen_asm().ret());
         self.inst = format!("{}{}", self.inst, end);
     }
 
@@ -215,8 +218,8 @@ impl<'a> Asm<'a> {
                     self.inst = format!(
                         "{}{}{}",
                         self.inst,
-                        self.gen.mov(&d.1, "rax"),
-                        self.gen.movl_dst("eax", "rbp", -(p as i64))
+                        self.gen_asm().mov(&d.1, "rax"),
+                        self.gen_asm().movl_dst("eax", "rbp", -(p as i64))
                     );
                     p + 8
                 });
@@ -410,16 +413,19 @@ impl<'a> Asm<'a> {
                     Type::Int => {
                         if *s == Structure::Identifier {
                             self.generate_pop_stack("eax");
-                            self.inst =
-                                format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
+                            self.inst = format!(
+                                "{}{}",
+                                self.inst,
+                                self.gen_asm().movl_dst("eax", "rcx", 0)
+                            );
                         } else {
                             self.generate_pop_stack("eax");
                             self.inst = format!(
                                 "{}{}{}{}",
                                 self.inst,
-                                self.gen.pop("rax"),
-                                self.gen.mov_dst("rax", "rcx", 0),
-                                self.gen.push("rax")
+                                self.gen_asm().pop("rax"),
+                                self.gen_asm().mov_dst("rax", "rcx", 0),
+                                self.gen_asm().push("rax")
                             );
                         }
                     }
@@ -429,7 +435,7 @@ impl<'a> Asm<'a> {
             AstType::Factor(_) => {
                 self.generate(a);
                 self.generate_pop_stack("eax");
-                self.inst = format!("{}{}", self.inst, self.gen.movl_dst("eax", "rcx", 0));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
             }
             _ => panic!("{} {}: not support AstType {:?}", file!(), line!(), a),
         }
@@ -452,16 +458,16 @@ impl<'a> Asm<'a> {
                             self.inst = format!(
                                 "{}{}",
                                 self.inst,
-                                self.gen.movl_dst("eax", "rbp", -offset)
+                                self.gen_asm().movl_dst("eax", "rbp", -offset)
                             );
                             self.generate_push_stack("eax");
                         } else {
                             self.inst = format!(
                                 "{}{}{}{}",
                                 self.inst,
-                                self.gen.pop("rax"),
-                                self.gen.mov_dst("rax", "rbp", -offset),
-                                self.gen.push("rax")
+                                self.gen_asm().pop("rax"),
+                                self.gen_asm().mov_dst("rax", "rbp", -offset),
+                                self.gen_asm().push("rax")
                             );
                         }
                     }
@@ -470,7 +476,7 @@ impl<'a> Asm<'a> {
             }
             AstType::Indirect(ref a) => {
                 self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.gen.pop("rcx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                 self.generate_rhs_assign_indirect(b);
                 self.generate_push_stack("eax");
             }
@@ -488,15 +494,18 @@ impl<'a> Asm<'a> {
         match *t {
             Type::Int => {
                 if *s == Structure::Identifier {
-                    self.inst =
-                        format!("{}{}", self.inst, self.gen.movl_src("rbp", "eax", -offset));
+                    self.inst = format!(
+                        "{}{}",
+                        self.inst,
+                        self.gen_asm().movl_src("rbp", "eax", -offset)
+                    );
                     self.generate_push_stack("eax");
                 } else {
                     self.inst = format!(
                         "{}{}{}",
                         self.inst,
-                        self.gen.mov_src("rbp", "rax", -offset),
-                        self.gen.push("rax")
+                        self.gen_asm().mov_src("rbp", "rax", -offset),
+                        self.gen_asm().push("rax")
                     );
                 }
             }
@@ -517,7 +526,7 @@ impl<'a> Asm<'a> {
                         // 関数引数をスタックからレジスタへ.
                         v.iter().zip(REGS.iter()).for_each(|d| {
                             self.generate_pop_stack("eax");
-                            self.inst = format!("{}{}", self.inst, self.gen.mov("rax", &d.1));
+                            self.inst = format!("{}{}", self.inst, self.gen_asm().mov("rax", &d.1));
                         });
                     }
                     _ => panic!("{} {}: Not Function Argment", file!(), line!()),
@@ -526,7 +535,7 @@ impl<'a> Asm<'a> {
                 self.inst = format!(
                     "{}{}",
                     self.inst,
-                    self.gen.call(&self.generate_func_symbol(n))
+                    self.gen_asm().call(&self.generate_func_symbol(n))
                 );
                 self.generate_push_stack("eax");
             }
@@ -547,7 +556,7 @@ impl<'a> Asm<'a> {
     fn generate_bit_reverse(&mut self, a: &AstType) {
         self.generate(a);
         self.generate_pop_stack("eax");
-        self.inst = format!("{}{}", self.inst, self.gen.not("eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().not("eax"));
         self.generate_push_stack("eax");
     }
 
@@ -556,8 +565,8 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate_pop_stack("eax");
         self.generate_cmp_inst(0, "eax");
-        self.inst = format!("{}{}", self.inst, self.gen.set("al"));
-        self.inst = format!("{}{}", self.inst, self.gen.movz("al", "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().set("al"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movz("al", "eax"));
         self.generate_push_stack("eax");
     }
 
@@ -565,7 +574,7 @@ impl<'a> Asm<'a> {
     fn generate_unminus(&mut self, a: &AstType) {
         self.generate(a);
         self.generate_pop_stack("eax");
-        self.inst = format!("{}{}", self.inst, self.gen.neg("eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().neg("eax"));
         self.generate_push_stack("eax");
     }
 
@@ -606,10 +615,10 @@ impl<'a> Asm<'a> {
         self.generate_cmp_inst(0, "eax");
         self.generate_je_inst(label_false);
 
-        self.inst = format!("{}{}", self.inst, self.gen.movl_imm(1, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "eax"));
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_false);
-        self.inst = format!("{}{}", self.inst, self.gen.movl_imm(0, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "eax"));
         self.generate_label_inst(label_end);
         self.generate_push_stack("eax");
     }
@@ -628,10 +637,10 @@ impl<'a> Asm<'a> {
         self.generate_cmp_inst(0, "eax");
         self.generate_jne_inst(label_true);
 
-        self.inst = format!("{}{}", self.inst, self.gen.movl_imm(0, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "eax"));
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_true);
-        self.inst = format!("{}{}", self.inst, self.gen.movl_imm(1, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "eax"));
         self.generate_label_inst(label_end);
         self.generate_push_stack("eax");
     }
@@ -639,8 +648,8 @@ impl<'a> Asm<'a> {
     // 数値生成.
     fn generate_factor(&mut self, a: i64) {
         // 数値.
-        self.inst = format!("{}{}", self.inst, self.gen.sub_imm(8, "rsp"));
-        self.inst = format!("{}{}", self.inst, self.gen.movl_imm_dst(a, "rsp", 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm_dst(a, "rsp", 0));
     }
 
     // ポインタ同士の加算
@@ -648,11 +657,11 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate(b);
         self.generate_pop_stack("eax");
-        self.inst = format!("{}{}", self.inst, self.gen.mov_imm("rdx", 4));
-        self.inst = format!("{}{}", self.inst, self.gen.mul("rdx"));
-        self.inst = format!("{}{}", self.inst, self.gen.pop("rcx"));
-        self.inst = format!("{}{}", self.inst, self.gen.add("rax", "rcx"));
-        self.inst = format!("{}{}", self.inst, self.gen.push("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 4));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().add("rax", "rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
     }
 
     // 加算
@@ -676,7 +685,7 @@ impl<'a> Asm<'a> {
                 // 加算処理
                 self.generate_pop_stack("ecx");
                 self.generate_pop_stack("eax");
-                self.inst = format!("{}{}", self.inst, self.gen.plus());
+                self.inst = format!("{}{}", self.inst, self.gen_asm().plus());
                 self.generate_push_stack("eax");
             }
         }
@@ -687,11 +696,11 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate(b);
         self.generate_pop_stack("eax");
-        self.inst = format!("{}{}", self.inst, self.gen.mov_imm("rdx", 4));
-        self.inst = format!("{}{}", self.inst, self.gen.mul("rdx"));
-        self.inst = format!("{}{}", self.inst, self.gen.pop("rcx"));
-        self.inst = format!("{}{}", self.inst, self.gen.sub("rax", "rcx"));
-        self.inst = format!("{}{}", self.inst, self.gen.push("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 4));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().sub("rax", "rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
     }
 
     // 減算
@@ -714,7 +723,7 @@ impl<'a> Asm<'a> {
                 // 加算処理
                 self.generate_pop_stack("ecx");
                 self.generate_pop_stack("eax");
-                self.inst = format!("{}{}", self.inst, self.gen.minus());
+                self.inst = format!("{}{}", self.inst, self.gen_asm().minus());
                 self.generate_push_stack("eax");
             }
         }
@@ -746,8 +755,8 @@ impl<'a> Asm<'a> {
                     .search(a)
                     .expect("asm.rs(generate_address): error option value");
                 let pos = ret.p * 8 + 8;
-                self.inst = format!("{}{}", self.inst, self.gen.lea(pos));
-                self.inst = format!("{}{}", self.inst, self.gen.push("rax"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().lea(pos));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
             _ => panic!("{} {}: Not Support Ast {:?}", file!(), line!(), a),
         }
@@ -756,63 +765,63 @@ impl<'a> Asm<'a> {
     // 間接演算子.
     fn generate_indirect(&mut self, a: &AstType) {
         self.generate(a);
-        self.inst = format!("{}{}", self.inst, self.gen.pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen.movl_src("rax", "ecx", 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_src("rax", "ecx", 0));
         self.generate_push_stack("ecx");
     }
 
     // スタックポップ.
     fn generate_pop_stack(&mut self, reg: &str) {
-        self.inst = format!("{}{}", self.inst, self.gen.pop_stack(reg));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop_stack(reg));
     }
 
     // プッシュスタック
     fn generate_push_stack(&mut self, reg: &str) {
-        self.inst = format!("{}{}", self.inst, self.gen.push_stack(reg));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push_stack(reg));
     }
 
     // 演算子アセンブラ生成.
     fn operator(&self, ope: &AstType) -> String {
         match *ope {
-            AstType::Multiple(_, _) => self.gen.multiple(),
-            AstType::Equal(_, _) => self.gen.equal(),
-            AstType::NotEqual(_, _) => self.gen.not_equal(),
-            AstType::LessThan(_, _) => self.gen.less_than(),
-            AstType::GreaterThan(_, _) => self.gen.greater_than(),
-            AstType::LessThanEqual(_, _) => self.gen.less_than_equal(),
-            AstType::GreaterThanEqual(_, _) => self.gen.greater_than_equal(),
-            AstType::LeftShift(_, _) => self.gen.left_shift(),
-            AstType::RightShift(_, _) => self.gen.right_shift(),
-            AstType::BitAnd(_, _) => self.gen.bit_and(),
-            AstType::BitOr(_, _) => self.gen.bit_or(),
-            AstType::BitXor(_, _) => self.gen.bit_xor(),
-            AstType::Division(_, _) | AstType::Remainder(_, _) => self.gen.bit_division(),
+            AstType::Multiple(_, _) => self.gen_asm().multiple(),
+            AstType::Equal(_, _) => self.gen_asm().equal(),
+            AstType::NotEqual(_, _) => self.gen_asm().not_equal(),
+            AstType::LessThan(_, _) => self.gen_asm().less_than(),
+            AstType::GreaterThan(_, _) => self.gen_asm().greater_than(),
+            AstType::LessThanEqual(_, _) => self.gen_asm().less_than_equal(),
+            AstType::GreaterThanEqual(_, _) => self.gen_asm().greater_than_equal(),
+            AstType::LeftShift(_, _) => self.gen_asm().left_shift(),
+            AstType::RightShift(_, _) => self.gen_asm().right_shift(),
+            AstType::BitAnd(_, _) => self.gen_asm().bit_and(),
+            AstType::BitOr(_, _) => self.gen_asm().bit_or(),
+            AstType::BitXor(_, _) => self.gen_asm().bit_xor(),
+            AstType::Division(_, _) | AstType::Remainder(_, _) => self.gen_asm().bit_division(),
             _ => process::abort(),
         }
     }
 
     // ラベル命令.
     fn generate_label_inst(&mut self, no: usize) {
-        self.inst = format!("{}{}", self.inst, self.gen.label(no));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().label(no));
     }
 
     // jmp命令生成.
     fn generate_jmp_inst(&mut self, no: usize) {
-        self.inst = format!("{}{}", self.inst, self.gen.jmp(no));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().jmp(no));
     }
 
     // je命令生成.
     fn generate_je_inst(&mut self, no: usize) {
-        self.inst = format!("{}{}", self.inst, self.gen.je(no));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().je(no));
     }
 
     // jne命令生成.
     fn generate_jne_inst(&mut self, no: usize) {
-        self.inst = format!("{}{}", self.inst, self.gen.jne(no));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().jne(no));
     }
 
     // cmp命令生成.
     fn generate_cmp_inst(&mut self, f: usize, r: &str) {
-        self.inst = format!("{}{}", self.inst, self.gen.cmpl(f, r));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().cmpl(f, r));
     }
 }
