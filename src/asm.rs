@@ -492,15 +492,16 @@ impl<'a> Asm<'a> {
             .expect("asm.rs(generate_variable): error option value");
         let offset = ret.p as i64 * 8 + 8;
         match *t {
-            Type::Int => {
-                if *s == Structure::Identifier {
+            Type::Int => match s {
+                Structure::Identifier => {
                     self.inst = format!(
                         "{}{}",
                         self.inst,
                         self.gen_asm().movl_src("rbp", "eax", -offset)
                     );
                     self.generate_push_stack("eax");
-                } else {
+                }
+                Structure::Pointer => {
                     self.inst = format!(
                         "{}{}{}",
                         self.inst,
@@ -508,7 +509,16 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     );
                 }
-            }
+                Structure::Array(size) => {
+                    self.inst = format!(
+                        "{}{}{}",
+                        self.inst,
+                        self.gen_asm().lea(*size as i64 * 8),
+                        self.gen_asm().push("rax")
+                    );
+                }
+                _ => {}
+            },
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
     }
@@ -657,7 +667,7 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate(b);
         self.generate_pop_stack("eax");
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 4));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 8));
         self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().add("rax", "rcx"));
@@ -668,15 +678,30 @@ impl<'a> Asm<'a> {
     fn generate_plus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
             // ポインタ演算チェック
-            (AstType::Variable(ref t1, ref s1, _), AstType::Variable(ref t2, _, _))
+            (AstType::Variable(ref _t1, ref s1, _), AstType::Variable(ref t2, _, _))
                 if *s1 == Structure::Pointer && *t2 == Type::Int =>
             {
                 self.generate_plus_with_pointer(a, b)
             }
-            (AstType::Variable(ref t1, ref s1, _), AstType::Factor(_))
+            (AstType::Variable(ref _t1, ref s1, _), AstType::Factor(_))
                 if *s1 == Structure::Pointer =>
             {
                 self.generate_plus_with_pointer(a, b)
+            }
+            (AstType::Variable(ref _t1, ref s1, _), _) => {
+                match s1 {
+                    Structure::Array(_) => self.generate_plus_with_pointer(a, b),
+                    _ => {
+                        self.generate(a);
+                        self.generate(b);
+
+                        // 加算処理
+                        self.generate_pop_stack("ecx");
+                        self.generate_pop_stack("eax");
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().plus());
+                        self.generate_push_stack("eax");
+                    }
+                }
             }
             _ => {
                 self.generate(a);
@@ -696,7 +721,7 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate(b);
         self.generate_pop_stack("eax");
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 4));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 8));
         self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub("rax", "rcx"));
@@ -754,7 +779,7 @@ impl<'a> Asm<'a> {
                     .var_table
                     .search(a)
                     .expect("asm.rs(generate_address): error option value");
-                let pos = ret.p * 8 + 8;
+                let pos = ret.p as i64 * 8 + 8;
                 self.inst = format!("{}{}", self.inst, self.gen_asm().lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }

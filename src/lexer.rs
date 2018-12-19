@@ -120,6 +120,8 @@ impl<'a> LexicalAnalysis<'a> {
                         ')' => self.create_token(Token::RightParen, v.to_string()),
                         '{' => self.create_token(Token::LeftBrace, v.to_string()),
                         '}' => self.create_token(Token::RightBrace, v.to_string()),
+                        '[' => self.create_token(Token::LeftBracket, v.to_string()),
+                        ']' => self.create_token(Token::RightBracket, v.to_string()),
                         '?' => self.create_token(Token::Question, v.to_string()),
                         ':' => self.create_token(Token::Colon, v.to_string()),
                         ';' => self.create_token(Token::SemiColon, v.to_string()),
@@ -1739,6 +1741,60 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 11)),
                 lexer.get_tokens()[5]
+            );
+        }
+    }
+
+    #[test]
+    fn test_array() {
+        {
+            let input = "int a[3];".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(Token::Int, "int".to_string(), ("test.c".to_string(), 1, 1)),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 5)
+                ),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::LeftBracket,
+                    "[".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "3".to_string(), ("test.c".to_string(), 1, 7)),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::RightBracket,
+                    "]".to_string(),
+                    ("test.c".to_string(), 1, 8)
+                ),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 9)
+                ),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 9)),
+                lexer.get_tokens()[6]
             );
         }
     }

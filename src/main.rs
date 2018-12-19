@@ -261,6 +261,8 @@ mod test {
             TestData { inst: "int fib(int x) { if (x == 0 || x == 1) return 1; else return fib(x - 2) + fib(x - 1); } int main() { return fib(6); }", ex_ret: 13 },
             TestData { inst: "int test(int x) { if(x == 0) return 1; return 2; } int main() { return test(1); }", ex_ret: 2 },
             TestData { inst: "int test(int x) { if(x == 0) return 1; return 2; } int main() { return test(0); }", ex_ret: 1 },
+            TestData { inst: "int main() { int a[2]; return 1; }", ex_ret: 1 },
+            TestData { inst: "int main() { int x[5]; int i; int* y; for (i = 0; i < 5; i = i + 1) { y = x + i; *y = i; } return *y; }", ex_ret: 4 },
         ]
         .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
 

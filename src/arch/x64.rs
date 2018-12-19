@@ -83,7 +83,7 @@ impl Generator for X64 {
     fn bit_division(&self) -> String {
         "  movl $0, %edx\n  idivl %ecx\n".to_string()
     }
-    fn lea(&self, p: usize) -> String {
+    fn lea(&self, p: i64) -> String {
         format!("  lea -{}(%rbp), %rax\n", p)
     }
     fn not(&self, reg: &str) -> String {

@@ -38,6 +38,8 @@ pub enum Token {
     RightParen,       // 右括弧.
     LeftBrace,        // 左波括弧.
     RightBrace,       // 右波括弧.
+    LeftBracket,      // 左中括弧.
+    RightBracket,     // 右中括弧.
     Not,              // 否定演算子.
     SemiColon,        // セミコロン.
     Assign,           // 代入演算子.

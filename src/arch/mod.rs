@@ -26,7 +26,7 @@ pub trait Generator {
     fn bit_or(&self) -> String;
     fn bit_xor(&self) -> String;
     fn bit_division(&self) -> String;
-    fn lea(&self, p: usize) -> String;
+    fn lea(&self, p: i64) -> String;
     fn not(&self, reg: &str) -> String;
     fn set(&self, reg: &str) -> String;
     fn neg(&self, reg: &str) -> String;
