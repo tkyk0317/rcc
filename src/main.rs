@@ -263,8 +263,17 @@ mod test {
             TestData { inst: "int test(int x) { if(x == 0) return 1; return 2; } int main() { return test(0); }", ex_ret: 1 },
             TestData { inst: "int main() { int a[2]; return 1; }", ex_ret: 1 },
             TestData { inst: "int main() { int x[5]; int i; int* y; for (i = 0; i < 5; i = i + 1) { y = x + i; *y = i; } return *y; }", ex_ret: 4 },
+            TestData { inst: "int main() { int* i; int y = 10; i = &y; return *i + 20; }", ex_ret: 30 },
+            TestData { inst: "int main() { int* i; int y = 10; i = &y; int x = *i + 2; return x; }", ex_ret: 12 },
+            TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 20; return *i; }", ex_ret: 30, },
+            TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
+            TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
         ]
-        .iter().enumerate().for_each(|(i, d)| assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst));
+        .iter()
+        .enumerate()
+        .for_each(|(i, d)| {
+            assert_eq!(d.ex_ret, eval(d.inst), "Fail Test: No.{}, inst: {}", i, d.inst)
+        });
 
         // ファイル削除
         let _ = fs::remove_file("test.s");

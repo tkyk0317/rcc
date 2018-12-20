@@ -403,41 +403,22 @@ impl<'a> Asm<'a> {
         self.generate_jmp_inst(label_no);
     }
 
-    // 右辺代入式
-    fn generate_rhs_assign_indirect(&mut self, a: &AstType) {
-        match *a {
-            AstType::Indirect(ref b) => self.generate_rhs_assign_indirect(b),
-            AstType::Variable(ref t, ref s, _) => {
-                self.generate(a);
-                match *t {
-                    Type::Int => {
-                        if *s == Structure::Identifier {
-                            self.generate_pop_stack("eax");
-                            self.inst = format!(
-                                "{}{}",
-                                self.inst,
-                                self.gen_asm().movl_dst("eax", "rcx", 0)
-                            );
-                        } else {
-                            self.generate_pop_stack("eax");
-                            self.inst = format!(
-                                "{}{}{}{}",
-                                self.inst,
-                                self.gen_asm().pop("rax"),
-                                self.gen_asm().mov_dst("rax", "rcx", 0),
-                                self.gen_asm().push("rax")
-                            );
-                        }
-                    }
-                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
-                };
-            }
-            AstType::Factor(_) => {
-                self.generate(a);
+    // assign indirect
+    fn generate_assign_indirect(&mut self, a: &AstType, b: &AstType) {
+        self.generate(a);
+        self.generate(b);
+        match a {
+            AstType::Variable(ref _t, ref _s, ref _a1) => {
                 self.generate_pop_stack("eax");
-                self.inst = format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                self.inst = format!(
+                    "{}{}{}",
+                    self.inst,
+                    self.gen_asm().pop("rcx"),
+                    self.gen_asm().movl_dst("eax", "rcx", 0)
+                );
+                self.generate_push_stack("eax");
             }
-            _ => panic!("{} {}: not support AstType {:?}", file!(), line!(), a),
+            _ => panic!("asm.rs(generate_assign_indirect): not support ast {:?}", a),
         }
     }
 
@@ -452,34 +433,28 @@ impl<'a> Asm<'a> {
                 let offset = ret.p as i64 * 8 + 8;
                 self.generate(b);
                 match *t {
-                    Type::Int => {
-                        if *s == Structure::Identifier {
-                            self.generate_pop_stack("eax");
-                            self.inst = format!(
-                                "{}{}",
-                                self.inst,
-                                self.gen_asm().movl_dst("eax", "rbp", -offset)
-                            );
-                            self.generate_push_stack("eax");
-                        } else {
-                            self.inst = format!(
-                                "{}{}{}{}",
-                                self.inst,
-                                self.gen_asm().pop("rax"),
-                                self.gen_asm().mov_dst("rax", "rbp", -offset),
-                                self.gen_asm().push("rax")
-                            );
-                        }
+                    Type::Int if *s == Structure::Identifier => {
+                        self.generate_pop_stack("eax");
+                        self.inst = format!(
+                            "{}{}",
+                            self.inst,
+                            self.gen_asm().movl_dst("eax", "rbp", -offset)
+                        );
+                        self.generate_push_stack("eax");
+                    }
+                    Type::Int if *s == Structure::Pointer => {
+                        self.inst = format!(
+                            "{}{}{}{}",
+                            self.inst,
+                            self.gen_asm().pop("rax"),
+                            self.gen_asm().mov_dst("rax", "rbp", -offset),
+                            self.gen_asm().push("rax")
+                        );
                     }
                     _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
                 }
             }
-            AstType::Indirect(ref a) => {
-                self.generate(a);
-                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
-                self.generate_rhs_assign_indirect(b);
-                self.generate_push_stack("eax");
-            }
+            AstType::Indirect(ref a) => self.generate_assign_indirect(a, b),
             _ => self.generate(b),
         }
     }
@@ -731,12 +706,12 @@ impl<'a> Asm<'a> {
     // 減算
     fn generate_minus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
-            (AstType::Variable(ref t1, ref s1, _), AstType::Variable(ref t2, _, _))
+            (AstType::Variable(ref _t1, ref s1, _), AstType::Variable(ref t2, _, _))
                 if *s1 == Structure::Pointer && *t2 == Type::Int =>
             {
                 self.generate_minus_with_pointer(a, b)
             }
-            (AstType::Variable(ref t1, ref s1, _), AstType::Factor(_))
+            (AstType::Variable(ref _t1, ref s1, _), AstType::Factor(_))
                 if *s1 == Structure::Pointer =>
             {
                 self.generate_minus_with_pointer(a, b)
@@ -745,7 +720,7 @@ impl<'a> Asm<'a> {
                 self.generate(a);
                 self.generate(b);
 
-                // 加算処理
+                // 減算処理
                 self.generate_pop_stack("ecx");
                 self.generate_pop_stack("eax");
                 self.inst = format!("{}{}", self.inst, self.gen_asm().minus());
