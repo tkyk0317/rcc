@@ -425,36 +425,39 @@ impl<'a> Asm<'a> {
         }
     }
 
+    // assign variable
+    fn generate_assign_variable(&mut self, a: &String, b: &AstType, t: &Type, s: &Structure) {
+        let find = self.var_table.search(a);
+        let ret = find.expect("asm.rs(generate_assign_variable): error option value");
+        let offset = ret.p as i64 * 8 + 8;
+        self.generate(b);
+        match *t {
+            Type::Int if *s == Structure::Identifier => {
+                self.generate_pop_stack("eax");
+                self.inst = format!(
+                    "{}{}",
+                    self.inst,
+                    self.gen_asm().movl_dst("eax", "rbp", -offset)
+                );
+                self.generate_push_stack("eax");
+            }
+            Type::Int if *s == Structure::Pointer => {
+                self.inst = format!(
+                    "{}{}{}{}",
+                    self.inst,
+                    self.gen_asm().pop("rax"),
+                    self.gen_asm().mov_dst("rax", "rbp", -offset),
+                    self.gen_asm().push("rax")
+                );
+            }
+            _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
+        }
+    }
+
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            AstType::Variable(ref t, ref s, ref a) => {
-                let find = self.var_table.search(a);
-                let ret = find.expect("asm.rs(generate_assign): error option value");
-                let offset = ret.p as i64 * 8 + 8;
-                self.generate(b);
-                match *t {
-                    Type::Int if *s == Structure::Identifier => {
-                        self.generate_pop_stack("eax");
-                        self.inst = format!(
-                            "{}{}",
-                            self.inst,
-                            self.gen_asm().movl_dst("eax", "rbp", -offset)
-                        );
-                        self.generate_push_stack("eax");
-                    }
-                    Type::Int if *s == Structure::Pointer => {
-                        self.inst = format!(
-                            "{}{}{}{}",
-                            self.inst,
-                            self.gen_asm().pop("rax"),
-                            self.gen_asm().mov_dst("rax", "rbp", -offset),
-                            self.gen_asm().push("rax")
-                        );
-                    }
-                    _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
-                }
-            }
+            AstType::Variable(ref t, ref s, ref a) => self.generate_assign_variable(a, b, t, s),
             AstType::Indirect(ref a) => self.generate_assign_indirect(a, b),
             _ => self.generate(b),
         }
