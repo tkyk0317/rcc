@@ -48,6 +48,7 @@ impl<'a> Semantic<'a> {
     fn analysis(&self, ast: &AstType) -> Result<(), Vec<String>> {
         match ast {
             AstType::FuncDef(ref t, ref n, ref a, ref s) => self.analysis_funcdef(t, n, a, s),
+            AstType::FuncCall(ref v, ref a) => self.analysis_funccall(v, a),
             AstType::Argment(ref args) => self.analysis_argment(args),
             AstType::Statement(ref stmt) => self.analysis_statement(stmt),
             AstType::Return(ref s) => self.analysis_return(s),
@@ -81,6 +82,20 @@ impl<'a> Semantic<'a> {
         }
         if let Err(ref mut e) = self.analysis(stmt) {
             errs.append(e);
+        }
+        analyzed!(errs)
+    }
+
+    // 関数コール解析
+    fn analysis_funccall(&self, v: &AstType, _a: &AstType) -> Result<(), Vec<String>> {
+        let mut errs = vec![];
+        match v {
+            AstType::Variable(ref _t, ref _s, ref n) => {
+                if self.funcs.search(n).is_none() {
+                    errs.push(format!("Not define function name: {:?}", n));
+                }
+            }
+            _ => errs.push(format!("AstType is not Variable: {:?}", v)),
         }
         analyzed!(errs)
     }
@@ -537,5 +552,38 @@ fn test_func_argment() {
         let r = Semantic::new(&tree, &vars, &funcs).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
+    }
+}
+
+#[test]
+fn test_func_call() {
+    // 関数コールのAstがおかしい
+    {
+        let ast = vec![AstType::FuncCall(
+            Box::new(AstType::Factor(2)),
+            Box::new(AstType::Argment(vec![])),
+        )];
+        let tree = AstTree { tree: ast };
+        let funcs = SymbolTable::new();
+        let vars = SymbolTable::new();
+        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        assert!(r.is_err());
+        assert!(r.err().unwrap().len() == 1);
+    }
+    {
+        let ast = vec![AstType::FuncCall(
+            Box::new(AstType::Variable(
+                Type::Int,
+                Structure::Identifier,
+                "a".to_string(),
+            )),
+            Box::new(AstType::Argment(vec![])),
+        )];
+        let tree = AstTree { tree: ast };
+        let funcs = SymbolTable::new();
+        let vars = SymbolTable::new();
+        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        assert!(r.is_err());
+        assert!(r.err().unwrap().len() == 1);
     }
 }
