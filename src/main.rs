@@ -269,6 +269,9 @@ mod test {
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
             TestData { inst: "int main() { int a, b; a = 10; b = 7; return a * b; }", ex_ret: 70, },
+            TestData { inst: "int main() { int a[10]; a[1] = 121; return a[1] * 2; }", ex_ret: 242, },
+            TestData { inst: "int main() { int a[10]; a[9] = 200; return a[9] - 100; }", ex_ret: 100, },
+            TestData { inst: "int main() { int a[10]; a[0] = 11; return a[0] + 100; }", ex_ret: 111, },
         ]
         .iter()
         .enumerate()
