@@ -6,7 +6,7 @@ use token::{Token, TokenInfo};
 //   <FuncBody> ::= '{' <Statement> '}'
 //   <Statement> ::= <Assign>* ';'
 //   <Assign> ::= VARIABLE '=' <Condition>
-//   <CallFunc> ::= VARIABLE '(' <Argment> ')'
+//   <FuncCall> ::= VARIABLE '(' <Argment> ')'
 //   <Argment> ::= [ '' |  <Expression> ',']
 //   <Condition> ::= <Logical> <SubCondition>
 //   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
@@ -23,7 +23,7 @@ use token::{Token, TokenInfo};
 //   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
 //   <Term> ::= <Factor> <SubTerm>
 //   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
-//   <Factor> ::= '(' NUMBER ')' | <UnAry> | <Expression> | <CallFunc>
+//   <Factor> ::= '(' NUMBER ')' | <UnAry> | <Expression> | <FuncCall>
 //   <UnAry> ::= ['!'|'+'|'-'|'~'] NUMBER
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,7 +82,7 @@ pub enum AstType {
     Assign(Box<AstType>, Box<AstType>),
     Factor(i64),
     Variable(Type, Structure, String),
-    CallFunc(Box<AstType>, Box<AstType>),
+    FuncCall(Box<AstType>, Box<AstType>),
     Argment(Vec<AstType>),
     Address(Box<AstType>),
     Indirect(Box<AstType>),
@@ -223,8 +223,7 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::LeftParen => {
                 // 引数を処理.
-                let tmp = vec![];
-                let args = AstType::Argment(self.recur_func_args(tmp));
+                let args = AstType::Argment(self.recur_func_args(vec![]));
 
                 // 閉じ括弧.
                 self.must_next(Token::RightParen, "ast.rs(func_arg): Not Exists RightParen");
@@ -246,12 +245,12 @@ impl<'a> AstGen<'a> {
         args.push(self.assign());
 
         // カンマがあれば引き続き.
-        let comma = self.next();
-        if Token::Comma == comma.get_token_type() {
-            self.consume();
-            self.recur_func_args(args)
-        } else {
-            args.clone()
+        match self.next().get_token_type() {
+            Token::Comma => {
+                self.consume();
+                self.recur_func_args(args)
+            }
+            _ => args.clone(),
         }
     }
 
@@ -405,30 +404,27 @@ impl<'a> AstGen<'a> {
         );
 
         // 各種条件を解析.
-        let begin = if Token::SemiColon == self.next().get_token_type() {
-            None
-        } else {
-            Some(self.assign())
+        let begin = match self.next().get_token_type() {
+            Token::SemiColon => None,
+            _ => Some(self.assign()),
         };
         self.must_next(
             Token::SemiColon,
             "ast.rs(statement_for): Not Exists Semicolon",
         );
 
-        let condition = if Token::SemiColon == self.next().get_token_type() {
-            None
-        } else {
-            Some(self.assign())
+        let condition = match self.next().get_token_type() {
+            Token::SemiColon => None,
+            _ => Some(self.assign()),
         };
         self.must_next(
             Token::SemiColon,
             "ast.rs(statement_for): Not Exists Semicolon",
         );
 
-        let end = if Token::RightParen == self.next().get_token_type() {
-            None
-        } else {
-            Some(self.assign())
+        let end = match self.next().get_token_type() {
+            Token::RightParen => None,
+            _ => Some(self.assign()),
         };
         self.must_next(
             Token::RightParen,
@@ -498,7 +494,7 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::LeftParen => {
-                let call_func = AstType::CallFunc(
+                let call_func = AstType::FuncCall(
                     Box::new(acc),
                     Box::new(self.argment(AstType::Argment(vec![]))),
                 );
@@ -512,28 +508,32 @@ impl<'a> AstGen<'a> {
         }
     }
 
+    // sub argment
+    fn sub_argment(&mut self, acc: AstType) -> AstType {
+        match acc {
+            AstType::Argment(a) => {
+                let mut args = a;
+                args.push(self.assign());
+
+                // カンマがあれば引き続き、引数とみなす.
+                if Token::Comma == self.next().get_token_type() {
+                    self.next_consume();
+                    self.argment(AstType::Argment(args))
+                } else {
+                    AstType::Argment(args)
+                }
+            }
+            _ => panic!("{} {}: Not Support AstType {:?}", file!(), line!(), acc),
+        }
+    }
+
     // argment.
     fn argment(&mut self, acc: AstType) -> AstType {
         // 右括弧が表れるまで、引数とみなす
         let token = self.next();
-        if Token::RightParen == token.get_token_type() {
-            acc
-        } else {
-            match acc {
-                AstType::Argment(a) => {
-                    let mut args = a;
-                    args.push(self.assign());
-
-                    // カンマがあれば引き続き、引数とみなす.
-                    if Token::Comma == self.next().get_token_type() {
-                        self.next_consume();
-                        self.argment(AstType::Argment(args))
-                    } else {
-                        AstType::Argment(args)
-                    }
-                }
-                _ => panic!("{} {}: Not Support AstType {:?}", file!(), line!(), acc),
-            }
+        match token.get_token_type() {
+            Token::RightParen => acc,
+            _ => self.sub_argment(acc),
         }
     }
 
@@ -822,29 +822,21 @@ impl<'a> AstGen<'a> {
 
     // number
     fn number(&self, token: &TokenInfo) -> AstType {
-        AstType::Factor(
-            token
-                .get_token_value()
-                .parse::<i64>()
-                .expect("ast.rs(number): cannot convert i64"),
-        )
+        let n = token.get_token_value().parse::<i64>();
+        AstType::Factor(n.expect("ast.rs(number): cannot convert i64"))
     }
 
     // トークン読み取り.
     fn next(&mut self) -> &'a TokenInfo {
-        self.tokens
-            .get(self.current_pos)
-            .expect("ast.rs(next): cannot read next value")
+        let n = self.tokens.get(self.current_pos);
+        n.expect("ast.rs(next): cannot read next value")
     }
 
     // 読み取り位置更新.
     fn next_consume(&mut self) -> &'a TokenInfo {
-        let token = self
-            .tokens
-            .get(self.current_pos)
-            .expect("ast.rs(next_consume): cannot read next value");
+        let token = self.tokens.get(self.current_pos);
         self.current_pos += 1;
-        token
+        token.expect("ast.rs(next_consume): cannot read next value")
     }
 
     // 読み取り位置更新.
@@ -3138,7 +3130,7 @@ mod tests {
                     Type::Int,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
-                    Box::new(AstType::Statement(vec![AstType::CallFunc(
+                    Box::new(AstType::Statement(vec![AstType::FuncCall(
                         Box::new(AstType::Variable(
                             Type::Int,
                             Structure::Identifier,
@@ -3200,7 +3192,7 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, Structure::Identifier, "b".to_string()),
-                        AstType::CallFunc(
+                        AstType::FuncCall(
                             Box::new(AstType::Variable(
                                 Type::Int,
                                 Structure::Identifier,
@@ -3275,7 +3267,7 @@ mod tests {
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, Structure::Identifier, 'b'.to_string()),
                         AstType::Variable(Type::Int, Structure::Identifier, 'c'.to_string()),
-                        AstType::CallFunc(
+                        AstType::FuncCall(
                             Box::new(AstType::Variable(
                                 Type::Int,
                                 Structure::Identifier,

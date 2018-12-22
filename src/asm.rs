@@ -133,7 +133,7 @@ impl<'a> Asm<'a> {
             AstType::BitReverse(ref a) => self.generate_bit_reverse(a),
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
-            AstType::CallFunc(ref a, ref b) => self.generate_call_func(a, b),
+            AstType::FuncCall(ref a, ref b) => self.generate_call_func(a, b),
             AstType::Plus(ref a, ref b) => self.generate_plus(a, b),
             AstType::Minus(ref a, ref b) => self.generate_minus(a, b),
             AstType::Multiple(ref a, ref b)
@@ -193,18 +193,25 @@ impl<'a> Asm<'a> {
 
         let pos = self.var_table.count() * 8;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
-        start = format!("{}{}", start, self.gen_asm().push("rbp"));
-        start = format!("{}{}", start, self.gen_asm().mov("rsp", "rbp"));
-        start = format!("{}{}", start, self.gen_asm().sub_imm(pos, "rsp"));
+        start = format!(
+            "{}{}{}{}",
+            start,
+            self.gen_asm().push("rbp"),
+            self.gen_asm().mov("rsp", "rbp"),
+            self.gen_asm().sub_imm(pos, "rsp")
+        );
         self.inst = format!("{}", start);
     }
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self) {
         let pos = self.var_table.count() * 8;
-        let mut end = self.gen_asm().add_imm(pos, "rsp");
-        end = format!("{}{}", end, self.gen_asm().pop("rbp"));
-        end = format!("{}{}", end, self.gen_asm().ret());
+        let end = format!(
+            "{}{}{}",
+            self.gen_asm().add_imm(pos, "rsp"),
+            self.gen_asm().pop("rbp"),
+            self.gen_asm().ret()
+        );
         self.inst = format!("{}{}", self.inst, end);
     }
 
@@ -377,19 +384,15 @@ impl<'a> Asm<'a> {
 
     // continue文生成.
     fn generate_statement_continue(&mut self) {
-        let no = self
-            .label
-            .pop_continue()
-            .expect("asm.rs(generate_statement_continue): invalid continue label");
+        let label = self.label.pop_continue();
+        let no = label.expect("asm.rs(generate_statement_continue): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
     // break文生成.
     fn generate_statement_break(&mut self) {
-        let no = self
-            .label
-            .pop_break()
-            .expect("asm.rs(generate_statement_break): invalid continue label");
+        let label = self.label.pop_break();
+        let no = label.expect("asm.rs(generate_statement_break): invalid continue label");
         self.generate_jmp_inst(no);
     }
 
@@ -426,10 +429,8 @@ impl<'a> Asm<'a> {
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
             AstType::Variable(ref t, ref s, ref a) => {
-                let ret = self
-                    .var_table
-                    .search(a)
-                    .expect("asm.rs(generate_assign): error option value");
+                let find = self.var_table.search(a);
+                let ret = find.expect("asm.rs(generate_assign): error option value");
                 let offset = ret.p as i64 * 8 + 8;
                 self.generate(b);
                 match *t {
@@ -459,13 +460,8 @@ impl<'a> Asm<'a> {
         }
     }
 
-    // variable生成.
-    fn generate_variable(&mut self, t: &Type, s: &Structure, v: &String) {
-        let ret = self
-            .var_table
-            .search(v)
-            .expect("asm.rs(generate_variable): error option value");
-        let offset = ret.p as i64 * 8 + 8;
+    // typeごとのVariable生成
+    fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, offset: i64) {
         match *t {
             Type::Int => match s {
                 Structure::Identifier => {
@@ -496,6 +492,14 @@ impl<'a> Asm<'a> {
             },
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
+    }
+
+    // variable生成.
+    fn generate_variable(&mut self, t: &Type, s: &Structure, v: &String) {
+        let find = self.var_table.search(v);
+        let ret = find.expect("asm.rs(generate_variable): error option value");
+        let offset = ret.p as i64 * 8 + 8;
+        self.generate_variable_with_type(t, s, offset);
     }
 
     // 関数コール生成.
@@ -649,6 +653,23 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
     }
 
+    // variable同士の加算
+    fn generate_plus_variable(&mut self, a: &AstType, b: &AstType, s: &Structure) {
+        match s {
+            Structure::Array(_) => self.generate_plus_with_pointer(a, b),
+            _ => {
+                self.generate(a);
+                self.generate(b);
+
+                // 加算処理
+                self.generate_pop_stack("ecx");
+                self.generate_pop_stack("eax");
+                self.inst = format!("{}{}", self.inst, self.gen_asm().plus());
+                self.generate_push_stack("eax");
+            }
+        }
+    }
+
     // 加算
     fn generate_plus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
@@ -663,21 +684,7 @@ impl<'a> Asm<'a> {
             {
                 self.generate_plus_with_pointer(a, b)
             }
-            (AstType::Variable(ref _t1, ref s1, _), _) => {
-                match s1 {
-                    Structure::Array(_) => self.generate_plus_with_pointer(a, b),
-                    _ => {
-                        self.generate(a);
-                        self.generate(b);
-
-                        // 加算処理
-                        self.generate_pop_stack("ecx");
-                        self.generate_pop_stack("eax");
-                        self.inst = format!("{}{}", self.inst, self.gen_asm().plus());
-                        self.generate_push_stack("eax");
-                    }
-                }
-            }
+            (AstType::Variable(ref _t1, ref s1, _), _) => self.generate_plus_variable(a, b, s1),
             _ => {
                 self.generate(a);
                 self.generate(b);

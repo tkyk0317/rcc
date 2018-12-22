@@ -2,11 +2,6 @@ use arch::Generator;
 
 // x64アセンブリ.
 pub struct X64;
-impl X64 {
-    pub fn new() -> Self {
-        X64 {}
-    }
-}
 impl Generator for X64 {
     fn pop_stack(&self, reg: &str) -> String {
         format!("  movl 0(%rsp), %{}\n  add $8, %rsp\n", reg)
