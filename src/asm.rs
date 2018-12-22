@@ -506,7 +506,7 @@ impl<'a> Asm<'a> {
     fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
         match *a {
             // 関数名.
-            AstType::Variable(_, _, ref n) => {
+            AstType::Variable(_, _, ref n) if self.func_table.search(n).is_some() => {
                 match *b {
                     AstType::Argment(ref v) => {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
