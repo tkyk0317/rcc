@@ -268,6 +268,7 @@ mod test {
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 20; return *i; }", ex_ret: 30, },
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
+            TestData { inst: "int main() { int a, b; a = 10; b = 7; return a * b; }", ex_ret: 70, },
         ]
         .iter()
         .enumerate()
