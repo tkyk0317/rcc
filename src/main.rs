@@ -269,9 +269,12 @@ mod test {
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
             TestData { inst: "int main() { int a, b; a = 10; b = 7; return a * b; }", ex_ret: 70, },
+            TestData { inst: "int main() { int a[10]; int *x = a; *(a + 2) = 100; return *(a + 2); }", ex_ret: 100, },
             TestData { inst: "int main() { int a[10]; a[1] = 121; return a[1] * 2; }", ex_ret: 242, },
             TestData { inst: "int main() { int a[10]; a[9] = 200; return a[9] - 100; }", ex_ret: 100, },
             TestData { inst: "int main() { int a[10]; a[0] = 11; return a[0] + 100; }", ex_ret: 111, },
+            TestData { inst: "int main() { int a[10]; a[2] = 10; return a[2]; }", ex_ret: 10, },
+            TestData { inst: "int main() { int a[10]; int i; for(i = 0 ; i < 10 ; i = i + 1) { a[i] = i; } return a[0] + a[1] + a[2]; }", ex_ret: 3, },
         ]
         .iter()
         .enumerate()

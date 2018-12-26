@@ -410,19 +410,14 @@ impl<'a> Asm<'a> {
     fn generate_assign_indirect(&mut self, a: &AstType, b: &AstType) {
         self.generate(a);
         self.generate(b);
-        match a {
-            AstType::Variable(ref _t, ref _s, ref _a1) => {
-                self.generate_pop_stack("eax");
-                self.inst = format!(
-                    "{}{}{}",
-                    self.inst,
-                    self.gen_asm().pop("rcx"),
-                    self.gen_asm().movl_dst("eax", "rcx", 0)
-                );
-                self.generate_push_stack("eax");
-            }
-            _ => panic!("asm.rs(generate_assign_indirect): not support ast {:?}", a),
-        }
+        self.generate_pop_stack("eax");
+        self.inst = format!(
+            "{}{}{}",
+            self.inst,
+            self.gen_asm().pop("rcx"),
+            self.gen_asm().movl_dst("eax", "rcx", 0)
+        );
+        self.generate_push_stack("eax");
     }
 
     // assign variable
@@ -677,14 +672,7 @@ impl<'a> Asm<'a> {
     fn generate_plus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
             // ポインタ演算チェック
-            (AstType::Variable(ref _t1, ref s1, _), AstType::Variable(ref t2, _, _))
-                if *s1 == Structure::Pointer && *t2 == Type::Int =>
-            {
-                self.generate_plus_with_pointer(a, b)
-            }
-            (AstType::Variable(ref _t1, ref s1, _), AstType::Factor(_))
-                if *s1 == Structure::Pointer =>
-            {
+            (AstType::Variable(ref _t1, ref s1, _), _) if *s1 == Structure::Pointer => {
                 self.generate_plus_with_pointer(a, b)
             }
             (AstType::Variable(ref _t1, ref s1, _), _) => self.generate_plus_variable(a, b, s1),
