@@ -34,7 +34,11 @@ impl SymbolTable {
                 s: s.clone(),
             },
         );
-        self.count += 1;
+        // 配列の場合は要素数分、進める
+        match s {
+            Structure::Array(s) => self.count += s,
+            _ => self.count += 1,
+        };
         res
     }
 
