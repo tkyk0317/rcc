@@ -34,6 +34,8 @@ impl<'a> LexicalAnalysis<'a> {
         while false == self.is_eof() {
             // 空白、改行などは読み飛ばし.
             self.skip_ascii_whitespace();
+            // コメント読み飛ばし
+            self.skip_comment();
 
             // 一文字読み取って、トークン生成.
             match self.next() {
@@ -175,16 +177,42 @@ impl<'a> LexicalAnalysis<'a> {
         s
     }
 
+    // 改行文字判定
+    fn is_linefeed(&self, s: &String) -> bool {
+        s == "\n"
+    }
+
     // 空白や改行、タブをスキップ.
     fn skip_ascii_whitespace(&mut self) {
-        let is_linefeed = |s| s == "\n";
         while false == self.is_eof() && self.read().is_ascii_whitespace() {
-            if is_linefeed(self.read_string(1)) {
+            let next = self.read_string(1);
+            if self.is_linefeed(&next) {
                 // 行とカラムを更新
                 self.row += 1;
                 self.col = 0;
             }
             self.skip(1);
+        }
+    }
+
+    // コメント読み飛ばし
+    fn skip_comment(&mut self) {
+        if self.read_string(2) == "//".to_string() {
+            // 改行コードまで読み飛ばし
+            self.skip(2);
+            let mut next = self.read_string(1);
+            while false == self.is_eof() && false == self.is_linefeed(&next) {
+                self.skip(1);
+                next = self.read_string(1);
+            }
+            if self.is_linefeed(&next) {
+                self.skip(1);
+                self.row += 1;
+                self.col = 0;
+
+                // 改行後、先頭に空白がある可能性を考慮
+                self.skip_ascii_whitespace();
+            }
         }
     }
 
@@ -1795,6 +1823,104 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 9)),
                 lexer.get_tokens()[6]
+            );
+        }
+    }
+
+    #[test]
+    fn test_comment() {
+        {
+            let input = "2 + 1 / 3 * 7\n // comment".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 1, 1)),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Plus, "+".to_string(), ("test.c".to_string(), 1, 3)),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "1".to_string(), ("test.c".to_string(), 1, 5)),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Division,
+                    "/".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "3".to_string(), ("test.c".to_string(), 1, 9)),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Multi, "*".to_string(), ("test.c".to_string(), 1, 11)),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Number,
+                    "7".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
+                lexer.get_tokens()[6]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 2, 13)),
+                lexer.get_tokens()[7]
+            );
+        }
+        {
+            let input = "// comment\n2 + 1 / 3 * 7".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+
+            assert_eq!(
+                TokenInfo::new(Token::Number, "2".to_string(), ("test.c".to_string(), 2, 1)),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Plus, "+".to_string(), ("test.c".to_string(), 2, 3)),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "1".to_string(), ("test.c".to_string(), 2, 5)),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Division,
+                    "/".to_string(),
+                    ("test.c".to_string(), 2, 7)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Number, "3".to_string(), ("test.c".to_string(), 2, 9)),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::Multi, "*".to_string(), ("test.c".to_string(), 2, 11)),
+                lexer.get_tokens()[5]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Number,
+                    "7".to_string(),
+                    ("test.c".to_string(), 2, 13)
+                ),
+                lexer.get_tokens()[6]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 2, 13)),
+                lexer.get_tokens()[7]
             );
         }
     }
