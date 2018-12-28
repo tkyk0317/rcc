@@ -1,3 +1,8 @@
+machine:
+  services:
+    - docker
+
 test:
   override:
-    - cargo t
+    # don't forget to replace "1.18" with your rust version
+    - docker run -it --rm -v $(pwd):/source -w /source scorpil/rust:1.31.1 cargo test
