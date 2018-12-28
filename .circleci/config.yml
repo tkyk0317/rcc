@@ -1,7 +1,10 @@
 jobs:
-  docker:
-    - images: rust:latest
-  steps:
-    - run:
-      name: Run all tests
-      command: cargo test --all
+  build:
+    docker:
+      - images: rust:latest
+    working_directory: /go/src/github.com/tkyk0317/rcc
+    steps:
+      - checkout
+      - run:
+        name: Run all tests
+        command: cargo test --all
