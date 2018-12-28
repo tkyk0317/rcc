@@ -2,26 +2,8 @@ version: 2
 jobs:
   build:
     docker:
-      - images: rust:latest
-    working_directory: /go/src/github.com/tkyk0317/rcc
+      - image: rust:latest
     steps:
       - checkout
-      - run:
-        name: build project
-        command: cargo b --release
-  test:
-    docker:
-      - images: rust:latest
-    working_directory: /go/src/github.com/tkyk0317/rcc
-    steps:
-      - checkout
-      - run:
-        name: run all test
-        command: cargo t
-
-workflows:
-  version: 2
-  build_and_test:
-    jobs:
-      - build
-      - test
+      - run: "cargo b --release"
+      - run: "cargo t"
