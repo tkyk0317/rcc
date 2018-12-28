@@ -36,7 +36,7 @@ pub enum Type {
 pub enum Structure {
     Identifier,
     Pointer,
-    Array(usize),
+    Array(Vec<usize>),
     Unknown,
 }
 
@@ -768,6 +768,47 @@ impl<'a> AstGen<'a> {
         }
     }
 
+    // array index
+    fn array_index(&mut self, s: &Structure) -> AstType {
+        match self.next().get_token_type() {
+            Token::LeftBracket => {
+                self.consume();
+                let index = self.expression();
+                self.must_next(
+                    Token::RightBracket,
+                    "ast.rs(variable): Not exists RightBracket",
+                );
+                // 最初の要素と他を分割
+                let nums = match s {
+                    Structure::Array(v) => v,
+                    _ => panic!("ast.rs(array_index): not Array"),
+                };
+                if let Some((num, elems)) = nums.split_first() {
+                    if self.next().get_token_type() == Token::LeftBracket {
+                        // 多次元配列の場合、更にインデックスを解析
+                        AstType::Plus(
+                            Box::new(AstType::Multiple(
+                                Box::new(index),
+                                Box::new(AstType::Factor(*num as i64)),
+                            )),
+                            Box::new(self.array_index(&Structure::Array(elems.to_vec()))),
+                        )
+                    } else {
+                        AstType::Multiple(Box::new(index), Box::new(AstType::Factor(*num as i64)))
+                    }
+                } else {
+                    panic!("ast.rs(array_index): no elements");
+                }
+            }
+            _ => panic!(
+                "{} {}: ast.rs(array_size) not support token {:?}",
+                file!(),
+                line!(),
+                self.next()
+            ),
+        }
+    }
+
     // variable.
     fn variable(&mut self, t: Type, s: Structure) -> AstType {
         let token = self.next_consume();
@@ -775,19 +816,9 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Variable if Token::LeftBracket == next.get_token_type() => {
                 // ポインタと同じようにアクセスするため、Indirectでくるむ
-                self.consume();
-                let index = self.expression();
-                self.must_next(
-                    Token::RightBracket,
-                    "ast.rs(variable): Not exists RightBracket",
-                );
-
+                let index = self.array_index(&s);
                 AstType::Indirect(Box::new(AstType::Plus(
-                    Box::new(AstType::Variable(
-                        t,
-                        s,
-                        token.get_token_value(),
-                    )),
+                    Box::new(AstType::Variable(t, s, token.get_token_value())),
                     Box::new(index),
                 )))
             }
@@ -812,18 +843,35 @@ impl<'a> AstGen<'a> {
         }
     }
 
+    // array num count
+    fn array_size(&mut self, size: Vec<usize>) -> Vec<usize> {
+        match self.next().get_token_type() {
+            Token::LeftBracket => {
+                let mut sizes = size.clone();
+                self.consume();
+                let s = self
+                    .next()
+                    .get_token_value()
+                    .parse::<usize>()
+                    .expect("failed parse");
+                self.must_next(Token::Number, "ast.rs(arra_size): Not exists Number");
+                self.must_next(
+                    Token::RightBracket,
+                    "ast.rs(arra_size): Not exists RightBracket",
+                );
+                sizes.push(s);
+                self.array_size(sizes)
+            }
+            _ => size,
+        }
+    }
+
     // array
     fn variable_array(&mut self, t: Type) -> AstType {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::Variable => {
-                self.must_next(Token::LeftBracket, "ast.rs(factor): Not exists LeftBracket");
-                let s = Structure::Array(self.next().get_token_value().parse::<usize>().unwrap());
-                self.must_next(Token::Number, "ast.rs(factor): Not exists Number");
-                self.must_next(
-                    Token::RightBracket,
-                    "ast.rs(factor): Not exists RightBracket",
-                );
+                let s = Structure::Array(self.array_size(vec![]));
 
                 // シンボルテーブルへ保存（未登録の場合）.
                 if self.var_table.search(&token.get_token_value()).is_none() {
@@ -4952,7 +5000,7 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, Structure::Array(3), "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Array(vec![3]), "a".to_string()),
                         AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )
@@ -4995,18 +5043,60 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, Structure::Array(3), "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Array(vec![3]), "a".to_string()),
                         AstType::Assign(
                             Box::new(AstType::Indirect(Box::new(AstType::Plus(
                                 Box::new(AstType::Variable(
                                     Type::Int,
-                                    Structure::Array(3),
+                                    Structure::Array(vec![3]),
                                     "a".to_string()
                                 )),
-                                Box::new(AstType::Factor(0)),
+                                Box::new(AstType::Multiple(
+                                    Box::new(AstType::Factor(0)),
+                                    Box::new(AstType::Factor(3)),
+                                )),
                             )),)),
                             Box::new(AstType::Factor(10)),
                         ),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::LeftBracket, " [".to_string()),
+                create_token(Token::Number, "3".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, " [".to_string()),
+                create_token(Token::Number, "3".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Array(vec![3, 3]), "a".to_string()),
                         AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )
@@ -5188,15 +5278,176 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Variable(Type::Int, Structure::Array(10), "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Array(vec![10]), "a".to_string()),
                         AstType::Assign(
                             Box::new(AstType::Indirect(Box::new(AstType::Plus(
                                 Box::new(AstType::Variable(
                                     Type::Int,
-                                    Structure::Array(10),
+                                    Structure::Array(vec![10]),
                                     "a".to_string()
                                 )),
-                                Box::new(AstType::Factor(2)),
+                                Box::new(AstType::Multiple(
+                                    Box::new(AstType::Factor(2)),
+                                    Box::new(AstType::Factor(10)),
+                                ),),
+                            )),)),
+                            Box::new(AstType::Factor(10)),
+                        ),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "10".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "2".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "2".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::Assign, "=".to_string()),
+                create_token(Token::Number, "10".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(
+                            Type::Int,
+                            Structure::Array(vec![10, 2]),
+                            "a".to_string()
+                        ),
+                        AstType::Assign(
+                            Box::new(AstType::Indirect(Box::new(AstType::Plus(
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Array(vec![10, 2]),
+                                    "a".to_string()
+                                )),
+                                Box::new(AstType::Plus(
+                                    Box::new(AstType::Multiple(
+                                        Box::new(AstType::Factor(2)),
+                                        Box::new(AstType::Factor(10)),
+                                    )),
+                                    Box::new(AstType::Multiple(
+                                        Box::new(AstType::Factor(1)),
+                                        Box::new(AstType::Factor(2)),
+                                    )),
+                                )),
+                            )),)),
+                            Box::new(AstType::Factor(10)),
+                        ),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "10".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "8".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "2".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "2".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "4".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::LeftBracket, "[".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::Assign, "=".to_string()),
+                create_token(Token::Number, "10".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(
+                            Type::Int,
+                            Structure::Array(vec![10, 8, 2]),
+                            "a".to_string()
+                        ),
+                        AstType::Assign(
+                            Box::new(AstType::Indirect(Box::new(AstType::Plus(
+                                Box::new(AstType::Variable(
+                                    Type::Int,
+                                    Structure::Array(vec![10, 8, 2]),
+                                    "a".to_string()
+                                )),
+                                Box::new(AstType::Plus(
+                                    Box::new(AstType::Multiple(
+                                        Box::new(AstType::Factor(2)),
+                                        Box::new(AstType::Factor(10))
+                                    )),
+                                    Box::new(AstType::Plus(
+                                        Box::new(AstType::Multiple(
+                                            Box::new(AstType::Factor(4)),
+                                            Box::new(AstType::Factor(8))
+                                        )),
+                                        Box::new(AstType::Multiple(
+                                            Box::new(AstType::Factor(1)),
+                                            Box::new(AstType::Factor(2)),
+                                        )),
+                                    )),
+                                )),
                             )),)),
                             Box::new(AstType::Factor(10)),
                         ),

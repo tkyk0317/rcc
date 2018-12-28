@@ -479,10 +479,11 @@ impl<'a> Asm<'a> {
                     );
                 }
                 Structure::Array(size) => {
+                    let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
                     self.inst = format!(
                         "{}{}{}",
                         self.inst,
-                        self.gen_asm().lea(*size as i64 * 8),
+                        self.gen_asm().lea(num * 8),
                         self.gen_asm().push("rax")
                     );
                 }

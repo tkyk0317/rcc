@@ -36,7 +36,7 @@ impl SymbolTable {
         );
         // 配列の場合は要素数分、進める
         match s {
-            Structure::Array(s) => self.count += s,
+            Structure::Array(s) => self.count += s.iter().fold(1, |acc, i| acc * i),
             _ => self.count += 1,
         };
         res
