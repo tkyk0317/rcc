@@ -778,26 +778,25 @@ impl<'a> AstGen<'a> {
                     Token::RightBracket,
                     "ast.rs(variable): Not exists RightBracket",
                 );
-                // 最初の要素と他を分割
-                let nums = match s {
-                    Structure::Array(v) => v,
-                    _ => panic!("ast.rs(array_index): not Array"),
-                };
-                if let Some((num, elems)) = nums.split_first() {
-                    if self.next().get_token_type() == Token::LeftBracket {
-                        // 多次元配列の場合、更にインデックスを解析
+                // 多次元配列か？
+                match self.next().get_token_type() {
+                    // 最初の要素と他を分割し、インデックスを解析
+                    Token::LeftBracket => {
+                        let (_, tails) = match s {
+                            Structure::Array(v) => v.split_first().expect("failed split array"),
+                            _ => panic!("ast.rs(array_index): not Array"),
+                        };
+
+                        let offset = tails.to_vec();
                         AstType::Plus(
                             Box::new(AstType::Multiple(
                                 Box::new(index),
-                                Box::new(AstType::Factor(*num as i64)),
+                                Box::new(AstType::Factor(*offset.first().expect("") as i64)),
                             )),
-                            Box::new(self.array_index(&Structure::Array(elems.to_vec()))),
+                            Box::new(self.array_index(&Structure::Array(tails.to_vec()))),
                         )
-                    } else {
-                        AstType::Multiple(Box::new(index), Box::new(AstType::Factor(*num as i64)))
                     }
-                } else {
-                    panic!("ast.rs(array_index): no elements");
+                    _ => index,
                 }
             }
             _ => panic!(
@@ -5051,10 +5050,7 @@ mod tests {
                                     Structure::Array(vec![3]),
                                     "a".to_string()
                                 )),
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(0)),
-                                    Box::new(AstType::Factor(3)),
-                                )),
+                                Box::new(AstType::Factor(0)),
                             )),)),
                             Box::new(AstType::Factor(10)),
                         ),
@@ -5286,10 +5282,7 @@ mod tests {
                                     Structure::Array(vec![10]),
                                     "a".to_string()
                                 )),
-                                Box::new(AstType::Multiple(
-                                    Box::new(AstType::Factor(2)),
-                                    Box::new(AstType::Factor(10)),
-                                ),),
+                                Box::new(AstType::Factor(2)),
                             )),)),
                             Box::new(AstType::Factor(10)),
                         ),
@@ -5356,12 +5349,9 @@ mod tests {
                                 Box::new(AstType::Plus(
                                     Box::new(AstType::Multiple(
                                         Box::new(AstType::Factor(2)),
-                                        Box::new(AstType::Factor(10)),
-                                    )),
-                                    Box::new(AstType::Multiple(
-                                        Box::new(AstType::Factor(1)),
                                         Box::new(AstType::Factor(2)),
                                     )),
+                                    Box::new(AstType::Factor(1)),
                                 )),
                             )),)),
                             Box::new(AstType::Factor(10)),
@@ -5435,18 +5425,15 @@ mod tests {
                                 Box::new(AstType::Plus(
                                     Box::new(AstType::Multiple(
                                         Box::new(AstType::Factor(2)),
-                                        Box::new(AstType::Factor(10))
+                                        Box::new(AstType::Factor(8)),
                                     )),
                                     Box::new(AstType::Plus(
                                         Box::new(AstType::Multiple(
                                             Box::new(AstType::Factor(4)),
-                                            Box::new(AstType::Factor(8))
-                                        )),
-                                        Box::new(AstType::Multiple(
-                                            Box::new(AstType::Factor(1)),
                                             Box::new(AstType::Factor(2)),
                                         )),
-                                    )),
+                                        Box::new(AstType::Factor(1)),
+                                    ))
                                 )),
                             )),)),
                             Box::new(AstType::Factor(10)),

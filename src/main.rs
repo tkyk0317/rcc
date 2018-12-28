@@ -282,6 +282,8 @@ mod test {
             TestData { inst: "int main() { int a[10][10]; int i; for(i = 0 ; i < 10 ; i = i + 1) { a[7][i] = i; } return a[7][9] * a[7][2]; }", ex_ret: 18, },
             TestData { inst: "int main() { int a[10][8][2]; a[9][1][1] = 99; return a[9][1][1]; }", ex_ret: 99, },
             TestData { inst: "int main() { int a[10][8][2]; a[0][0][0] = 100; a[9][0][1] = 99; return a[0][0][0] + a[9][0][1]; }", ex_ret: 199, },
+            TestData { inst: "int main() { int a[10][8][2]; a[0][0][0] = 100; a[9][0][1] = 99; int x = 2; return a[0][0][0] + a[9][0][1] + x; }", ex_ret: 201, },
+            TestData { inst: "int main() { int a[10][10]; int i; int j; for(i = 0 ; i < 10 ; i = i + 1) { for (j = 0 ; j < 10 ; j = j + 1) { a[i][j] = j; } } return a[0][0] + a[1][7] + a[4][5] + a[9][3]; }", ex_ret: 15, },
         ]
         .iter()
         .enumerate()
