@@ -222,12 +222,23 @@ impl<'a> Asm<'a> {
         match *a {
             AstType::Argment(ref args) => {
                 args.iter().zip(REGS.iter()).fold(st, |p, d| {
-                    self.inst = format!(
-                        "{}{}{}",
-                        self.inst,
-                        self.gen_asm().mov(&d.1, "rax"),
-                        self.gen_asm().movl_dst("eax", "rbp", -(p as i64))
-                    );
+                    match d.0 {
+                        AstType::Variable(_, s, _) if *s == Structure::Pointer => {
+                            self.inst = format!(
+                                "{}{}",
+                                self.inst,
+                                self.gen_asm().mov_dst(&d.1, "rbp", -(p as i64))
+                            );
+                        }
+                        _ => {
+                            self.inst = format!(
+                                "{}{}{}",
+                                self.inst,
+                                self.gen_asm().mov(&d.1, "rax"),
+                                self.gen_asm().movl_dst("eax", "rbp", -(p as i64))
+                            );
+                        }
+                    };
                     p + 8
                 });
             }
@@ -512,9 +523,15 @@ impl<'a> Asm<'a> {
                         v.into_iter().rev().for_each(|d| self.generate(d));
 
                         // 関数引数をスタックからレジスタへ.
-                        v.iter().zip(REGS.iter()).for_each(|d| {
-                            self.generate_pop_stack("eax");
-                            self.inst = format!("{}{}", self.inst, self.gen_asm().mov("rax", &d.1));
+                        v.iter().zip(REGS.iter()).for_each(|d| match d.0 {
+                            AstType::Variable(_, s, _) if *s == Structure::Pointer => {
+                                self.inst = format!("{}{}", self.inst, self.gen_asm().pop(&d.1));
+                            }
+                            _ => {
+                                self.generate_pop_stack("eax");
+                                self.inst =
+                                    format!("{}{}", self.inst, self.gen_asm().mov("rax", &d.1));
+                            }
                         });
                     }
                     _ => panic!("{} {}: Not Function Argment", file!(), line!()),
