@@ -79,7 +79,7 @@ impl Generator for X64 {
         "  movl $0, %edx\n  idivl %ecx\n".to_string()
     }
     fn lea(&self, p: i64) -> String {
-        format!("  lea -{}(%rbp), %rax\n", p)
+        format!("  leaq -{}(%rbp), %rax\n", p)
     }
     fn not(&self, reg: &str) -> String {
         format!("  notl %{}\n", reg)
@@ -134,6 +134,9 @@ impl Generator for X64 {
     // n(%src)から%dstへ転送
     fn movl_src(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  movl {}(%{}), %{}\n", n, src, dst)
+    }
+    fn movq_src(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  movq {}(%{}), %{}\n", n, src, dst)
     }
     fn call(&self, a: &str) -> String {
         format!("  call {}\n", a)

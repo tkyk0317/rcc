@@ -102,7 +102,13 @@ mod test {
                 let _ = Command::new("gcc")
                     .args(&["-g3", "./test.s", "-o", "test"])
                     .output();
-                Command::new("./test").status().unwrap().code().unwrap()
+                match Command::new("./test").status() {
+                    Ok(r) => match r.code() {
+                        Some(r) => r,
+                        None => panic!("code() is failed"),
+                    },
+                    Err(e) => panic!(e),
+                }
             }
         }
     }

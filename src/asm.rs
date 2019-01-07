@@ -175,7 +175,7 @@ impl<'a> Asm<'a> {
             AstType::Statement(ref s) => s.iter().for_each(|ast| {
                 self.generate(ast);
                 if ast.is_expr() {
-                    self.generate_pop_stack("eax");
+                    self.generate_pop_stack("rax");
                 }
             }),
             _ => panic!("{} {}: not support expr", file!(), line!()),
@@ -252,7 +252,7 @@ impl<'a> Asm<'a> {
 
         // 条件式部分生成.
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(1, "eax"); // 等しい場合は、1に設定されている.
 
         // elseブロック生成.
@@ -299,7 +299,7 @@ impl<'a> Asm<'a> {
         self.generate_label_inst(label_begin);
         self.generate(a);
         // conditionが偽であれば、ブロック終端へジャンプ.
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.generate_je_inst(label_end);
 
@@ -334,7 +334,7 @@ impl<'a> Asm<'a> {
         self.generate_label_inst(label_condition);
         self.generate(b);
         // conditionが真であれば、ブロック先頭へジャンプ.
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
 
         self.generate_jne_inst(label_begin);
@@ -364,14 +364,14 @@ impl<'a> Asm<'a> {
         // 初期条件.
         if let Some(init) = a {
             self.generate(init);
-            self.generate_pop_stack("eax");
+            self.generate_pop_stack("rax");
         }
         self.generate_label_inst(label_begin);
 
         // 終了条件.
         if let Some(cond) = b {
             self.generate(cond);
-            self.generate_pop_stack("eax");
+            self.generate_pop_stack("rax");
             self.generate_cmp_inst(0, "eax");
             self.generate_je_inst(label_end);
         }
@@ -383,7 +383,7 @@ impl<'a> Asm<'a> {
         // 変数変化部分生成
         if let Some(end) = c {
             self.generate(end);
-            self.generate_pop_stack("eax");
+            self.generate_pop_stack("rax");
         }
         self.generate_jmp_inst(label_begin);
         self.generate_label_inst(label_end);
@@ -411,7 +411,7 @@ impl<'a> Asm<'a> {
     fn generate_statement_return(&mut self, a: &AstType) {
         self.generate(a);
         if a.is_expr() {
-            self.generate_pop_stack("eax");
+            self.generate_pop_stack("rax");
         }
         let label_no = self.label.get_return_label();
         self.generate_jmp_inst(label_no);
@@ -421,14 +421,14 @@ impl<'a> Asm<'a> {
     fn generate_assign_indirect(&mut self, a: &AstType, b: &AstType) {
         self.generate(a);
         self.generate(b);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.inst = format!(
             "{}{}{}",
             self.inst,
             self.gen_asm().pop("rcx"),
             self.gen_asm().movl_dst("eax", "rcx", 0)
         );
-        self.generate_push_stack("eax");
+        self.generate_push_stack("rax");
     }
 
     // assign variable
@@ -439,13 +439,13 @@ impl<'a> Asm<'a> {
         self.generate(b);
         match *t {
             Type::Int if *s == Structure::Identifier => {
-                self.generate_pop_stack("eax");
+                self.generate_pop_stack("rax");
                 self.inst = format!(
                     "{}{}",
                     self.inst,
                     self.gen_asm().movl_dst("eax", "rbp", -offset)
                 );
-                self.generate_push_stack("eax");
+                self.generate_push_stack("rax");
             }
             Type::Int if *s == Structure::Pointer => {
                 self.inst = format!(
@@ -479,7 +479,7 @@ impl<'a> Asm<'a> {
                         self.inst,
                         self.gen_asm().movl_src("rbp", "eax", -offset)
                     );
-                    self.generate_push_stack("eax");
+                    self.generate_push_stack("rax");
                 }
                 Structure::Pointer => {
                     self.inst = format!(
@@ -528,7 +528,7 @@ impl<'a> Asm<'a> {
                                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop(&d.1));
                             }
                             _ => {
-                                self.generate_pop_stack("eax");
+                                self.generate_pop_stack("rax");
                                 self.inst =
                                     format!("{}{}", self.inst, self.gen_asm().mov("rax", &d.1));
                             }
@@ -542,7 +542,7 @@ impl<'a> Asm<'a> {
                     self.inst,
                     self.gen_asm().call(&self.generate_func_symbol(n))
                 );
-                self.generate_push_stack("eax");
+                self.generate_push_stack("rax");
             }
             _ => panic!("{} {}: Not Exists Function name", file!(), line!()),
         }
@@ -560,27 +560,27 @@ impl<'a> Asm<'a> {
     // bit反転演算子生成.
     fn generate_bit_reverse(&mut self, a: &AstType) {
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.inst = format!("{}{}", self.inst, self.gen_asm().not("eax"));
-        self.generate_push_stack("eax");
+        self.generate_push_stack("rax");
     }
 
     // Not演算子生成.
     fn generate_not(&mut self, a: &AstType) {
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.inst = format!("{}{}", self.inst, self.gen_asm().set("al"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().movz("al", "eax"));
-        self.generate_push_stack("eax");
+        self.generate_push_stack("rax");
     }
 
     // マイナス単項演算子生成.
     fn generate_unminus(&mut self, a: &AstType) {
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.inst = format!("{}{}", self.inst, self.gen_asm().neg("eax"));
-        self.generate_push_stack("eax");
+        self.generate_push_stack("rax");
     }
 
     // プラス単項演算子生成.
@@ -594,7 +594,7 @@ impl<'a> Asm<'a> {
         let label_end = self.label.next_label();
 
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.generate_je_inst(label_false);
 
@@ -612,11 +612,11 @@ impl<'a> Asm<'a> {
         let label_end = self.label.next_label();
 
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.generate_je_inst(label_false);
         self.generate(b);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.generate_je_inst(label_false);
 
@@ -625,7 +625,7 @@ impl<'a> Asm<'a> {
         self.generate_label_inst(label_false);
         self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "eax"));
         self.generate_label_inst(label_end);
-        self.generate_push_stack("eax");
+        self.generate_push_stack("rax");
     }
 
     // ||演算子生成.
@@ -634,11 +634,11 @@ impl<'a> Asm<'a> {
         let label_end = self.label.next_label();
 
         self.generate(a);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.generate_jne_inst(label_true);
         self.generate(b);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.generate_cmp_inst(0, "eax");
         self.generate_jne_inst(label_true);
 
@@ -647,7 +647,7 @@ impl<'a> Asm<'a> {
         self.generate_label_inst(label_true);
         self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "eax"));
         self.generate_label_inst(label_end);
-        self.generate_push_stack("eax");
+        self.generate_push_stack("rax");
     }
 
     // 数値生成.
@@ -661,7 +661,7 @@ impl<'a> Asm<'a> {
     fn generate_plus_with_pointer(&mut self, a: &AstType, b: &AstType) {
         self.generate(a);
         self.generate(b);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 8));
         self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
@@ -678,10 +678,10 @@ impl<'a> Asm<'a> {
                 self.generate(b);
 
                 // 加算処理
-                self.generate_pop_stack("ecx");
-                self.generate_pop_stack("eax");
+                self.generate_pop_stack("rcx");
+                self.generate_pop_stack("rax");
                 self.inst = format!("{}{}", self.inst, self.gen_asm().plus());
-                self.generate_push_stack("eax");
+                self.generate_push_stack("rax");
             }
         }
     }
@@ -699,10 +699,10 @@ impl<'a> Asm<'a> {
                 self.generate(b);
 
                 // 加算処理
-                self.generate_pop_stack("ecx");
-                self.generate_pop_stack("eax");
+                self.generate_pop_stack("rcx");
+                self.generate_pop_stack("rax");
                 self.inst = format!("{}{}", self.inst, self.gen_asm().plus());
-                self.generate_push_stack("eax");
+                self.generate_push_stack("rax");
             }
         }
     }
@@ -711,7 +711,7 @@ impl<'a> Asm<'a> {
     fn generate_minus_with_pointer(&mut self, a: &AstType, b: &AstType) {
         self.generate(a);
         self.generate(b);
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rax");
         self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 8));
         self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
@@ -737,10 +737,10 @@ impl<'a> Asm<'a> {
                 self.generate(b);
 
                 // 減算処理
-                self.generate_pop_stack("ecx");
-                self.generate_pop_stack("eax");
+                self.generate_pop_stack("rcx");
+                self.generate_pop_stack("rax");
                 self.inst = format!("{}{}", self.inst, self.gen_asm().minus());
-                self.generate_push_stack("eax");
+                self.generate_push_stack("rax");
             }
         }
     }
@@ -751,14 +751,14 @@ impl<'a> Asm<'a> {
         self.generate(b);
 
         // 各演算子評価.
-        self.generate_pop_stack("ecx");
-        self.generate_pop_stack("eax");
+        self.generate_pop_stack("rcx");
+        self.generate_pop_stack("rax");
         self.inst = format!("{}{}", self.inst, self.operator(ast));
 
         // 演算子に応じて退避するレジスタを変更.
         match *ast {
-            AstType::Remainder(_, _) => self.generate_push_stack("edx"),
-            _ => self.generate_push_stack("eax"),
+            AstType::Remainder(_, _) => self.generate_push_stack("rdx"),
+            _ => self.generate_push_stack("rax"),
         }
     }
 
@@ -782,18 +782,18 @@ impl<'a> Asm<'a> {
     fn generate_indirect(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_src("rax", "ecx", 0));
-        self.generate_push_stack("ecx");
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movq_src("rax", "rcx", 0));
+        self.generate_push_stack("rcx");
     }
 
     // スタックポップ.
     fn generate_pop_stack(&mut self, reg: &str) {
-        self.inst = format!("{}{}", self.inst, self.gen_asm().pop_stack(reg));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop(reg));
     }
 
     // プッシュスタック
     fn generate_push_stack(&mut self, reg: &str) {
-        self.inst = format!("{}{}", self.inst, self.gen_asm().push_stack(reg));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push(reg));
     }
 
     // 演算子アセンブラ生成.
