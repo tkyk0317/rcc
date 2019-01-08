@@ -1,8 +1,6 @@
 pub mod x64;
 
 pub trait Generator {
-    fn pop_stack(&self, reg: &str) -> String;
-    fn push_stack(&self, reg: &str) -> String;
     fn push(&self, reg: &str) -> String;
     fn pop(&self, reg: &str) -> String;
     fn label(&self, no: usize) -> String;

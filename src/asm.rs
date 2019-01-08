@@ -191,7 +191,7 @@ impl<'a> Asm<'a> {
             "".to_string()
         };
 
-        let pos = self.var_table.count() * 8;
+        let pos = self.var_table.count() * 8 + 8;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!(
             "{}{}{}{}",
@@ -205,7 +205,7 @@ impl<'a> Asm<'a> {
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self) {
-        let pos = self.var_table.count() * 8;
+        let pos = self.var_table.count() * 8 + 8;
         let end = format!(
             "{}{}{}",
             self.gen_asm().add_imm(pos, "rsp"),
@@ -662,8 +662,8 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate(b);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 8));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rcx", 8));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().add("rax", "rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
@@ -712,8 +712,8 @@ impl<'a> Asm<'a> {
         self.generate(a);
         self.generate(b);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rdx", 8));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rcx", 8));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub("rax", "rcx"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
