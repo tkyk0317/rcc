@@ -30,9 +30,10 @@ fn compile(inst: &str) -> Result<String, Vec<String>> {
     let ast_tree = ast_gen.parse();
 
     // 意味解析
-    let vars = ast_gen.get_var_symbol_table();
-    let funcs = ast_gen.get_func_symbol_table();
-    Semantic::new(&ast_tree, &vars, &funcs).exec()?;
+    let mut sem = Semantic::new(&ast_tree);
+    sem.exec()?;
+    let vars = sem.get_var_symbol();
+    let funcs = sem.get_func_symbol();
 
     // アセンブラへ変換.
     let mut asm = Asm::new(&vars, &funcs);
@@ -275,7 +276,7 @@ mod test {
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
             TestData { inst: "int main() { int a, b; a = 10; b = 7; return a * b; }", ex_ret: 70, },
-            TestData { inst: "int main() { int a[10]; int *x = a; *(a + 2) = 100; return *(a + 2); }", ex_ret: 100, },
+            TestData { inst: "int main() { int a[10]; int *x = a; *(x + 2) = 100; return *(a + 2); }", ex_ret: 100, },
             TestData { inst: "int main() { int a[10]; a[1] = 121; return a[1] * 2; }", ex_ret: 242, },
             TestData { inst: "int main() { int a[10]; a[9] = 200; return a[9] - 100; }", ex_ret: 100, },
             TestData { inst: "int main() { int a[10]; a[0] = 11; return a[0] + 100; }", ex_ret: 111, },

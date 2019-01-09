@@ -5,8 +5,8 @@ use symbol::SymbolTable;
 #[doc = "意味解析部"]
 pub struct Semantic<'a> {
     ast: &'a AstTree,
-    vars: &'a SymbolTable,
-    funcs: &'a SymbolTable,
+    vars_table: SymbolTable,
+    funcs_table: SymbolTable,
 }
 
 // 解析結果返却マクロ
@@ -21,18 +21,102 @@ macro_rules! analyzed {
 }
 
 impl<'a> Semantic<'a> {
-    pub fn new(ast: &'a AstTree, vars: &'a SymbolTable, funcs: &'a SymbolTable) -> Self {
+    pub fn new(ast: &'a AstTree) -> Self {
         Semantic {
             ast: ast,
-            vars: vars,
-            funcs: funcs,
+            vars_table: SymbolTable::new(),
+            funcs_table: SymbolTable::new(),
         }
     }
 
+    // if用シンボルテーブル作成
+    fn make_sym_table_for_if(&mut self, a: &AstType, b: &Option<AstType>) {
+        self.make_sym_table(a);
+        match b {
+            Some(c) => self.make_sym_table(&c),
+            _ => {}
+        };
+    }
+
+    // シンボルテーブル作成
+    fn make_sym_table(&mut self, a: &AstType) {
+        // ASTタイプを解析し、シンボルテーブル作成
+        match *a {
+            AstType::Statement(ref stmt) => stmt.iter().for_each(|s| self.make_sym_table(s)),
+            AstType::FuncCall(_, ref a) => self.make_sym_table(a),
+            AstType::Argment(ref args) => args.iter().for_each(|a| self.make_sym_table(a)),
+            AstType::FuncDef(ref t, ref s, ref n, ref a, ref stmt) => {
+                if self.funcs_table.search(n).is_none() {
+                    self.funcs_table.push(n.to_string(), &t, &s);
+                }
+                self.make_sym_table(a);
+                self.make_sym_table(stmt);
+            }
+            AstType::Variable(ref t, ref s, ref n) => {
+                if self.vars_table.search(n).is_none() {
+                    self.vars_table.push(n.to_string(), t, s);
+                }
+            }
+            AstType::While(_, ref b) => self.make_sym_table(b),
+            AstType::Do(ref a, _) => self.make_sym_table(a),
+            AstType::If(_, ref a, ref b) => {
+                // optionがmatchで参照できないので、関数化
+                self.make_sym_table_for_if(a, b);
+            }
+            AstType::For(_, _, _, ref a) => self.make_sym_table(a),
+            AstType::Plus(ref a, ref b)
+            | AstType::Minus(ref a, ref b)
+            | AstType::Multiple(ref a, ref b)
+            | AstType::Division(ref a, ref b)
+            | AstType::Remainder(ref a, ref b)
+            | AstType::Equal(ref a, ref b)
+            | AstType::NotEqual(ref a, ref b)
+            | AstType::LessThan(ref a, ref b)
+            | AstType::GreaterThan(ref a, ref b)
+            | AstType::LessThanEqual(ref a, ref b)
+            | AstType::GreaterThanEqual(ref a, ref b)
+            | AstType::LeftShift(ref a, ref b)
+            | AstType::RightShift(ref a, ref b)
+            | AstType::BitAnd(ref a, ref b)
+            | AstType::BitOr(ref a, ref b)
+            | AstType::BitXor(ref a, ref b)
+            | AstType::Assign(ref a, ref b)
+            | AstType::LogicalAnd(ref a, ref b)
+            | AstType::LogicalOr(ref a, ref b) => {
+                self.make_sym_table(a);
+                self.make_sym_table(b);
+            }
+            AstType::Condition(ref a, ref b, ref c) => {
+                self.make_sym_table(a);
+                self.make_sym_table(b);
+                self.make_sym_table(c);
+            }
+            AstType::Return(ref a)
+            | AstType::UnPlus(ref a)
+            | AstType::UnMinus(ref a)
+            | AstType::Not(ref a)
+            | AstType::BitReverse(ref a)
+            | AstType::Address(ref a)
+            | AstType::Indirect(ref a) => self.make_sym_table(a),
+            _ => {}
+        }
+    }
+
+    // シンボルテーブル取得.
+    pub fn get_var_symbol(&self) -> &SymbolTable {
+        &self.vars_table
+    }
+
+    // 関数シンボルテーブル取得.
+    pub fn get_func_symbol(&self) -> &SymbolTable {
+        &self.funcs_table
+    }
+
     // 解析開始
-    pub fn exec(&self) -> Result<(), Vec<String>> {
+    pub fn exec(&mut self) -> Result<(), Vec<String>> {
         let tree = self.ast.get_tree();
         let errs = tree.iter().fold(Vec::<String>::new(), |mut init, t| {
+            self.make_sym_table(t);
             match self.analysis(&t) {
                 Err(ref mut r) => {
                     init.append(r);
@@ -47,7 +131,9 @@ impl<'a> Semantic<'a> {
     // 解析
     fn analysis(&self, ast: &AstType) -> Result<(), Vec<String>> {
         match ast {
-            AstType::FuncDef(ref t, ref n, ref a, ref s) => self.analysis_funcdef(t, n, a, s),
+            AstType::FuncDef(ref t, ref s, ref n, ref a, ref stmt) => {
+                self.analysis_funcdef(t, s, n, a, stmt)
+            }
             AstType::FuncCall(ref v, ref a) => self.analysis_funccall(v, a),
             AstType::Argment(ref args) => self.analysis_argment(args),
             AstType::Statement(ref stmt) => self.analysis_statement(stmt),
@@ -65,6 +151,7 @@ impl<'a> Semantic<'a> {
     fn analysis_funcdef(
         &self,
         t: &Type,
+        s: &Structure,
         name: &String,
         args: &AstType,
         stmt: &AstType,
@@ -73,9 +160,6 @@ impl<'a> Semantic<'a> {
         match t {
             Type::Unknown(n) => errs.push(format!("Cannot found Type: {:?}", n)),
             _ => {}
-        }
-        if self.funcs.search(name).is_none() {
-            errs.push(format!("Cannot found function name: {}", name));
         }
         if let Err(ref mut e) = self.analysis(args) {
             errs.append(e);
@@ -91,7 +175,7 @@ impl<'a> Semantic<'a> {
         let mut errs = vec![];
         match v {
             AstType::Variable(ref _t, ref _s, ref n) => {
-                if self.funcs.search(n).is_none() {
+                if self.funcs_table.search(n).is_none() {
                     errs.push(format!("Not define function name: {:?}", n));
                 }
             }
@@ -164,14 +248,11 @@ impl<'a> Semantic<'a> {
     }
 
     // 変数定義解析
-    fn analysis_variable(&self, t: &Type, _s: &Structure, n: &String) -> Result<(), Vec<String>> {
+    fn analysis_variable(&self, t: &Type, s: &Structure, n: &String) -> Result<(), Vec<String>> {
         let mut errs = vec![];
         match t {
             Type::Unknown(n) => errs.push(format!("Cannot found Type: {:?}", n)),
             _ => {}
-        }
-        if self.vars.search(n).is_none() {
-            errs.push(format!("Cannot found variable: {}", n));
         }
         analyzed!(errs)
     }
@@ -183,6 +264,7 @@ fn test_func_type() {
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
@@ -190,17 +272,14 @@ fn test_func_type() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_ok());
     }
     // 型がおかしい
     {
         let ast = vec![AstType::FuncDef(
             Type::Unknown("aaaa".to_string()),
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
@@ -208,76 +287,19 @@ fn test_func_type() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
-    }
-    // 関数が登録されていない
-    {
-        let ast = vec![AstType::FuncDef(
-            Type::Int,
-            "main".to_string(),
-            Box::new(AstType::Argment(vec![])),
-            Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
-            ))])),
-        )];
-        let tree = AstTree { tree: ast };
-        let funcs = SymbolTable::new();
-        let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
-        assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 1);
-    }
-    // 関数が定義されていないかつ、型がおかしい
-    {
-        let ast = vec![AstType::FuncDef(
-            Type::Unknown("aaaa".to_string()),
-            "main".to_string(),
-            Box::new(AstType::Argment(vec![])),
-            Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
-            ))])),
-        )];
-        let tree = AstTree { tree: ast };
-        let funcs = SymbolTable::new();
-        let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
-        assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 2);
     }
 }
 
 #[test]
 fn test_variable() {
-    // 変数が登録されていない
-    {
-        let ast = vec![AstType::FuncDef(
-            Type::Int,
-            "main".to_string(),
-            Box::new(AstType::Argment(vec![])),
-            Box::new(AstType::Statement(vec![AstType::Return(Box::new(
-                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
-            ))])),
-        )];
-        let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let vars = SymbolTable::new();
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
-        assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 1);
-    }
     // Typeがおかしい
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![AstType::Return(Box::new(
@@ -289,15 +311,7 @@ fn test_variable() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push(
-            "a".to_string(),
-            &Type::Unknown("aaaa".to_string()),
-            &Structure::Unknown,
-        );
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -309,6 +323,7 @@ fn test_arithmetic() {
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
@@ -332,23 +347,14 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
-        vars.push(
-            "a2".to_string(),
-            &Type::Unknown("aaaa".to_string()),
-            &Structure::Unknown,
-        );
-        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
@@ -372,23 +378,14 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
-        vars.push(
-            "a2".to_string(),
-            &Type::Unknown("aaaa".to_string()),
-            &Structure::Unknown,
-        );
-        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
@@ -412,23 +409,14 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
-        vars.push(
-            "a2".to_string(),
-            &Type::Unknown("aaaa".to_string()),
-            &Structure::Unknown,
-        );
-        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![])),
             Box::new(AstType::Statement(vec![
@@ -452,17 +440,7 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a1".to_string(), &Type::Int, &Structure::Identifier);
-        vars.push(
-            "a2".to_string(),
-            &Type::Unknown("aaaa".to_string()),
-            &Structure::Unknown,
-        );
-        vars.push("r".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -474,6 +452,7 @@ fn test_func_argment() {
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![AstType::Variable(
                 Type::Int,
@@ -485,17 +464,14 @@ fn test_func_argment() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_ok());
     }
     // 引数の型がおかしい
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![AstType::Variable(
                 Type::Unknown("a".to_string()),
@@ -507,17 +483,14 @@ fn test_func_argment() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push("a".to_string(), &Type::Int, &Structure::Identifier);
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
     {
         let ast = vec![AstType::FuncDef(
             Type::Int,
+            Structure::Identifier,
             "main".to_string(),
             Box::new(AstType::Argment(vec![
                 AstType::Variable(
@@ -536,20 +509,7 @@ fn test_func_argment() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let mut funcs = SymbolTable::new();
-        funcs.push("main".to_string(), &Type::Int, &Structure::Identifier);
-        let mut vars = SymbolTable::new();
-        vars.push(
-            "a".to_string(),
-            &Type::Unknown("a".to_string()),
-            &Structure::Unknown,
-        );
-        vars.push(
-            "b".to_string(),
-            &Type::Unknown("b".to_string()),
-            &Structure::Unknown,
-        );
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -564,9 +524,7 @@ fn test_func_call() {
             Box::new(AstType::Argment(vec![])),
         )];
         let tree = AstTree { tree: ast };
-        let funcs = SymbolTable::new();
-        let vars = SymbolTable::new();
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -580,9 +538,7 @@ fn test_func_call() {
             Box::new(AstType::Argment(vec![])),
         )];
         let tree = AstTree { tree: ast };
-        let funcs = SymbolTable::new();
-        let vars = SymbolTable::new();
-        let r = Semantic::new(&tree, &vars, &funcs).exec();
+        let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }

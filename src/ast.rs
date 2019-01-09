@@ -42,7 +42,7 @@ pub enum Structure {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstType {
-    FuncDef(Type, String, Box<AstType>, Box<AstType>),
+    FuncDef(Type, Structure, String, Box<AstType>, Box<AstType>),
     Statement(Vec<AstType>),
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
     Do(Box<AstType>, Box<AstType>),    // ブロック部、条件式.
@@ -112,6 +112,7 @@ pub struct AstGen<'a> {
     func_table: SymbolTable,    // 関数シンボルテーブル.
 }
 
+#[derive(Debug)]
 pub struct AstTree {
     pub tree: Vec<AstType>, // 抽象構文木.
 }
@@ -139,16 +140,6 @@ impl<'a> AstGen<'a> {
             var_table: SymbolTable::new(),
             func_table: SymbolTable::new(),
         }
-    }
-
-    // シンボルテーブル取得.
-    pub fn get_var_symbol_table(&self) -> &SymbolTable {
-        &self.var_table
-    }
-
-    // 関数シンボルテーブル取得.
-    pub fn get_func_symbol_table(&self) -> &SymbolTable {
-        &self.func_table
     }
 
     // トークン列を受け取り、抽象構文木を返す.
@@ -184,6 +175,7 @@ impl<'a> AstGen<'a> {
                 self.func_table.push(token.get_token_value(), &t, &s);
                 AstType::FuncDef(
                     t,
+                    s,
                     token.get_token_value(),
                     Box::new(self.func_args()),
                     Box::new(self.statement()),
@@ -956,6 +948,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -990,6 +983,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1029,6 +1023,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1071,6 +1066,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -1105,6 +1101,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -1144,6 +1141,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -1186,6 +1184,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -1220,6 +1219,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -1259,6 +1259,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -1301,6 +1302,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Division(
@@ -1335,6 +1337,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Division(
@@ -1374,6 +1377,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Division(
@@ -1418,6 +1422,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1455,6 +1460,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1492,6 +1498,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1529,6 +1536,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1567,6 +1575,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::GreaterThanEqual(
@@ -1611,6 +1620,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1646,6 +1656,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Plus(
@@ -1689,6 +1700,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Equal(
@@ -1730,6 +1742,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Equal(
@@ -1773,6 +1786,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Equal(
@@ -1823,6 +1837,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::NotEqual(
@@ -1873,6 +1888,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LessThan(
@@ -1919,6 +1935,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LessThanEqual(
@@ -1969,6 +1986,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::GreaterThan(
@@ -2015,6 +2033,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::GreaterThanEqual(
@@ -2060,6 +2079,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalAnd(
@@ -2095,6 +2115,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalAnd(
@@ -2144,6 +2165,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalAnd(
@@ -2194,6 +2216,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2229,6 +2252,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2278,6 +2302,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2335,6 +2360,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LogicalOr(
@@ -2380,6 +2406,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Condition(
@@ -2427,6 +2454,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Condition(
@@ -2472,6 +2500,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::UnPlus(Box::new(
@@ -2503,6 +2532,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -2537,6 +2567,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Minus(
@@ -2569,6 +2600,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Multiple(
@@ -2600,6 +2632,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Not(Box::new(
@@ -2633,6 +2666,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Not(Box::new(
@@ -2663,6 +2697,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitReverse(Box::new(
@@ -2697,6 +2732,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LeftShift(
@@ -2728,6 +2764,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::RightShift(
@@ -2761,6 +2798,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::RightShift(
@@ -2797,6 +2835,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::LessThan(
@@ -2836,6 +2875,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitAnd(
@@ -2867,6 +2907,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitOr(
@@ -2898,6 +2939,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitXor(
@@ -2931,6 +2973,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::BitOr(
@@ -2970,6 +3013,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3008,6 +3052,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3051,6 +3096,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3095,6 +3141,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3136,6 +3183,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3184,6 +3232,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "a".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![])),
@@ -3193,6 +3242,7 @@ mod tests {
                 result.get_tree()[1],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::FuncCall(
@@ -3240,6 +3290,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "a".to_string(),
                     Box::new(AstType::Argment(vec![AstType::Variable(
                         Type::Int,
@@ -3253,6 +3304,7 @@ mod tests {
                 result.get_tree()[1],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3315,6 +3367,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "test".to_string(),
                     Box::new(AstType::Argment(vec![
                         AstType::Variable(Type::Int, Structure::Identifier, "x".to_string()),
@@ -3327,6 +3380,7 @@ mod tests {
                 result.get_tree()[1],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3390,6 +3444,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "a".to_string(),
                     Box::new(AstType::Argment(vec![AstType::Variable(
                         Type::Int,
@@ -3403,6 +3458,7 @@ mod tests {
                 result.get_tree()[1],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3458,6 +3514,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3517,6 +3574,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3585,6 +3643,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3601,6 +3660,7 @@ mod tests {
                 result.get_tree()[1],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "test".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Assign(
@@ -3646,6 +3706,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![
                         AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
@@ -3690,6 +3751,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![
                         AstType::Variable(Type::Int, Structure::Pointer, "a".to_string()),
@@ -3746,6 +3808,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3828,6 +3891,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3902,6 +3966,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -3969,6 +4034,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4036,6 +4102,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4102,6 +4169,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::For(
@@ -4167,6 +4235,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::For(
@@ -4257,6 +4326,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
@@ -4327,6 +4397,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
@@ -4394,6 +4465,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Do(
@@ -4449,6 +4521,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![AstType::Return(Box::new(
@@ -4481,6 +4554,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4527,6 +4601,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4581,6 +4656,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4634,6 +4710,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4671,6 +4748,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4718,6 +4796,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4778,6 +4857,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4838,6 +4918,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4900,6 +4981,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -4956,6 +5038,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5017,6 +5100,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5062,6 +5146,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5110,6 +5195,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5153,6 +5239,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5203,6 +5290,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5242,6 +5330,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5282,6 +5371,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5331,6 +5421,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5385,6 +5476,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5445,6 +5537,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
@@ -5521,6 +5614,7 @@ mod tests {
                 result.get_tree()[0],
                 AstType::FuncDef(
                     Type::Int,
+                    Structure::Identifier,
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![

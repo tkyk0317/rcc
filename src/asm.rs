@@ -114,7 +114,9 @@ impl<'a> Asm<'a> {
     // アセンブラ生成.
     fn generate(&mut self, ast: &AstType) {
         match *ast {
-            AstType::FuncDef(ref t, ref a, ref b, ref c) => self.generate_funcdef(t, a, b, c),
+            AstType::FuncDef(ref t, ref s, ref a, ref b, ref c) => {
+                self.generate_funcdef(t, a, b, c)
+            }
             AstType::Statement(_) => self.generate_statement(ast),
             AstType::While(ref a, ref b) => self.generate_statement_while(a, b),
             AstType::Do(ref a, ref b) => self.generate_statement_do(a, b),
