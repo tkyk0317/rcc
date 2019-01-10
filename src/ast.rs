@@ -1,4 +1,4 @@
-use symbol::{Scope, SymbolTable};
+use std::collections::HashMap;
 use token::{Token, TokenInfo};
 
 // 文法.
@@ -109,8 +109,8 @@ impl AstType {
 pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize,         // 現在読み取り位置.
-    var_table: SymbolTable,     // ローカルシンボルテーブル.
-    func_table: SymbolTable,    // 関数シンボルテーブル.
+    vars_table: HashMap<String, (Type, Structure)>,
+    funcs_table: HashMap<String, (Type, Structure)>,
 }
 
 #[derive(Debug)]
@@ -138,8 +138,8 @@ impl<'a> AstGen<'a> {
         AstGen {
             current_pos: 0,
             tokens: tokens,
-            var_table: SymbolTable::new(Scope::Local),
-            func_table: SymbolTable::new(Scope::Global),
+            vars_table: HashMap::new(),
+            funcs_table: HashMap::new(),
         }
     }
 
@@ -197,7 +197,7 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Variable => {
                 // 既に同じシンボルが登録されていればエラー.
-                if self.func_table.search(&token.get_token_value()).is_some() {
+                if self.funcs_table.contains_key(&token.get_token_value()) {
                     panic!(
                         "{} {}: already define {}",
                         file!(),
@@ -207,7 +207,8 @@ impl<'a> AstGen<'a> {
                 }
 
                 // 関数シンボルを登録.
-                self.func_table.push(token.get_token_value(), &t, &s);
+                self.funcs_table
+                    .insert(token.get_token_value().clone(), (t.clone(), s.clone()));
                 AstType::FuncDef(
                     t,
                     s,
@@ -759,15 +760,23 @@ impl<'a> AstGen<'a> {
             Token::IntPointer => self.variable(Type::Int, Structure::Pointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
-            Token::Variable if self.var_table.search(&token.get_token_value()).is_some() => {
-                let sym = self.var_table.search(&token.get_token_value()).unwrap();
+            Token::Variable if self.vars_table.contains_key(&token.get_token_value()) => {
                 self.back(1);
-                self.variable(sym.t, sym.s)
+                let sym = self
+                    .vars_table
+                    .get(&token.get_token_value())
+                    .unwrap()
+                    .clone();
+                self.variable(sym.0, sym.1)
             }
-            Token::Variable if self.func_table.search(&token.get_token_value()).is_some() => {
+            Token::Variable if self.funcs_table.contains_key(&token.get_token_value()) => {
                 self.back(1);
-                let sym = self.func_table.search(&token.get_token_value()).unwrap();
-                let f_sym = self.variable_func(sym.t, sym.s);
+                let sym = self
+                    .funcs_table
+                    .get(&token.get_token_value())
+                    .unwrap()
+                    .clone();
+                let f_sym = self.variable_func(sym.0, sym.1);
                 self.call_func(f_sym)
             }
             Token::LeftParen => {
@@ -850,8 +859,9 @@ impl<'a> AstGen<'a> {
             }
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
-                if self.var_table.search(&token.get_token_value()).is_none() {
-                    self.var_table.push(token.get_token_value(), &t, &s);
+                if false == self.vars_table.contains_key(&token.get_token_value()) {
+                    self.vars_table
+                        .insert(token.get_token_value(), (t.clone(), s.clone()));
                 }
                 AstType::Variable(t, s, token.get_token_value())
             }
@@ -900,8 +910,9 @@ impl<'a> AstGen<'a> {
                 let s = Structure::Array(self.array_size(vec![]));
 
                 // シンボルテーブルへ保存（未登録の場合）.
-                if self.var_table.search(&token.get_token_value()).is_none() {
-                    self.var_table.push(token.get_token_value(), &t, &s);
+                if false == self.vars_table.contains_key(&token.get_token_value()) {
+                    self.vars_table
+                        .insert(token.get_token_value(), (t.clone(), s.clone()));
                 }
                 AstType::Variable(t, s, token.get_token_value())
             }
