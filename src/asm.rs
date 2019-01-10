@@ -171,8 +171,7 @@ impl<'a> Asm<'a> {
         a.iter().for_each(|d| match *d {
             AstType::Variable(_, _, ref a) => {
                 self.inst = format!("{}{}:\n", self.inst, a);
-                self.inst = format!("{}  .align 4\n", self.inst);
-                self.inst = format!("{}  .zero 4\n", self.inst);
+                self.inst = format!("{}  .zero 8\n", self.inst);
             }
             _ => panic!("not support ast type: {:?}", d),
         })
@@ -448,7 +447,7 @@ impl<'a> Asm<'a> {
             "{}{}{}",
             self.inst,
             self.gen_asm().pop("rcx"),
-            self.gen_asm().movl_dst("eax", "rcx", 0)
+            self.gen_asm().mov_dst("rax", "rcx", 0)
         );
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
@@ -721,7 +720,8 @@ impl<'a> Asm<'a> {
     fn generate_factor(&mut self, a: i64) {
         // 数値.
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm_dst(a, "rsp", 0));
+        self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movq_imm_dst("rsp", a, 0));
     }
 
     // ポインタ同士の加算

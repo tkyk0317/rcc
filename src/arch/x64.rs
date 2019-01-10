@@ -111,6 +111,9 @@ impl Generator for X64 {
     fn mov_imm(&self, dst: &str, n: i64) -> String {
         format!("  mov ${}, %{}\n", n, dst)
     }
+    fn movq_imm_dst(&self, dst: &str, n: i64, offset: i64) -> String {
+        format!("  movq ${}, {}(%{})\n", n, offset, dst)
+    }
     fn movz(&self, src: &str, dst: &str) -> String {
         format!("  movzbl %{}, %{}\n", src, dst)
     }
