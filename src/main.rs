@@ -5,7 +5,6 @@ mod config;
 mod lexer;
 mod map;
 mod semantic;
-mod string;
 mod symbol;
 mod token;
 

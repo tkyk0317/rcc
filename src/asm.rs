@@ -121,7 +121,7 @@ impl<'a> Asm<'a> {
     fn generate(&mut self, ast: &AstType) {
         match *ast {
             AstType::Global(ref a) => self.generate_global(a),
-            AstType::FuncDef(ref t, ref s, ref a, ref b, ref c) => {
+            AstType::FuncDef(ref t, ref _s, ref a, ref b, ref c) => {
                 self.generate_funcdef(t, a, b, c)
             }
             AstType::Statement(_) => self.generate_statement(ast),

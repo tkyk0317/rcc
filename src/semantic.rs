@@ -176,8 +176,8 @@ impl<'a> Semantic<'a> {
     fn analysis_funcdef(
         &self,
         t: &Type,
-        s: &Structure,
-        name: &String,
+        _s: &Structure,
+        _name: &String,
         args: &AstType,
         stmt: &AstType,
     ) -> Result<(), Vec<String>> {
@@ -273,7 +273,7 @@ impl<'a> Semantic<'a> {
     }
 
     // 変数定義解析
-    fn analysis_variable(&self, t: &Type, s: &Structure, n: &String) -> Result<(), Vec<String>> {
+    fn analysis_variable(&self, t: &Type, _s: &Structure, _n: &String) -> Result<(), Vec<String>> {
         let mut errs = vec![];
         match t {
             Type::Unknown(n) => errs.push(format!("Cannot found Type: {:?}", n)),

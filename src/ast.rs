@@ -109,8 +109,8 @@ impl AstType {
 pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize,         // 現在読み取り位置.
-    vars_table: HashMap<String, (Type, Structure)>,
-    funcs_table: HashMap<String, (Type, Structure)>,
+    v_sym: HashMap<String, (Type, Structure)>,
+    f_sym: HashMap<String, (Type, Structure)>,
 }
 
 #[derive(Debug)]
@@ -138,8 +138,8 @@ impl<'a> AstGen<'a> {
         AstGen {
             current_pos: 0,
             tokens: tokens,
-            vars_table: HashMap::new(),
-            funcs_table: HashMap::new(),
+            v_sym: HashMap::new(),
+            f_sym: HashMap::new(),
         }
     }
 
@@ -163,7 +163,7 @@ impl<'a> AstGen<'a> {
 
     // global variable
     fn global_var(&mut self, acc: Vec<AstType>) -> Vec<AstType> {
-        let (t, s) = self.generate_type();
+        let (_t, _s) = self.generate_type();
         let token = self.next_consume();
         let paren = self.next();
         match token.get_token_type() {
@@ -197,7 +197,7 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Variable => {
                 // 既に同じシンボルが登録されていればエラー.
-                if self.funcs_table.contains_key(&token.get_token_value()) {
+                if self.f_sym.contains_key(&token.get_token_value()) {
                     panic!(
                         "{} {}: already define {}",
                         file!(),
@@ -207,7 +207,7 @@ impl<'a> AstGen<'a> {
                 }
 
                 // 関数シンボルを登録.
-                self.funcs_table
+                self.f_sym
                     .insert(token.get_token_value().clone(), (t.clone(), s.clone()));
                 AstType::FuncDef(
                     t,
@@ -760,22 +760,14 @@ impl<'a> AstGen<'a> {
             Token::IntPointer => self.variable(Type::Int, Structure::Pointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
-            Token::Variable if self.vars_table.contains_key(&token.get_token_value()) => {
+            Token::Variable if self.v_sym.contains_key(&token.get_token_value()) => {
                 self.back(1);
-                let sym = self
-                    .vars_table
-                    .get(&token.get_token_value())
-                    .unwrap()
-                    .clone();
+                let sym = self.v_sym.get(&token.get_token_value()).unwrap().clone();
                 self.variable(sym.0, sym.1)
             }
-            Token::Variable if self.funcs_table.contains_key(&token.get_token_value()) => {
+            Token::Variable if self.f_sym.contains_key(&token.get_token_value()) => {
                 self.back(1);
-                let sym = self
-                    .funcs_table
-                    .get(&token.get_token_value())
-                    .unwrap()
-                    .clone();
+                let sym = self.f_sym.get(&token.get_token_value()).unwrap().clone();
                 let f_sym = self.variable_func(sym.0, sym.1);
                 self.call_func(f_sym)
             }
@@ -859,8 +851,8 @@ impl<'a> AstGen<'a> {
             }
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
-                if false == self.vars_table.contains_key(&token.get_token_value()) {
-                    self.vars_table
+                if false == self.v_sym.contains_key(&token.get_token_value()) {
+                    self.v_sym
                         .insert(token.get_token_value(), (t.clone(), s.clone()));
                 }
                 AstType::Variable(t, s, token.get_token_value())
@@ -910,8 +902,8 @@ impl<'a> AstGen<'a> {
                 let s = Structure::Array(self.array_size(vec![]));
 
                 // シンボルテーブルへ保存（未登録の場合）.
-                if false == self.vars_table.contains_key(&token.get_token_value()) {
-                    self.vars_table
+                if false == self.v_sym.contains_key(&token.get_token_value()) {
+                    self.v_sym
                         .insert(token.get_token_value(), (t.clone(), s.clone()));
                 }
                 AstType::Variable(t, s, token.get_token_value())
