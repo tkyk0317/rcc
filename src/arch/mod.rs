@@ -43,5 +43,7 @@ pub trait Generator {
     fn movl_imm_dst(&self, i: i64, dst: &str, n: i64) -> String;
     fn movl_src(&self, src: &str, dst: &str, n: i64) -> String;
     fn movq_src(&self, src: &str, dst: &str, n: i64) -> String;
+    fn mov_from_glb(&self, dst: &str, name: &str) -> String;
+    fn mov_to_glb(&self, src: &str, name: &str) -> String;
     fn call(&self, a: &str) -> String;
 }

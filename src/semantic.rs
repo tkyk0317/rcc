@@ -1,11 +1,12 @@
 use ast::{AstTree, AstType, Structure, Type};
 use std::result::Result;
-use symbol::SymbolTable;
+use symbol::{Scope, SymbolTable};
 
 #[doc = "意味解析部"]
 pub struct Semantic<'a> {
     ast: &'a AstTree,
     vars_table: SymbolTable,
+    global_table: SymbolTable,
     funcs_table: SymbolTable,
 }
 
@@ -24,46 +25,60 @@ impl<'a> Semantic<'a> {
     pub fn new(ast: &'a AstTree) -> Self {
         Semantic {
             ast: ast,
-            vars_table: SymbolTable::new(),
-            funcs_table: SymbolTable::new(),
+            vars_table: SymbolTable::new(Scope::Local),
+            global_table: SymbolTable::new(Scope::Global),
+            funcs_table: SymbolTable::new(Scope::Func),
+        }
+    }
+
+    // Global用シンボルテーブル作成
+    fn make_global_sym_table(&mut self, a: &AstType) {
+        match *a {
+            AstType::Global(ref stmt) => stmt.iter().for_each(|s| self.make_global_sym_table(s)),
+            AstType::Variable(ref t, ref s, ref n) => {
+                if self.global_table.search(n).is_none() {
+                    self.global_table.push(n.to_string(), t, s);
+                }
+            }
+            _ => {}
         }
     }
 
     // if用シンボルテーブル作成
-    fn make_sym_table_for_if(&mut self, a: &AstType, b: &Option<AstType>) {
-        self.make_sym_table(a);
+    fn make_local_sym_table_for_if(&mut self, a: &AstType, b: &Option<AstType>) {
+        self.make_local_sym_table(a);
         match b {
-            Some(c) => self.make_sym_table(&c),
+            Some(c) => self.make_local_sym_table(&c),
             _ => {}
         };
     }
 
     // シンボルテーブル作成
-    fn make_sym_table(&mut self, a: &AstType) {
+    fn make_local_sym_table(&mut self, a: &AstType) {
         // ASTタイプを解析し、シンボルテーブル作成
         match *a {
-            AstType::Statement(ref stmt) => stmt.iter().for_each(|s| self.make_sym_table(s)),
-            AstType::FuncCall(_, ref a) => self.make_sym_table(a),
-            AstType::Argment(ref args) => args.iter().for_each(|a| self.make_sym_table(a)),
+            AstType::Statement(ref stmt) => stmt.iter().for_each(|s| self.make_local_sym_table(s)),
+            AstType::FuncCall(_, ref a) => self.make_local_sym_table(a),
+            AstType::Argment(ref args) => args.iter().for_each(|a| self.make_local_sym_table(a)),
             AstType::FuncDef(ref t, ref s, ref n, ref a, ref stmt) => {
                 if self.funcs_table.search(n).is_none() {
                     self.funcs_table.push(n.to_string(), &t, &s);
                 }
-                self.make_sym_table(a);
-                self.make_sym_table(stmt);
+                self.make_local_sym_table(a);
+                self.make_local_sym_table(stmt);
             }
             AstType::Variable(ref t, ref s, ref n) => {
-                if self.vars_table.search(n).is_none() {
+                if self.vars_table.search(n).is_none() && self.global_table.search(n).is_none() {
                     self.vars_table.push(n.to_string(), t, s);
                 }
             }
-            AstType::While(_, ref b) => self.make_sym_table(b),
-            AstType::Do(ref a, _) => self.make_sym_table(a),
+            AstType::While(_, ref b) => self.make_local_sym_table(b),
+            AstType::Do(ref a, _) => self.make_local_sym_table(a),
             AstType::If(_, ref a, ref b) => {
                 // optionがmatchで参照できないので、関数化
-                self.make_sym_table_for_if(a, b);
+                self.make_local_sym_table_for_if(a, b);
             }
-            AstType::For(_, _, _, ref a) => self.make_sym_table(a),
+            AstType::For(_, _, _, ref a) => self.make_local_sym_table(a),
             AstType::Plus(ref a, ref b)
             | AstType::Minus(ref a, ref b)
             | AstType::Multiple(ref a, ref b)
@@ -83,13 +98,13 @@ impl<'a> Semantic<'a> {
             | AstType::Assign(ref a, ref b)
             | AstType::LogicalAnd(ref a, ref b)
             | AstType::LogicalOr(ref a, ref b) => {
-                self.make_sym_table(a);
-                self.make_sym_table(b);
+                self.make_local_sym_table(a);
+                self.make_local_sym_table(b);
             }
             AstType::Condition(ref a, ref b, ref c) => {
-                self.make_sym_table(a);
-                self.make_sym_table(b);
-                self.make_sym_table(c);
+                self.make_local_sym_table(a);
+                self.make_local_sym_table(b);
+                self.make_local_sym_table(c);
             }
             AstType::Return(ref a)
             | AstType::UnPlus(ref a)
@@ -97,9 +112,14 @@ impl<'a> Semantic<'a> {
             | AstType::Not(ref a)
             | AstType::BitReverse(ref a)
             | AstType::Address(ref a)
-            | AstType::Indirect(ref a) => self.make_sym_table(a),
+            | AstType::Indirect(ref a) => self.make_local_sym_table(a),
             _ => {}
         }
+    }
+
+    // グローバルシンボルテーブル取得.
+    pub fn get_global_symbol(&self) -> &SymbolTable {
+        &self.global_table
     }
 
     // シンボルテーブル取得.
@@ -116,7 +136,12 @@ impl<'a> Semantic<'a> {
     pub fn exec(&mut self) -> Result<(), Vec<String>> {
         let tree = self.ast.get_tree();
         let errs = tree.iter().fold(Vec::<String>::new(), |mut init, t| {
-            self.make_sym_table(t);
+            match t {
+                AstType::Global(_) => self.make_global_sym_table(t),
+                _ => {}
+            };
+
+            self.make_local_sym_table(t);
             match self.analysis(&t) {
                 Err(ref mut r) => {
                     init.append(r);

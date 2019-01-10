@@ -1,4 +1,4 @@
-use symbol::SymbolTable;
+use symbol::{Scope, SymbolTable};
 use token::{Token, TokenInfo};
 
 // 文法.
@@ -42,6 +42,7 @@ pub enum Structure {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstType {
+    Global(Vec<AstType>),
     FuncDef(Type, Structure, String, Box<AstType>, Box<AstType>),
     Statement(Vec<AstType>),
     While(Box<AstType>, Box<AstType>), // 条件式、ブロック部.
@@ -108,7 +109,7 @@ impl AstType {
 pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize,         // 現在読み取り位置.
-    var_table: SymbolTable,     // シンボルテーブル.
+    var_table: SymbolTable,     // ローカルシンボルテーブル.
     func_table: SymbolTable,    // 関数シンボルテーブル.
 }
 
@@ -137,19 +138,53 @@ impl<'a> AstGen<'a> {
         AstGen {
             current_pos: 0,
             tokens: tokens,
-            var_table: SymbolTable::new(),
-            func_table: SymbolTable::new(),
+            var_table: SymbolTable::new(Scope::Local),
+            func_table: SymbolTable::new(Scope::Global),
         }
     }
 
     // トークン列を受け取り、抽象構文木を返す.
     pub fn parse(&mut self) -> AstTree {
-        let mut s = vec![];
+        // グローバル変数
+        let g = self.global_var(vec![]);
+        let mut s = if g.is_empty() {
+            vec![]
+        } else {
+            vec![AstType::Global(g)]
+        };
+
+        // 関数定義
         while self.next().get_token_type() != Token::End {
             let expr = self.func_def();
             s.push(expr);
         }
         AstTree::new(s)
+    }
+
+    // global variable
+    fn global_var(&mut self, acc: Vec<AstType>) -> Vec<AstType> {
+        let (t, s) = self.generate_type();
+        let token = self.next_consume();
+        let paren = self.next();
+        match token.get_token_type() {
+            Token::Variable if Token::LeftParen != paren.get_token_type() => {
+                // グローバル変数
+                self.back(2);
+                let var = self.assign();
+                self.must_next(
+                    Token::SemiColon,
+                    "ast.rs(global_var): Not exists semi-colon",
+                );
+
+                let mut vars = acc.clone();
+                vars.push(var);
+                vars
+            }
+            _ => {
+                self.back(2);
+                acc
+            }
+        }
     }
 
     // func def.
@@ -5338,6 +5373,93 @@ mod tests {
                         AstType::Variable(Type::Int, Structure::Identifier, "b".to_string()),
                         AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::Global(vec![AstType::Variable(
+                    Type::Int,
+                    Structure::Identifier,
+                    "a".to_string()
+                ),]),
+            );
+            assert_eq!(
+                result.get_tree()[1],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                        AstType::Factor(1)
+                    ),)]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Assign, "=".to_string()),
+                create_token(Token::Number, "100".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::Global(vec![AstType::Assign(
+                    Box::new(AstType::Variable(
+                        Type::Int,
+                        Structure::Identifier,
+                        "a".to_string()
+                    )),
+                    Box::new(AstType::Factor(100)),
+                )])
+            );
+            assert_eq!(
+                result.get_tree()[1],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                        AstType::Factor(1)
+                    ),)]))
                 )
             );
         }

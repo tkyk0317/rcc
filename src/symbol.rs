@@ -2,14 +2,23 @@ use ast::{Structure, Type};
 #[doc = "シンボルテーブル"]
 use map::Map;
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Scope {
+    Global,
+    Local,
+    Func,
+}
+
 #[derive(Debug)]
 pub struct SymbolTable {
+    scope: Scope,
     count: usize,
     map: Map<Meta>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Meta {
+    pub scope: Scope,
     pub p: usize,
     pub t: Type,
     pub s: Structure,
@@ -17,8 +26,9 @@ pub struct Meta {
 
 impl SymbolTable {
     #[doc = "コンストラクタ"]
-    pub fn new() -> Self {
+    pub fn new(s: Scope) -> Self {
         SymbolTable {
+            scope: s,
             count: 0,
             map: Map::new(),
         }
@@ -29,6 +39,7 @@ impl SymbolTable {
         let res = self.map.add(
             k,
             Meta {
+                scope: self.scope.clone(),
                 p: self.count,
                 t: t.clone(),
                 s: s.clone(),
@@ -60,12 +71,13 @@ mod test {
     #[test]
     fn test() {
         {
-            let mut s = SymbolTable::new();
+            let mut s = SymbolTable::new(Scope::Local);
             s.push("key".to_string(), &Type::Int, &Structure::Identifier);
             assert_eq!(s.count(), 1);
             assert_eq!(
                 s.search(&"key".to_string()),
                 Some(Meta {
+                    scope: Scope::Local,
                     p: 0,
                     t: Type::Int,
                     s: Structure::Identifier
@@ -73,7 +85,7 @@ mod test {
             )
         }
         {
-            let mut s = SymbolTable::new();
+            let mut s = SymbolTable::new(Scope::Global);
             s.push("key".to_string(), &Type::Int, &Structure::Identifier);
             assert_eq!(s.count(), 1);
             assert_eq!(s.search(&"not_exist_key".to_string()), None)
