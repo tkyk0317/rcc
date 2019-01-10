@@ -277,7 +277,7 @@ mod test {
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
             TestData { inst: "int main() { int* i; int y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
             TestData { inst: "int main() { int a, b; a = 10; b = 7; return a * b; }", ex_ret: 70, },
-            //TestData { inst: "int main() { int a[10]; int *x = a; *(x + 2) = 100; return *(a + 2); }", ex_ret: 100, },
+            TestData { inst: "int main() { int a[10]; int *x = a; *(x + 2) = 100; return *(a + 2); }", ex_ret: 100, },
             TestData { inst: "int main() { int a[10]; a[1] = 121; return a[1] * 2; }", ex_ret: 242, },
             TestData { inst: "int main() { int a[10]; a[9] = 200; return a[9] - 100; }", ex_ret: 100, },
             TestData { inst: "int main() { int a[10]; a[0] = 11; return a[0] + 100; }", ex_ret: 111, },
@@ -298,6 +298,9 @@ mod test {
             TestData { inst: "int b; int main() { b = 10; return b + 2; }", ex_ret: 12 },
             TestData { inst: "int b; int main() { b = 10; return b * 2; }", ex_ret: 20 },
             TestData { inst: "int a; int main() { a = 10; int b = a; return b + 3; }", ex_ret: 13 },
+            TestData { inst: "int a[10]; int main() { a[0] = 10; return a[0]; }", ex_ret: 10 },
+            TestData { inst: "int a[10]; int main() { a[0] = 10; a[9] = 9; return a[0] + a[9]; }", ex_ret: 19 },
+            TestData { inst: "int* a; int main() { int b; b = 99; a = &b; return *a; }", ex_ret: 99 },
         ]
         .iter()
         .enumerate()

@@ -136,9 +136,15 @@ impl Generator for X64 {
     fn mov_from_glb(&self, dst: &str, name: &str) -> String {
         format!("  movl {}(%rip), %{}\n", name, dst)
     }
+    fn movq_from_glb(&self, dst: &str, name: &str) -> String {
+        format!("  movq {}(%rip), %{}\n", name, dst)
+    }
     // global変数の代入
     fn mov_to_glb(&self, src: &str, name: &str) -> String {
         format!("  movl %{}, {}(%rip)\n", src, name)
+    }
+    fn movq_to_glb(&self, src: &str, name: &str) -> String {
+        format!("  movq %{}, {}(%rip)\n", src, name)
     }
     fn call(&self, a: &str) -> String {
         format!("  call {}\n", a)

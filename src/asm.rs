@@ -477,13 +477,23 @@ impl<'a> Asm<'a> {
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
             Type::Int if *s == Structure::Pointer => {
-                self.inst = format!(
-                    "{}{}{}{}",
-                    self.inst,
-                    self.gen_asm().pop("rax"),
-                    self.gen_asm().mov_dst("rax", "rbp", -offset),
-                    self.gen_asm().push("rax")
-                );
+                if ret.scope == Scope::Global {
+                    self.inst = format!(
+                        "{}{}{}{}",
+                        self.inst,
+                        self.gen_asm().pop("rax"),
+                        self.gen_asm().movq_to_glb("rax", a),
+                        self.gen_asm().push("rax")
+                    );
+                } else {
+                    self.inst = format!(
+                        "{}{}{}{}",
+                        self.inst,
+                        self.gen_asm().pop("rax"),
+                        self.gen_asm().mov_dst("rax", "rbp", -offset),
+                        self.gen_asm().push("rax")
+                    );
+                }
             }
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
@@ -511,27 +521,38 @@ impl<'a> Asm<'a> {
             Type::Int => match s {
                 Structure::Identifier => {
                     match scope {
-                        Scope::Local => {
+                        Scope::Global => {
+                            self.inst =
+                                format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v));
+                        }
+                        _ => {
                             self.inst = format!(
                                 "{}{}",
                                 self.inst,
                                 self.gen_asm().movl_src("rbp", "eax", -offset)
                             );
                         }
-                        _ => {
-                            self.inst = format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v));
-                        }
                     };
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
-                Structure::Pointer => {
-                    self.inst = format!(
-                        "{}{}{}",
-                        self.inst,
-                        self.gen_asm().mov_src("rbp", "rax", -offset),
-                        self.gen_asm().push("rax")
-                    );
-                }
+                Structure::Pointer => match scope {
+                    Scope::Global => {
+                        self.inst = format!(
+                            "{}{}{}",
+                            self.inst,
+                            self.gen_asm().movq_from_glb("rax", v),
+                            self.gen_asm().push("rax")
+                        );
+                    }
+                    _ => {
+                        self.inst = format!(
+                            "{}{}{}",
+                            self.inst,
+                            self.gen_asm().mov_src("rbp", "rax", -offset),
+                            self.gen_asm().push("rax")
+                        );
+                    }
+                },
                 Structure::Array(size) => {
                     let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
                     self.inst = format!(
