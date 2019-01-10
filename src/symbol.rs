@@ -35,8 +35,8 @@ impl SymbolTable {
     }
 
     #[doc = "シンボル追加"]
-    pub fn push(&mut self, k: String, t: &Type, s: &Structure) -> bool {
-        let res = self.map.add(
+    pub fn push(&mut self, k: String, t: &Type, s: &Structure) {
+        self.map.add(
             k,
             Meta {
                 scope: self.scope.clone(),
@@ -50,11 +50,10 @@ impl SymbolTable {
             Structure::Array(s) => self.count += s.iter().fold(1, |acc, i| acc * i),
             _ => self.count += 1,
         };
-        res
     }
 
     #[doc = "シンボル検索"]
-    pub fn search(&self, k: &String) -> Option<Meta> {
+    pub fn search(&self, k: &String) -> Option<&Meta> {
         self.map.search(k)
     }
 
@@ -76,7 +75,7 @@ mod test {
             assert_eq!(s.count(), 1);
             assert_eq!(
                 s.search(&"key".to_string()),
-                Some(Meta {
+                Some(&Meta {
                     scope: Scope::Local,
                     p: 0,
                     t: Type::Int,

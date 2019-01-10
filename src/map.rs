@@ -1,49 +1,32 @@
 #[doc = "マップ構造"]
+use std::collections::HashMap;
+
 #[derive(Debug)]
 pub struct Map<T: Clone> {
     count: usize,
-    keys: Vec<String>,
-    values: Vec<T>,
+    map: HashMap<String, T>,
 }
-
-const MAX_COUNT: usize = 1024;
 
 impl<T: Clone> Map<T> {
     // コンストラクタ.
     pub fn new() -> Map<T> {
         Map {
             count: 0,
-            keys: Vec::<String>::with_capacity(MAX_COUNT),
-            values: Vec::<T>::with_capacity(MAX_COUNT),
+            map: HashMap::new(),
         }
     }
 
     // 要素追加.
-    pub fn add(&mut self, k: String, v: T) -> bool {
-        // 同じキーがある場合、上書き.
-        match self.search(&k) {
-            Some(_) => {
-                let i = self.keys.iter().position(|d| &k == d);
-                self.values[i.expect("map.rs(add): cannot read position")] = v;
-                true
-            }
-            None if self.count >= MAX_COUNT => false,
-            _ => {
-                self.keys.push(k.clone());
-                self.values.push(v.clone());
-                self.count += 1;
-                true
-            }
+    pub fn add(&mut self, k: String, v: T) {
+        if false == self.map.contains_key(&k) {
+            self.count += 1;
         }
+        self.map.insert(k, v);
     }
 
     // 検索.
-    pub fn search(&self, k: &String) -> Option<T> {
-        if let Some(i) = self.keys.iter().position(|d| k == d) {
-            Some(self.values[i].clone())
-        } else {
-            None
-        }
+    pub fn search(&self, k: &String) -> Option<&T> {
+        self.map.get(k).clone()
     }
 }
 
@@ -58,9 +41,8 @@ mod tests {
             let mut m = Map::<String>::new();
             let k = "key".to_string();
             let v = "value".to_string();
-            let ret = m.add(k, v);
+            m.add(k, v);
 
-            assert_eq!(ret, true);
             assert_eq!(m.count, 1)
         }
         {
@@ -68,10 +50,9 @@ mod tests {
             let mut m = Map::<String>::new();
             let k = "key".to_string();
             let v = "value".to_string();
-            let _ = m.add(k.clone(), v.clone());
-            let ret = m.add(k.clone(), v.clone());
+            m.add(k.clone(), v.clone());
+            m.add(k.clone(), v.clone());
 
-            assert_eq!(ret, true);
             assert_eq!(m.count, 1)
         }
         {
@@ -79,12 +60,11 @@ mod tests {
             let mut m = Map::<String>::new();
             let v = "value".to_string();
             for i in 0..1024 {
-                let _ = m.add(i.to_string(), v.clone());
+                m.add(i.to_string(), v.clone());
             }
-            let ret = m.add("t".to_string(), v.clone());
+            m.add("t".to_string(), v.clone());
 
-            assert_eq!(ret, false);
-            assert_eq!(m.count, 1024)
+            assert_eq!(m.count, 1025)
         }
     }
 }
