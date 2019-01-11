@@ -75,6 +75,9 @@ impl Generator for X64 {
     fn lea(&self, p: i64) -> String {
         format!("  leaq -{}(%rbp), %rax\n", p)
     }
+    fn lea_glb(&self, n: &str) -> String {
+        format!("  leaq {}(%rip), %rax\n", n)
+    }
     fn not(&self, reg: &str) -> String {
         format!("  notl %{}\n", reg)
     }

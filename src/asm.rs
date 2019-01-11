@@ -143,6 +143,8 @@ impl<'a> Asm<'a> {
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
             AstType::FuncCall(ref a, ref b) => self.generate_call_func(a, b),
+            AstType::PostInc(ref a) => self.generate_post_inc(a),
+            AstType::PostDec(ref a) => self.generate_post_dec(a),
             AstType::Plus(ref a, ref b) => self.generate_plus(a, b),
             AstType::Minus(ref a, ref b) => self.generate_minus(a, b),
             AstType::Multiple(ref a, ref b)
@@ -722,6 +724,52 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
         self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().movq_imm_dst("rsp", a, 0));
+    }
+
+    // 左辺値変数アドレス取得
+    fn generate_lvalue_address(&mut self, a: &AstType) {
+        let (sym, name) = match *a {
+            AstType::Variable(_, _, ref s) => {
+                let sym = self.var_table.search(s).unwrap_or_else(|| {
+                    self.global_table
+                        .search(s)
+                        .expect("asm.rs(generate_post_inc): error option value")
+                });
+                (sym, s)
+            }
+            _ => panic!(format!(
+                "asm.rs(generate_lvalue_address): Not Support AstType {:?}",
+                a
+            )),
+        };
+        // アドレスをraxレジスタへ転送
+        self.inst = match sym.scope {
+            Scope::Global => format!("{}{}", self.inst, self.gen_asm().lea_glb(name)),
+            _ => format!("{}{}", self.inst, self.gen_asm().lea(sym.p as i64 * 8 + 8)),
+        };
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+    }
+
+    // 後置インクリメント
+    fn generate_post_inc(&mut self, a: &AstType) {
+        self.generate_lvalue_address(a);
+
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+    }
+
+    // 後置デクリメント
+    fn generate_post_dec(&mut self, a: &AstType) {
+        self.generate_lvalue_address(a);
+
+        self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
     }
 
     // ポインタ同士の加算

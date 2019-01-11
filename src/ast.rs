@@ -87,6 +87,8 @@ pub enum AstType {
     Argment(Vec<AstType>),
     Address(Box<AstType>),
     Indirect(Box<AstType>),
+    PostInc(Box<AstType>),
+    PostDec(Box<AstType>),
 }
 
 impl AstType {
@@ -760,17 +762,7 @@ impl<'a> AstGen<'a> {
             Token::IntPointer => self.variable(Type::Int, Structure::Pointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
-            Token::Variable if self.v_sym.contains_key(&token.get_token_value()) => {
-                self.back(1);
-                let sym = self.v_sym.get(&token.get_token_value()).unwrap().clone();
-                self.variable(sym.0, sym.1)
-            }
-            Token::Variable if self.f_sym.contains_key(&token.get_token_value()) => {
-                self.back(1);
-                let sym = self.f_sym.get(&token.get_token_value()).unwrap().clone();
-                let f_sym = self.variable_func(sym.0, sym.1);
-                self.call_func(f_sym)
-            }
+            Token::Variable => self.factor_variable(&token),
             Token::LeftParen => {
                 let tree = self.assign();
                 self.must_next(Token::RightParen, "ast.rs(factor): Not exists RightParen");
@@ -780,7 +772,34 @@ impl<'a> AstGen<'a> {
         }
     }
 
-    // factor int
+    // variable型の作成
+    fn factor_variable(&mut self, token: &TokenInfo) -> AstType {
+        if self.v_sym.contains_key(&token.get_token_value()) {
+            self.back(1);
+            let sym = self.v_sym.get(&token.get_token_value()).unwrap().clone();
+            let var = self.variable(sym.0, sym.1);
+            match self.next().get_token_type() {
+                Token::Inc => {
+                    self.consume();
+                    AstType::PostInc(Box::new(var))
+                }
+                Token::Dec => {
+                    self.consume();
+                    AstType::PostDec(Box::new(var))
+                }
+                _ => var,
+            }
+        } else if self.f_sym.contains_key(&token.get_token_value()) {
+            self.back(1);
+            let sym = self.f_sym.get(&token.get_token_value()).unwrap().clone();
+            let f_sym = self.variable_func(sym.0, sym.1);
+            self.call_func(f_sym)
+        } else {
+            panic!("")
+        }
+    }
+
+    // int型要素の作成
     fn factor_int(&mut self) -> AstType {
         // 配列かどうか決定する為に、一文字読み飛ばし
         let _ = self.next_consume();
@@ -5815,6 +5834,94 @@ mod tests {
                             )),)),
                             Box::new(AstType::Factor(10)),
                         ),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_post_inc_dec() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Inc, "++".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::PostInc(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Dec, "--".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::PostDec(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),),
                         AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
                 )

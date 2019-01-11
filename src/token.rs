@@ -45,6 +45,8 @@ pub enum Token {
     Assign,           // 代入演算子.
     Int,              // int型.
     IntPointer,       // intポインタ
+    Inc,              // 後置インクリメント
+    Dec,              // 後置デクリメント
     End,              // 終了.
 }
 
