@@ -309,6 +309,10 @@ mod test {
             TestData { inst: "int i; int main() { i = 2; i-- return i; }", ex_ret: 1 },
             TestData { inst: "int i; int main() { i = 2; return i++; }", ex_ret: 2 },
             TestData { inst: "int i; int main() { i = 2; return i-- }", ex_ret: 2 },
+            TestData { inst: "int main() { int a[10]; int *b = a; b++; *b = 100; return a[1]; }", ex_ret: 100 },
+            TestData { inst: "int main() { int a[10]; int *b = a; b++; *b = 99; return *b; }", ex_ret: 99 },
+            TestData { inst: "int main() { int a[10]; int *b = a; b++; b++; b--; *b = 99; return a[1]; }", ex_ret: 99 },
+            TestData { inst: "int main() { int a[10]; int *b = a; b++; b++; b--; *b = 99; return *b; }", ex_ret: 99 },
         ]
         .iter()
         .enumerate()
