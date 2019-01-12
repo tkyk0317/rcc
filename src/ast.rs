@@ -1,31 +1,6 @@
 use std::collections::HashMap;
 use token::{Token, TokenInfo};
 
-// 文法.
-//   <FuncDef> ::= VARIABLE '()' <FuncBody>
-//   <FuncBody> ::= '{' <Statement> '}'
-//   <Statement> ::= <Assign>* ';'
-//   <Assign> ::= VARIABLE '=' <Condition>
-//   <FuncCall> ::= VARIABLE '(' <Argment> ')'
-//   <Argment> ::= [ '' |  <Expression> ',']
-//   <Condition> ::= <Logical> <SubCondition>
-//   <SubCondition> ::= '?' <Logical> ':' <Logical> <SubCondition>
-//   <Logical> ::= <Relation> <SubLogical>
-//   <SubLogical> ::= ['&&' | '||'] <BitOp> <SubLogical>
-//   <BitOp> ::=  <Relation> <SubBitOp>
-//   <SubBitOp> ::= ['&'|'|'|'^'] <Relation> <SubBitOp>
-//   <Relation> ::= <Shift> <SubRelation>
-//   <SubRelation> ::= <Op> <Shift> <SubRelation>
-//   <Op> ::= ['==' | '!=' | '<' | '>' | '>=' | '<=']
-//   <Shift> ::= <Expr> <SubShift>
-//   <SubShift> ::= ['<<'|'>>'] <Expr> <SubShift>
-//   <Expr> ::= <Term> <AddSubExpr>
-//   <AddSubExpr> ::= ['+'|'-'] <Term> <AddSubExpr>
-//   <Term> ::= <Factor> <SubTerm>
-//   <MultiDivTerm> ::= ['*'|'/'|'%'] <Factor> <MultiDivTerm>
-//   <Factor> ::= '(' NUMBER ')' | <UnAry> | <Expression> | <FuncCall>
-//   <UnAry> ::= ['!'|'+'|'-'|'~'] NUMBER
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Int,
@@ -87,6 +62,8 @@ pub enum AstType {
     Argment(Vec<AstType>),
     Address(Box<AstType>),
     Indirect(Box<AstType>),
+    PreInc(Box<AstType>),
+    PreDec(Box<AstType>),
     PostInc(Box<AstType>),
     PostDec(Box<AstType>),
 }
@@ -753,6 +730,8 @@ impl<'a> AstGen<'a> {
     fn factor(&mut self) -> AstType {
         let token = self.next_consume();
         match token.get_token_type() {
+            Token::Inc => AstType::PreInc(Box::new(self.factor())),
+            Token::Dec => AstType::PreDec(Box::new(self.factor())),
             Token::Number => self.number(token),
             Token::Plus => AstType::UnPlus(Box::new(self.factor())),
             Token::Minus => AstType::UnMinus(Box::new(self.factor())),
@@ -5918,6 +5897,94 @@ mod tests {
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
                         AstType::PostDec(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_pre_inc_dec() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Inc, "++".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::PreInc(Box::new(AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        )),),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Dec, "--".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::PreDec(Box::new(AstType::Variable(
                             Type::Int,
                             Structure::Identifier,
                             "a".to_string()

@@ -143,6 +143,8 @@ impl<'a> Asm<'a> {
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
             AstType::FuncCall(ref a, ref b) => self.generate_call_func(a, b),
+            AstType::PreInc(ref a) => self.generate_pre_inc(a),
+            AstType::PreDec(ref a) => self.generate_pre_dec(a),
             AstType::PostInc(ref a) => self.generate_post_inc(a),
             AstType::PostDec(ref a) => self.generate_post_dec(a),
             AstType::Plus(ref a, ref b) => self.generate_plus(a, b),
@@ -731,7 +733,7 @@ impl<'a> Asm<'a> {
         self.var_table.search(k).unwrap_or_else(|| {
             self.global_table
                 .search(k)
-                .expect("asm.rs(generate_post_inc): error option value")
+                .expect("asm.rs(generate_var_symbol): error option value")
         })
     }
 
@@ -816,6 +818,74 @@ impl<'a> Asm<'a> {
             },
             _ => panic!(format!(
                 "asm.rs(generate_post_dec): Not Support AstType {:?}",
+                a
+            )),
+        }
+    }
+
+    // 前置インクリメント
+    fn generate_pre_inc(&mut self, a: &AstType) {
+        self.generate_lvalue_address(a);
+
+        match *a {
+            AstType::Variable(_, ref s, _) => match s {
+                Structure::Identifier => {
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                    self.inst =
+                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "eax"));
+                    self.inst =
+                        format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+                }
+                Structure::Pointer => {
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                    self.inst = format!("{}  movq (%rcx), %rax\n", self.inst);
+                    self.inst = format!("{}  addq ${}, %rax\n", self.inst, 8);
+                    self.inst = format!("{}  movq %rax, (%rcx)\n", self.inst);
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+                }
+                _ => panic!(format!(
+                    "asm.rs(generate_pre_inc): Not Support Structure {:?}",
+                    s
+                )),
+            },
+            _ => panic!(format!(
+                "asm.rs(generate_pre_inc): Not Support AstType {:?}",
+                a
+            )),
+        }
+    }
+
+    // 前置デクリメント
+    fn generate_pre_dec(&mut self, a: &AstType) {
+        self.generate_lvalue_address(a);
+
+        match *a {
+            AstType::Variable(_, ref s, _) => match s {
+                Structure::Identifier => {
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                    self.inst =
+                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "eax"));
+                    self.inst =
+                        format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+                }
+                Structure::Pointer => {
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                    self.inst = format!("{}  movq (%rcx), %rax\n", self.inst);
+                    self.inst = format!("{}  subq ${}, %rax\n", self.inst, 8);
+                    self.inst = format!("{}  movq %rax, (%rcx)\n", self.inst);
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+                }
+                _ => panic!(format!(
+                    "asm.rs(generate_pre_dec): Not Support Structure {:?}",
+                    s
+                )),
+            },
+            _ => panic!(format!(
+                "asm.rs(generate_pre_dec): Not Support AstType {:?}",
                 a
             )),
         }
