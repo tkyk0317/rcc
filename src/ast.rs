@@ -142,13 +142,16 @@ impl<'a> AstGen<'a> {
 
     // global variable
     fn global_var(&mut self, acc: Vec<AstType>) -> Vec<AstType> {
+        // タイプを判断する為、先読み
         let (_t, _s) = self.generate_type();
         let token = self.next_consume();
         let paren = self.next();
+
+        // 先読み分を戻る
+        self.back(2);
         match token.get_token_type() {
             Token::Variable if Token::LeftParen != paren.get_token_type() => {
                 // グローバル変数
-                self.back(2);
                 let var = self.assign();
                 self.must_next(
                     Token::SemiColon,
@@ -159,10 +162,7 @@ impl<'a> AstGen<'a> {
                 vars.push(var);
                 vars
             }
-            _ => {
-                self.back(2);
-                acc
-            }
+            _ => acc,
         }
     }
 
@@ -477,21 +477,18 @@ impl<'a> AstGen<'a> {
     fn assign(&mut self) -> AstType {
         let token = self.next_consume();
         let next_token = self.next();
+
+        // Variableトークンへ位置を戻す
+        self.back(1);
         match token.get_token_type() {
             Token::Variable if Token::Assign == next_token.get_token_type() => {
-                // Variableトークンへ位置を戻す
-                self.back(1);
                 let var = self.factor();
 
                 // Assignトークン消費
                 self.consume();
                 AstType::Assign(Box::new(var), Box::new(self.condition()))
             }
-            _ => {
-                // Variableトークンへ位置を戻す
-                self.back(1);
-                self.condition()
-            }
+            _ => self.condition(),
         }
     }
 
@@ -732,16 +729,20 @@ impl<'a> AstGen<'a> {
         match token.get_token_type() {
             Token::Inc => AstType::PreInc(Box::new(self.factor())),
             Token::Dec => AstType::PreDec(Box::new(self.factor())),
-            Token::Number => self.number(token),
             Token::Plus => AstType::UnPlus(Box::new(self.factor())),
             Token::Minus => AstType::UnMinus(Box::new(self.factor())),
             Token::Not => AstType::Not(Box::new(self.factor())),
             Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
-            Token::Int => self.factor_int(),
             Token::IntPointer => self.variable(Type::Int, Structure::Pointer),
             Token::And => AstType::Address(Box::new(self.factor())),
             Token::Multi => AstType::Indirect(Box::new(self.factor())),
-            Token::Variable => self.factor_variable(&token),
+            Token::Number => self.number(token),
+            Token::Int => self.factor_int(),
+            Token::Variable => {
+                // variable位置へ
+                self.back(1);
+                self.factor_variable(&token)
+            }
             Token::LeftParen => {
                 let tree = self.assign();
                 self.must_next(Token::RightParen, "ast.rs(factor): Not exists RightParen");
@@ -754,7 +755,6 @@ impl<'a> AstGen<'a> {
     // variable型の作成
     fn factor_variable(&mut self, token: &TokenInfo) -> AstType {
         if self.v_sym.contains_key(&token.get_token_value()) {
-            self.back(1);
             let sym = self.v_sym.get(&token.get_token_value()).unwrap().clone();
             let var = self.variable(sym.0, sym.1);
             match self.next().get_token_type() {
@@ -769,7 +769,6 @@ impl<'a> AstGen<'a> {
                 _ => var,
             }
         } else if self.f_sym.contains_key(&token.get_token_value()) {
-            self.back(1);
             let sym = self.f_sym.get(&token.get_token_value()).unwrap().clone();
             let f_sym = self.variable_func(sym.0, sym.1);
             self.call_func(f_sym)
@@ -780,17 +779,13 @@ impl<'a> AstGen<'a> {
 
     // int型要素の作成
     fn factor_int(&mut self) -> AstType {
-        // 配列かどうか決定する為に、一文字読み飛ばし
+        // 配列かどうか決定する為に、一文字読み飛ばして、後で戻る
         let _ = self.next_consume();
-        match self.next().get_token_type() {
-            Token::LeftBracket => {
-                self.back(1);
-                self.variable_array(Type::Int)
-            }
-            _ => {
-                self.back(1);
-                self.variable(Type::Int, Structure::Identifier)
-            }
+        let token = self.next();
+        self.back(1);
+        match token.get_token_type() {
+            Token::LeftBracket => self.variable_array(Type::Int),
+            _ => self.variable(Type::Int, Structure::Identifier),
         }
     }
 
