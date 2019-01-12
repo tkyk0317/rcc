@@ -458,45 +458,41 @@ impl<'a> Asm<'a> {
 
     // assign variable
     fn generate_assign_variable(&mut self, a: &String, t: &Type, s: &Structure, b: &AstType) {
-        let ret = self.var_table.search(a).unwrap_or_else(|| {
-            self.global_table
-                .search(a)
-                .expect("asm.rs(generate_assign_variable): error option value")
-        });
-        let offset = ret.p as i64 * 8 + 8;
+        let sym = self.get_var_symbol(a);
+        let offset = sym.p as i64 * 8 + 8;
         self.generate(b);
         match *t {
             Type::Int if *s == Structure::Identifier => {
                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-                if ret.scope == Scope::Global {
-                    self.inst = format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", a));
-                } else {
-                    self.inst = format!(
+                self.inst = match sym.scope {
+                    Scope::Global => {
+                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", a))
+                    }
+                    _ => format!(
                         "{}{}",
                         self.inst,
                         self.gen_asm().movl_dst("eax", "rbp", -offset)
-                    );
-                }
+                    ),
+                };
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
             Type::Int if *s == Structure::Pointer => {
-                if ret.scope == Scope::Global {
-                    self.inst = format!(
+                self.inst = match sym.scope {
+                    Scope::Global => format!(
                         "{}{}{}{}",
                         self.inst,
                         self.gen_asm().pop("rax"),
                         self.gen_asm().movq_to_glb("rax", a),
                         self.gen_asm().push("rax")
-                    );
-                } else {
-                    self.inst = format!(
+                    ),
+                    _ => format!(
                         "{}{}{}{}",
                         self.inst,
                         self.gen_asm().pop("rax"),
                         self.gen_asm().mov_dst("rax", "rbp", -offset),
                         self.gen_asm().push("rax")
-                    );
-                }
+                    ),
+                };
             }
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
@@ -512,50 +508,44 @@ impl<'a> Asm<'a> {
     }
 
     // typeごとのVariable生成
-    fn generate_variable_with_type(
-        &mut self,
-        t: &Type,
-        s: &Structure,
-        v: &String,
-        scope: &Scope,
-        offset: i64,
-    ) {
+    fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, v: &String, sym: &Meta) {
         match *t {
             Type::Int => match s {
                 Structure::Identifier => {
-                    match scope {
+                    self.inst = match sym.scope {
                         Scope::Global => {
-                            self.inst =
-                                format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v));
+                            format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v))
                         }
                         _ => {
-                            self.inst = format!(
+                            let offset = sym.p as i64 * 8 + 8;
+                            format!(
                                 "{}{}",
                                 self.inst,
                                 self.gen_asm().movl_src("rbp", "eax", -offset)
-                            );
+                            )
                         }
                     };
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
-                Structure::Pointer => match scope {
-                    Scope::Global => {
-                        self.inst = format!(
+                Structure::Pointer => {
+                    self.inst = match sym.scope {
+                        Scope::Global => format!(
                             "{}{}{}",
                             self.inst,
                             self.gen_asm().movq_from_glb("rax", v),
                             self.gen_asm().push("rax")
-                        );
+                        ),
+                        _ => {
+                            let offset = sym.p as i64 * 8 + 8;
+                            format!(
+                                "{}{}{}",
+                                self.inst,
+                                self.gen_asm().mov_src("rbp", "rax", -offset),
+                                self.gen_asm().push("rax")
+                            )
+                        }
                     }
-                    _ => {
-                        self.inst = format!(
-                            "{}{}{}",
-                            self.inst,
-                            self.gen_asm().mov_src("rbp", "rax", -offset),
-                            self.gen_asm().push("rax")
-                        );
-                    }
-                },
+                }
                 Structure::Array(size) => {
                     let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
                     self.inst = format!(
@@ -573,13 +563,8 @@ impl<'a> Asm<'a> {
 
     // variable生成.
     fn generate_variable(&mut self, t: &Type, s: &Structure, v: &String) {
-        let ret = self.var_table.search(v).unwrap_or_else(|| {
-            self.global_table
-                .search(v)
-                .expect("asm.rs(generate_variable): error option value")
-        });
-        let offset = ret.p as i64 * 8 + 8;
-        self.generate_variable_with_type(t, s, v, &ret.scope, offset);
+        let sym = self.get_var_symbol(v);
+        self.generate_variable_with_type(t, s, v, &sym);
     }
 
     // 関数コール生成.
@@ -729,18 +714,21 @@ impl<'a> Asm<'a> {
     }
 
     // シンボル情報取得
-    fn get_var_symbol(&self, k: &String) -> &Meta {
-        self.var_table.search(k).unwrap_or_else(|| {
-            self.global_table
-                .search(k)
-                .expect("asm.rs(generate_var_symbol): error option value")
-        })
+    fn get_var_symbol(&self, k: &String) -> Meta {
+        self.var_table
+            .search(k)
+            .unwrap_or_else(|| {
+                self.global_table
+                    .search(k)
+                    .expect("asm.rs(generate_var_symbol): error option value")
+            })
+            .clone()
     }
 
     // 左辺値変数アドレス取得
     fn generate_lvalue_address(&mut self, a: &AstType) {
         let (sym, name) = match *a {
-            AstType::Variable(_, _, ref s) => (self.get_var_symbol(s).clone(), s),
+            AstType::Variable(_, _, ref s) => (self.get_var_symbol(s), s),
             _ => panic!(format!(
                 "asm.rs(generate_lvalue_address): Not Support AstType {:?}",
                 a
@@ -1012,11 +1000,8 @@ impl<'a> Asm<'a> {
     fn generate_address(&mut self, a: &AstType) {
         match *a {
             AstType::Variable(ref _t, ref _s, ref a) => {
-                let ret = self
-                    .var_table
-                    .search(a)
-                    .expect("asm.rs(generate_address): error option value");
-                let pos = ret.p as i64 * 8 + 8;
+                let sym = self.get_var_symbol(a);
+                let pos = sym.p as i64 * 8 + 8;
                 self.inst = format!("{}{}", self.inst, self.gen_asm().lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
