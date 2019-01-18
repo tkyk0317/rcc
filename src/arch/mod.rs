@@ -51,4 +51,5 @@ pub trait Generator {
     fn mov_to_glb(&self, src: &str, name: &str) -> String;
     fn movq_to_glb(&self, src: &str, name: &str) -> String;
     fn call(&self, a: &str) -> String;
+    fn leave(&self) -> String;
 }

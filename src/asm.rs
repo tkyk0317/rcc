@@ -230,14 +230,12 @@ impl<'a> Asm<'a> {
 
     // 関数終了部分アセンブラ生成
     fn generate_func_end(&mut self) {
-        let pos = self.var_table.count() * 8 + 8;
-        let end = format!(
+        self.inst = format!(
             "{}{}{}",
-            self.gen_asm().add_imm(pos, "rsp"),
-            self.gen_asm().pop("rbp"),
+            self.inst,
+            self.gen_asm().leave(),
             self.gen_asm().ret()
         );
-        self.inst = format!("{}{}", self.inst, end);
     }
 
     // 関数引数生成.
