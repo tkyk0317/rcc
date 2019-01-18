@@ -349,9 +349,27 @@ impl<'a> LexicalAnalysis<'a> {
                 t.pos.col = col;
                 Some(t)
             }
+        } else if self.is_type_char(c) {
+            let col = self.col;
+            self.skip(3);
+
+            // 位置が先頭を指し示すように修正
+            let mut t = self.create_token(Token::Char, "char".to_string());
+            t.pos.col = col;
+            Some(t)
         } else {
             None
         }
+    }
+
+    // char型
+    fn is_type_char(&mut self, c: char) -> bool {
+        let s = self.read_string(4);
+        let l = s.chars().last();
+        c == 'c'
+            && s.len() == 4
+            && &s[0..3] == "har"
+            && false == self.is_variable(l.expect("lexer.rs(is_type_char): read error"))
     }
 
     // int型チェック
@@ -1869,6 +1887,56 @@ mod tests {
             );
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 11)),
+                lexer.get_tokens()[5]
+            );
+        }
+        {
+            let input = "char ifi = 0;".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Char,
+                    "char".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Variable,
+                    "ifi".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Assign,
+                    "=".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Number,
+                    "0".to_string(),
+                    ("test.c".to_string(), 1, 12)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 13)
+                ),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 13)),
                 lexer.get_tokens()[5]
             );
         }

@@ -321,7 +321,9 @@ mod test {
             TestData { inst: "int main() { int a[10]; int *b = a; ++b; *b = 99; return *b; }", ex_ret: 99 },
             TestData { inst: "int main() { int a[10]; int *b = a; ++b; ++b; --b; *b = 99; return a[1]; }", ex_ret: 99 },
             TestData { inst: "int main() { int a[10]; int *b = a; ++b; ++b; --b; *b = 99; return *b; }", ex_ret: 99 },
-
+            TestData { inst: "int main() { char i; i = 2; return i }", ex_ret: 2 },
+            TestData { inst: "int main() { char i[2]; i[0] = 0; i[1] = 19; return i[0] + i[1]; }", ex_ret: 19 },
+            TestData { inst: "char i; int main() { i = 20; return i }", ex_ret: 20 },
         ]
         .iter()
         .enumerate()

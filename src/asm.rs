@@ -457,7 +457,6 @@ impl<'a> Asm<'a> {
     // assign variable
     fn generate_assign_variable(&mut self, a: &String, t: &Type, s: &Structure, b: &AstType) {
         let sym = self.get_var_symbol(a);
-        let offset = sym.p as i64 * 8 + 8;
         self.generate(b);
         match *t {
             Type::Int if *s == Structure::Identifier => {
@@ -466,11 +465,31 @@ impl<'a> Asm<'a> {
                     Scope::Global => {
                         format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", a))
                     }
-                    _ => format!(
-                        "{}{}",
-                        self.inst,
-                        self.gen_asm().movl_dst("eax", "rbp", -offset)
-                    ),
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}",
+                            self.inst,
+                            self.gen_asm().movl_dst("eax", "rbp", -offset)
+                        )
+                    }
+                };
+                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+            }
+            Type::Char if *s == Structure::Identifier => {
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+                self.inst = match sym.scope {
+                    Scope::Global => {
+                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", a))
+                    }
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}",
+                            self.inst,
+                            self.gen_asm().movl_dst("eax", "rbp", -offset)
+                        )
+                    }
                 };
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
@@ -483,13 +502,16 @@ impl<'a> Asm<'a> {
                         self.gen_asm().movq_to_glb("rax", a),
                         self.gen_asm().push("rax")
                     ),
-                    _ => format!(
-                        "{}{}{}{}",
-                        self.inst,
-                        self.gen_asm().pop("rax"),
-                        self.gen_asm().mov_dst("rax", "rbp", -offset),
-                        self.gen_asm().push("rax")
-                    ),
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}{}{}",
+                            self.inst,
+                            self.gen_asm().pop("rax"),
+                            self.gen_asm().mov_dst("rax", "rbp", -offset),
+                            self.gen_asm().push("rax")
+                        )
+                    }
                 };
             }
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
@@ -508,7 +530,7 @@ impl<'a> Asm<'a> {
     // typeごとのVariable生成
     fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, v: &String, sym: &Meta) {
         match *t {
-            Type::Int => match s {
+            Type::Int | Type::Char => match s {
                 Structure::Identifier => {
                     self.inst = match sym.scope {
                         Scope::Global => {
@@ -951,7 +973,7 @@ impl<'a> Asm<'a> {
     fn generate_minus(&mut self, a: &AstType, b: &AstType) {
         match (a, b) {
             (AstType::Variable(ref _t1, ref s1, _), AstType::Variable(ref t2, _, _))
-                if *s1 == Structure::Pointer && *t2 == Type::Int =>
+                if *s1 == Structure::Pointer && (*t2 == Type::Int || *t2 == Type::Char) =>
             {
                 self.generate_minus_with_pointer(a, b)
             }
