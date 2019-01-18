@@ -454,16 +454,14 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
-    // assign variable
-    fn generate_assign_variable(&mut self, a: &String, t: &Type, s: &Structure, b: &AstType) {
-        let sym = self.get_var_symbol(a);
-        self.generate(b);
-        match *t {
-            Type::Int if *s == Structure::Identifier => {
+    // assign variable with int
+    fn generate_assign_variable_with_int(&mut self, strt: &Structure, name: &String, sym: Meta) {
+        match *strt {
+            Structure::Identifier => {
                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
                 self.inst = match sym.scope {
                     Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", a))
+                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", name))
                     }
                     _ => {
                         let offset = sym.p as i64 * 8 + 8;
@@ -476,30 +474,13 @@ impl<'a> Asm<'a> {
                 };
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
-            Type::Char if *s == Structure::Identifier => {
-                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-                self.inst = match sym.scope {
-                    Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", a))
-                    }
-                    _ => {
-                        let offset = sym.p as i64 * 8 + 8;
-                        format!(
-                            "{}{}",
-                            self.inst,
-                            self.gen_asm().movl_dst("eax", "rbp", -offset)
-                        )
-                    }
-                };
-                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-            }
-            Type::Int if *s == Structure::Pointer => {
+            Structure::Pointer => {
                 self.inst = match sym.scope {
                     Scope::Global => format!(
                         "{}{}{}{}",
                         self.inst,
                         self.gen_asm().pop("rax"),
-                        self.gen_asm().movq_to_glb("rax", a),
+                        self.gen_asm().movq_to_glb("rax", name),
                         self.gen_asm().push("rax")
                     ),
                     _ => {
@@ -514,6 +495,41 @@ impl<'a> Asm<'a> {
                     }
                 };
             }
+            _ => panic!("{} {}: not support structure {:?}", file!(), line!(), strt),
+        }
+    }
+
+    // assign variable with char
+    fn generate_assign_variable_with_char(&mut self, strt: &Structure, name: &String, sym: Meta) {
+        match *strt {
+            Structure::Identifier => {
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+                self.inst = match sym.scope {
+                    Scope::Global => {
+                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", name))
+                    }
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}",
+                            self.inst,
+                            self.gen_asm().movl_dst("eax", "rbp", -offset)
+                        )
+                    }
+                };
+                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+            }
+            _ => panic!("{} {}: not support structure {:?}", file!(), line!(), strt),
+        }
+    }
+
+    // assign variable
+    fn generate_assign_variable(&mut self, a: &String, t: &Type, s: &Structure, b: &AstType) {
+        let sym = self.get_var_symbol(a);
+        self.generate(b);
+        match *t {
+            Type::Int => self.generate_assign_variable_with_int(s, a, sym),
+            Type::Char => self.generate_assign_variable_with_char(s, a, sym),
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
     }
