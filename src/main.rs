@@ -324,6 +324,13 @@ mod test {
             TestData { inst: "int main() { char i; i = 2; return i }", ex_ret: 2 },
             TestData { inst: "int main() { char i[2]; i[0] = 0; i[1] = 19; return i[0] + i[1]; }", ex_ret: 19 },
             TestData { inst: "char i; int main() { i = 20; return i }", ex_ret: 20 },
+            TestData { inst: "int main() { char* i; char y = 10; i = &y; return *i + 20; }", ex_ret: 30 },
+            TestData { inst: "int main() { char* i; char y = 10; i = &y; char x = *i + 2; return x; }", ex_ret: 12 },
+            TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i + 20; return *i; }", ex_ret: 30, },
+            TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
+            TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
+            TestData { inst: "int main() { char a[10]; char *x = a; *(x + 2) = 100; return *(x + 2); }", ex_ret: 100, },
+            TestData { inst: "char a[10]; char main() { char i; for (i = 0 ; i < 10 ; i++) { a[i] = i * 2; } return a[1] + a[4] + a[8]; }", ex_ret: 26 },
         ]
         .iter()
         .enumerate()

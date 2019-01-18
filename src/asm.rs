@@ -519,6 +519,27 @@ impl<'a> Asm<'a> {
                 };
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }
+            Structure::Pointer => {
+                self.inst = match sym.scope {
+                    Scope::Global => format!(
+                        "{}{}{}{}",
+                        self.inst,
+                        self.gen_asm().pop("rax"),
+                        self.gen_asm().movq_to_glb("rax", name),
+                        self.gen_asm().push("rax")
+                    ),
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}{}{}",
+                            self.inst,
+                            self.gen_asm().pop("rax"),
+                            self.gen_asm().mov_dst("rax", "rbp", -offset),
+                            self.gen_asm().push("rax")
+                        )
+                    }
+                };
+            }
             _ => panic!("{} {}: not support structure {:?}", file!(), line!(), strt),
         }
     }

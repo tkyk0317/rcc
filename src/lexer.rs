@@ -353,10 +353,19 @@ impl<'a> LexicalAnalysis<'a> {
             let col = self.col;
             self.skip(3);
 
-            // 位置が先頭を指し示すように修正
-            let mut t = self.create_token(Token::Char, "char".to_string());
-            t.pos.col = col;
-            Some(t)
+            // ポインタ型であるかチェック.
+            if self.is_pointer() {
+                // 位置が先頭を指し示すように修正
+                self.skip(1);
+                let mut t = self.create_token(Token::CharPointer, "char*".to_string());
+                t.pos.col = col;
+                Some(t)
+            } else {
+                // 位置が先頭を指し示すように修正
+                let mut t = self.create_token(Token::Char, "char".to_string());
+                t.pos.col = col;
+                Some(t)
+            }
         } else {
             None
         }
@@ -366,6 +375,8 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_type_char(&mut self, c: char) -> bool {
         let s = self.read_string(4);
         let l = s.chars().last();
+
+        // charx等の変数とは区別する為、最後の文字をチェック
         c == 'c'
             && s.len() == 4
             && &s[0..3] == "har"
@@ -376,6 +387,8 @@ impl<'a> LexicalAnalysis<'a> {
     fn is_type_int(&mut self, c: char) -> bool {
         let s = self.read_string(3);
         let l = s.chars().last();
+
+        // inta等の変数と区別する為、最後の文字をチェック
         c == 'i'
             && s.len() == 3
             && &s[0..2] == "nt"

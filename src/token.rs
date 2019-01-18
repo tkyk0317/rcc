@@ -46,6 +46,7 @@ pub enum Token {
     Int,              // int型.
     IntPointer,       // intポインタ
     Char,             // char型
+    CharPointer,      // charポインタ
     Inc,              // 後置インクリメント
     Dec,              // 後置デクリメント
     End,              // 終了.
