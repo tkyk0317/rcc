@@ -506,14 +506,14 @@ impl<'a> Asm<'a> {
                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
                 self.inst = match sym.scope {
                     Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", name))
+                        format!("{}{}", self.inst, self.gen_asm().movb_to_glb("al", name))
                     }
                     _ => {
                         let offset = sym.p as i64 * 8 + 8;
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movl_dst("eax", "rbp", -offset)
+                            self.gen_asm().movb_dst("al", "rbp", -offset)
                         )
                     }
                 };
@@ -564,56 +564,113 @@ impl<'a> Asm<'a> {
         }
     }
 
+    // int variable生成
+    fn generate_variable_with_int(&mut self, s: &Structure, v: &String, sym: &Meta) {
+        match s {
+            Structure::Identifier => {
+                self.inst = match sym.scope {
+                    Scope::Global => {
+                        format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v))
+                    }
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}",
+                            self.inst,
+                            self.gen_asm().movl_src("rbp", "eax", -offset)
+                        )
+                    }
+                };
+                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+            }
+            Structure::Pointer => {
+                self.inst = match sym.scope {
+                    Scope::Global => format!(
+                        "{}{}{}",
+                        self.inst,
+                        self.gen_asm().movq_from_glb("rax", v),
+                        self.gen_asm().push("rax")
+                    ),
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}{}",
+                            self.inst,
+                            self.gen_asm().mov_src("rbp", "rax", -offset),
+                            self.gen_asm().push("rax")
+                        )
+                    }
+                }
+            }
+            Structure::Array(size) => {
+                let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
+                self.inst = format!(
+                    "{}{}{}",
+                    self.inst,
+                    self.gen_asm().lea(num * 8),
+                    self.gen_asm().push("rax")
+                );
+            }
+            _ => {}
+        }
+    }
+
+    // char variable生成
+    fn generate_variable_with_char(&mut self, s: &Structure, name: &String, sym: &Meta) {
+        match s {
+            Structure::Identifier => {
+                self.inst = match sym.scope {
+                    Scope::Global => {
+                        format!("{}{}", self.inst, self.gen_asm().movb_from_glb("eax", name))
+                    }
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}",
+                            self.inst,
+                            self.gen_asm().movsbl_src("rbp", "eax", -offset)
+                        )
+                    }
+                };
+                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+            }
+            Structure::Pointer => {
+                self.inst = match sym.scope {
+                    Scope::Global => format!(
+                        "{}{}{}",
+                        self.inst,
+                        self.gen_asm().movq_from_glb("rax", name),
+                        self.gen_asm().push("rax")
+                    ),
+                    _ => {
+                        let offset = sym.p as i64 * 8 + 8;
+                        format!(
+                            "{}{}{}",
+                            self.inst,
+                            self.gen_asm().mov_src("rbp", "rax", -offset),
+                            self.gen_asm().push("rax")
+                        )
+                    }
+                }
+            }
+            Structure::Array(size) => {
+                let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
+                self.inst = format!(
+                    "{}{}{}",
+                    self.inst,
+                    self.gen_asm().lea(num * 8),
+                    self.gen_asm().push("rax")
+                );
+            }
+            _ => {}
+        }
+    }
+
     // typeごとのVariable生成
     fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, v: &String, sym: &Meta) {
         match *t {
-            Type::Int | Type::Char => match s {
-                Structure::Identifier => {
-                    self.inst = match sym.scope {
-                        Scope::Global => {
-                            format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v))
-                        }
-                        _ => {
-                            let offset = sym.p as i64 * 8 + 8;
-                            format!(
-                                "{}{}",
-                                self.inst,
-                                self.gen_asm().movl_src("rbp", "eax", -offset)
-                            )
-                        }
-                    };
-                    self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-                }
-                Structure::Pointer => {
-                    self.inst = match sym.scope {
-                        Scope::Global => format!(
-                            "{}{}{}",
-                            self.inst,
-                            self.gen_asm().movq_from_glb("rax", v),
-                            self.gen_asm().push("rax")
-                        ),
-                        _ => {
-                            let offset = sym.p as i64 * 8 + 8;
-                            format!(
-                                "{}{}{}",
-                                self.inst,
-                                self.gen_asm().mov_src("rbp", "rax", -offset),
-                                self.gen_asm().push("rax")
-                            )
-                        }
-                    }
-                }
-                Structure::Array(size) => {
-                    let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
-                    self.inst = format!(
-                        "{}{}{}",
-                        self.inst,
-                        self.gen_asm().lea(num * 8),
-                        self.gen_asm().push("rax")
-                    );
-                }
-                _ => {}
-            },
+            Type::Int => self.generate_variable_with_int(s, v, sym),
+            Type::Char => self.generate_variable_with_char(s, v, sym),
             _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
         }
     }

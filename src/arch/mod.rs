@@ -42,13 +42,17 @@ pub trait Generator {
     fn movz(&self, src: &str, dst: &str) -> String;
     fn movl_imm(&self, n: i64, reg: &str) -> String;
     fn movl_dst(&self, src: &str, dst: &str, n: i64) -> String;
+    fn movb_dst(&self, src: &str, dst: &str, n: i64) -> String;
     fn movl_imm_dst(&self, i: i64, dst: &str, n: i64) -> String;
+    fn movsbl_src(&self, src: &str, dst: &str, n: i64) -> String;
     fn movl_src(&self, src: &str, dst: &str, n: i64) -> String;
     fn movq_src(&self, src: &str, dst: &str, n: i64) -> String;
     fn movq_dst(&self, src: &str, dst: &str, n: i64) -> String;
     fn mov_from_glb(&self, dst: &str, name: &str) -> String;
+    fn movb_from_glb(&self, dst: &str, name: &str) -> String;
     fn movq_from_glb(&self, dst: &str, name: &str) -> String;
     fn mov_to_glb(&self, src: &str, name: &str) -> String;
+    fn movb_to_glb(&self, src: &str, name: &str) -> String;
     fn movq_to_glb(&self, src: &str, name: &str) -> String;
     fn call(&self, a: &str) -> String;
     fn leave(&self) -> String;
