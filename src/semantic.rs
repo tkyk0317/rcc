@@ -162,6 +162,7 @@ impl<'a> Semantic<'a> {
             AstType::FuncCall(ref v, ref a) => self.analysis_funccall(v, a),
             AstType::Argment(ref args) => self.analysis_argment(args),
             AstType::Statement(ref stmt) => self.analysis_statement(stmt),
+            AstType::Global(ref glb) => self.analysis_global(glb),
             AstType::Return(ref s) => self.analysis_return(s),
             AstType::Variable(ref t, ref s, ref n) => self.analysis_variable(t, s, n),
             AstType::Plus(ref a, ref b)
@@ -213,6 +214,20 @@ impl<'a> Semantic<'a> {
     fn analysis_argment(&self, args: &Vec<AstType>) -> Result<(), Vec<String>> {
         let errs = args.iter().fold(Vec::<String>::new(), |mut acc, ref a| {
             match self.analysis(a) {
+                Ok(_) => acc,
+                Err(ref mut e) => {
+                    acc.append(e);
+                    acc
+                }
+            }
+        });
+        analyzed!(errs)
+    }
+
+    // global解析
+    fn analysis_global(&self, glb: &Vec<AstType>) -> Result<(), Vec<String>> {
+        let errs = glb.iter().fold(Vec::<String>::new(), |mut acc, ref s| {
+            match self.analysis(s) {
                 Ok(_) => acc,
                 Err(ref mut e) => {
                     acc.append(e);
@@ -562,6 +577,33 @@ fn test_func_call() {
             )),
             Box::new(AstType::Argment(vec![])),
         )];
+        let tree = AstTree { tree: ast };
+        let r = Semantic::new(&tree).exec();
+        assert!(r.is_err());
+        assert!(r.err().unwrap().len() == 1);
+    }
+}
+
+#[test]
+fn test_global() {
+    // Typeがおかしい
+    {
+        let ast = vec![
+            AstType::Global(vec![AstType::Variable(
+                Type::Unknown("aaaa".to_string()),
+                Structure::Identifier,
+                "a".to_string(),
+            )]),
+            AstType::FuncDef(
+                Type::Int,
+                Structure::Identifier,
+                "main".to_string(),
+                Box::new(AstType::Argment(vec![])),
+                Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                    AstType::Factor(1),
+                ))])),
+            ),
+        ];
         let tree = AstTree { tree: ast };
         let r = Semantic::new(&tree).exec();
         assert!(r.is_err());
