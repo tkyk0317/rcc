@@ -333,6 +333,7 @@ mod test {
             TestData { inst: "char a[10]; char main() { char i; for (i = 0 ; i < 10 ; i++) { a[i] = i * 2; } return a[1] + a[4] + a[8]; }", ex_ret: 26 },
             TestData { inst: "char main() { char i[10]; char *x = i; *(i + 1) = 77; return i[1]; }", ex_ret: 77 },
             TestData { inst: "int main() { char* i; i = \"test\"; return 1; }", ex_ret: 1, },
+            TestData { inst: "int main() { char* a; a = \"test\"; char* b; b = \"bbbb\"; return 9; }", ex_ret: 9, },
         ]
         .iter()
         .enumerate()
