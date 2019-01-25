@@ -129,6 +129,7 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.create_token(Token::Minus, v.to_string())
                             }
                         }
+                        '"' => self.generate_string(),
                         '^' => self.create_token(Token::BitXor, v.to_string()),
                         '~' => self.create_token(Token::BitReverse, v.to_string()),
                         '*' => self.create_token(Token::Multi, v.to_string()),
@@ -162,6 +163,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn create_token(&self, t: Token, s: String) -> TokenInfo {
         TokenInfo::new(t, s, (self.name.clone(), self.row, self.col))
     }
+
     // 文字を読み出す.
     fn read(&self) -> char {
         self.input
@@ -252,6 +254,24 @@ impl<'a> LexicalAnalysis<'a> {
     // 変数候補チェック.
     fn is_variable(&self, c: char) -> bool {
         c.is_alphabetic() || c == '_' || c.is_digit(10)
+    }
+
+    // 文字列トークン生成
+    fn generate_string(&mut self) -> TokenInfo {
+        // 文字列先頭位置を退避
+        let col = self.col;
+        let mut s = String::new();
+        while '"' != self.read() && false == self.is_eof() {
+            let c = self.next();
+            s.push(c.expect("lexer.rs(generate_string): cannot read next char"));
+        }
+        // 最後のダブルクォテーションを消費
+        self.skip(1);
+
+        // 退避した文字列先頭位置へ
+        let mut t = self.create_token(Token::StringLiteral, s);
+        t.pos.col = col;
+        t
     }
 
     // 数値トークン生成.
@@ -2103,6 +2123,46 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 2, 13)),
                 lexer.get_tokens()[7]
+            );
+        }
+    }
+
+    #[test]
+    fn test_string() {
+        {
+            let input = r#""test""#.to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::StringLiteral,
+                    "test".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 6)),
+                lexer.get_tokens()[1]
+            );
+        }
+        {
+            let input = r#""test, test world""#.to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::StringLiteral,
+                    "test, test world".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 18)),
+                lexer.get_tokens()[1]
             );
         }
     }

@@ -80,6 +80,7 @@ const REGS: &'static [&str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 #[doc = "アセンブラ生成部"]
 pub struct Asm<'a> {
     inst: String,
+    const_literal: String,
     global_table: &'a SymbolTable,
     var_table: &'a SymbolTable,
     func_table: &'a SymbolTable,
@@ -95,6 +96,7 @@ impl<'a> Asm<'a> {
     ) -> Asm<'a> {
         Asm {
             inst: "".to_string(),
+            const_literal: "".to_string(),
             global_table: global_table,
             var_table: var_table,
             func_table: func_table,
@@ -109,7 +111,9 @@ impl<'a> Asm<'a> {
 
     // アセンブラ取得
     pub fn get_inst(&self) -> String {
-        self.inst.clone()
+        // 定数領域と結合
+        format!("{}{}", self.const_literal, self.inst)
+        //self.inst.clone()
     }
 
     // アセンブラ生成開始.
@@ -165,6 +169,10 @@ impl<'a> Asm<'a> {
             | AstType::BitXor(ref a, ref b) => self.generate_operator(ast, a, b),
             AstType::Address(ref a) => self.generate_address(a),
             AstType::Indirect(ref a) => self.generate_indirect(a),
+            AstType::StringLiteral(ref s, ref i) => {
+                self.generate_string_literal(&AstType::StringLiteral(s.to_string(), *i));
+                self.generate_string(s, i);
+            }
             _ => panic!("{} {}: not support expression", file!(), line!()),
         }
     }
@@ -1149,6 +1157,24 @@ impl<'a> Asm<'a> {
             AstType::Division(_, _) | AstType::Remainder(_, _) => self.gen_asm().bit_division(),
             _ => process::abort(),
         }
+    }
+
+    // 文字列リテラル生成
+    fn generate_string_literal(&mut self, a: &AstType) {
+        match a {
+            AstType::StringLiteral(s, i) => {
+                self.const_literal = format!("{}  .text\n", self.const_literal);
+                self.const_literal = format!("{}.LC{}:\n", self.const_literal, i);
+                self.const_literal = format!("{}  .string \"{}\"\n", self.const_literal, s);
+            }
+            _ => panic!("asm.rs(generate_string_literal): not support {:?}", a),
+        }
+    }
+
+    // 文字列リテラル命令
+    fn generate_string(&mut self, _s: &String, i: &usize) {
+        self.inst = format!("{}  movq $.LC{}, %rax\n", self.inst, i);
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
     // ラベル命令.

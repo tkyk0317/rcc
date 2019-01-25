@@ -101,7 +101,7 @@ mod test {
                 // gccを使用して実行.
                 let _ = create_asm_file(&inst);
                 let _ = Command::new("gcc")
-                    .args(&["-g3", "./test.s", "-o", "test"])
+                    .args(&["-g3", "-no-pie", "./test.s", "-o", "test"])
                     .output();
                 match Command::new("./test").status() {
                     Ok(r) => match r.code() {
@@ -331,11 +331,19 @@ mod test {
             TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
             TestData { inst: "int main() { char a[10]; char *x = a; *(x + 2) = 100; return *(x + 2); }", ex_ret: 100, },
             TestData { inst: "char a[10]; char main() { char i; for (i = 0 ; i < 10 ; i++) { a[i] = i * 2; } return a[1] + a[4] + a[8]; }", ex_ret: 26 },
+            TestData { inst: "char main() { char i[10]; char *x = i; *(i + 1) = 77; return i[1]; }", ex_ret: 77 },
+            TestData { inst: "int main() { char* i; i = \"test\"; return 1; }", ex_ret: 1, },
         ]
         .iter()
         .enumerate()
         .for_each(|(i, d)| {
-            assert_eq!(d.ex_ret, eval(d.inst), "\tFail Test: No.{}, inst: {}", i, d.inst)
+            assert_eq!(
+                d.ex_ret,
+                eval(d.inst),
+                "\tFail Test: No.{}, inst: {}",
+                i,
+                d.inst
+            )
         });
 
         // ファイル削除

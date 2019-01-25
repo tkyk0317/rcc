@@ -49,6 +49,7 @@ pub enum Token {
     CharPointer,      // charポインタ
     Inc,              // 後置インクリメント
     Dec,              // 後置デクリメント
+    StringLiteral,    // 文字列リテラル
     End,              // 終了.
 }
 
