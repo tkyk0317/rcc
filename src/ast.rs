@@ -305,8 +305,9 @@ impl<'a> AstGen<'a> {
             Token::SemiColon => self.sub_statement(&stmt),
             Token::RightBrace => stmt,
             Token::Comma => {
-                // ToDo: do not take over variable's type
-                stmt.push(self.factor_int());
+                // 前の変数の型を考慮
+                let var = self.continue_variable_define(&stmt);
+                stmt.push(var);
                 self.sub_statement(&stmt)
             }
             _ => {
@@ -314,6 +315,28 @@ impl<'a> AstGen<'a> {
                 stmt.push(self.expression());
                 self.sub_statement(&stmt)
             }
+        }
+    }
+
+    // continue variable
+    fn continue_variable_define(&mut self, stmt: &Vec<AstType>) -> AstType {
+        let last = stmt.last();
+        match last {
+            Some(ref s) => match s {
+                AstType::Variable(ref t, ref s, ref _n) => match t {
+                    Type::Int if s == &Structure::Identifier => self.factor_int(),
+                    Type::Char if s == &Structure::Identifier => self.factor_char(),
+                    Type::Int if s == &Structure::Pointer => {
+                        self.variable(Type::Int, Structure::Pointer)
+                    }
+                    Type::Char if s == &Structure::Pointer => {
+                        self.variable(Type::Char, Structure::Pointer)
+                    }
+                    _ => panic!("{} {}: Not Support Type {:?}", file!(), line!(), t),
+                },
+                _ => panic!("{} {}: Not Support Ast {:?}", file!(), line!(), s),
+            },
+            None => panic!("{} {}: Not exists Variable", file!(), line!()),
         }
     }
 
@@ -5566,6 +5589,117 @@ mod tests {
                     Box::new(AstType::Statement(vec![AstType::Return(Box::new(
                         AstType::Factor(1)
                     ),)]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Char, "char".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Comma, ",".to_string()),
+                create_token(Token::Variable, "b".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Char, Structure::Identifier, "a".to_string()),
+                        AstType::Variable(Type::Char, Structure::Identifier, "b".to_string()),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::IntPointer, "int*".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Comma, ",".to_string()),
+                create_token(Token::Variable, "b".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Pointer, "a".to_string()),
+                        AstType::Variable(Type::Int, Structure::Pointer, "b".to_string()),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::CharPointer, "char*".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::Comma, ",".to_string()),
+                create_token(Token::Variable, "b".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Char, Structure::Pointer, "a".to_string()),
+                        AstType::Variable(Type::Char, Structure::Pointer, "b".to_string()),
+                        AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
                 )
             );
         }
