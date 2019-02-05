@@ -331,6 +331,15 @@ mod test {
             TestData { inst: "char a[10]; char main() { char i; for (i = 0 ; i < 10 ; i++) { a[i] = i * 2; } return a[1] + a[4] + a[8]; }", ex_ret: 26 },
             TestData { inst: "char main() { char i[10]; char *x = i; *(i + 1) = 77; return i[1]; }", ex_ret: 77 },
             TestData { inst: "int i; int main() { int i = 20; return i + 100; }", ex_ret: 120 },
+            TestData { inst: "int main() { return sizeof(char); }", ex_ret: 1 },
+            TestData { inst: "int main() { return sizeof(int); }", ex_ret: 8 },
+            TestData { inst: "int main() { return sizeof(10); }", ex_ret: 8 },
+            TestData { inst: "int main() { int a = 1; return sizeof(a); }", ex_ret: 8 },
+            TestData { inst: "int main() { char a = 1; return sizeof(a); }", ex_ret: 1 },
+            TestData { inst: "int main() { int* a; return sizeof(a); }", ex_ret: 8 },
+            TestData { inst: "int main() { char* a; return sizeof(a); }", ex_ret: 8 },
+            TestData { inst: "int main() { int a[2]; return sizeof(a); }", ex_ret: 16 },
+            TestData { inst: "int main() { int a[2][10]; return sizeof(a); }", ex_ret: 160 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト

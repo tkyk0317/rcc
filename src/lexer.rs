@@ -46,6 +46,8 @@ impl<'a> LexicalAnalysis<'a> {
                                 t
                             } else if let Some(t) = self.generate_statement(s) {
                                 t
+                            } else if let Some(t) = self.generate_sizeof(s) {
+                                t
                             } else {
                                 self.generate_variable_token(s)
                             }
@@ -413,6 +415,23 @@ impl<'a> LexicalAnalysis<'a> {
             && s.len() == 3
             && &s[0..2] == "nt"
             && false == self.is_variable(l.expect("lexer.rs(is_type_int): read error"))
+    }
+
+    // sizeof演算
+    fn generate_sizeof(&mut self, c: char) -> Option<TokenInfo> {
+        let s = self.read_string(6);
+        let l = s.chars().last();
+        if c == 's'
+            && s.len() == 6
+            && "izeof" == &s[0..5]
+            && false == self.is_variable(l.expect("lexer.rs(generate_sizeof): read error")) {
+            // トークンを作成してからSKIPしないと、位置がずれる（skipで更新される）
+            let t = Some(self.create_token(Token::SizeOf, "sizeof".to_string()));
+            self.skip(5);
+            t
+        } else {
+            None
+        }
     }
 
     // ポインタ演算子が存在するか.
@@ -2163,6 +2182,60 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 18)),
                 lexer.get_tokens()[1]
+            );
+        }
+    }
+
+    #[test]
+    fn test_sizeof() {
+        {
+            let input = "sizeof(a);".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SizeOf,
+                    "sizeof".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::LeftParen,
+                    "(".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 8)
+                ),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::RightParen,
+                    ")".to_string(),
+                    ("test.c".to_string(), 1, 9)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 10)
+                ),
+                lexer.get_tokens()[4]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 10)),
+                lexer.get_tokens()[5]
             );
         }
     }

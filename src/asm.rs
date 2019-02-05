@@ -140,6 +140,7 @@ impl<'a> Asm<'a> {
             AstType::Continue() => self.generate_statement_continue(),
             AstType::Break() => self.generate_statement_break(),
             AstType::Return(ref a) => self.generate_statement_return(a),
+            AstType::SizeOf(a) => self.generate_sizeof(a),
             AstType::Factor(a) => self.generate_factor(a),
             AstType::LogicalAnd(ref a, ref b) => self.generate_logical_and(a, b),
             AstType::LogicalOr(ref a, ref b) => self.generate_logical_or(a, b),
@@ -836,6 +837,14 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
         self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().movq_imm_dst("rsp", a, 0));
+    }
+
+    // sizeof演算子.
+    fn generate_sizeof(&mut self, a: usize) {
+        // 数値.
+        self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
+        self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movq_imm_dst("rsp", a as i64, 0));
     }
 
     // シンボル情報取得

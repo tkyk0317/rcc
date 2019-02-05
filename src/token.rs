@@ -50,6 +50,7 @@ pub enum Token {
     Inc,              // 後置インクリメント
     Dec,              // 後置デクリメント
     StringLiteral,    // 文字列リテラル
+    SizeOf,           // sizeof演算子
     End,              // 終了.
 }
 

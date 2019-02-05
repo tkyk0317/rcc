@@ -54,6 +54,7 @@ pub enum AstType {
     PostInc(Box<AstType>),
     PostDec(Box<AstType>),
     StringLiteral(String, usize),
+    SizeOf(usize),
 }
 
 impl AstType {
@@ -764,6 +765,7 @@ impl<'a> AstGen<'a> {
             Token::Minus => AstType::UnMinus(Box::new(self.factor())),
             Token::Not => AstType::Not(Box::new(self.factor())),
             Token::BitReverse => AstType::BitReverse(Box::new(self.factor())),
+            Token::SizeOf => self.factor_sizeof(),
             Token::IntPointer => self.variable(Type::Int, Structure::Pointer),
             Token::CharPointer => self.variable(Type::Char, Structure::Pointer),
             Token::And => AstType::Address(Box::new(self.factor())),
@@ -979,6 +981,70 @@ impl<'a> AstGen<'a> {
                 self.next()
             ),
         }
+    }
+
+    // sizeof演算子
+    fn factor_sizeof(&mut self) -> AstType {
+        // タイプ別のサイズ算出
+        let type_size = |t: &Type| -> usize {
+            match t {
+                Type::Int => 8,
+                Type::Long => 8,
+                Type::Short => 4,
+                Type::Char => 1,
+                _ => 0
+            }
+        };
+        let array_size = |t: &Type, items: &Vec<usize>| {
+            match t {
+                Type::Int => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
+                Type::Long => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
+                Type::Short => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
+                Type::Char => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
+                _ => panic!("{} {}: not supprt type: {:?}", file!(), line!(), t)
+            }
+        };
+
+        self.must_next(Token::LeftParen, "ast.rs(factor_sizeof): Not exists LeftParen");
+
+        // 次のトークンが型であるか判定
+        let ast = match self.next().get_token_type() {
+            Token::Int => {
+                self.consume();
+                AstType::SizeOf(8)
+            }
+            Token::Char  => {
+                self.consume();
+                AstType::SizeOf(1)
+            }
+            Token::IntPointer | Token::CharPointer => {
+                self.consume();
+                AstType::SizeOf(8)
+            }
+            _ => {
+                // 型でない場合は、変数や数値リテラル
+                let factor = self.factor();
+
+                // サイズを算出し、AST作成
+                match factor {
+                    AstType::Variable(ref t, ref s, _) => {
+                        // 変数の型からサイズ算出
+                        match s {
+                            Structure::Pointer => AstType::SizeOf(8),
+                            Structure::Identifier => AstType::SizeOf(type_size(&t)),
+                            Structure::Array(ref items) => array_size(t, items),
+                            _ => panic!("{} {}: not supprt structure: {:?}", file!(), line!(), t)
+                        }
+
+                    }
+                    AstType::Factor(_) => AstType::SizeOf(8),
+                    _ => panic!("{} {}: not supprt ast: {:?}", file!(), line!(), factor)
+                }
+            }
+        };
+
+        self.must_next(Token::RightParen, "ast.rs(factor_sizeof): Not exists LeftParen");
+        ast
     }
 
     // number
@@ -6455,6 +6521,256 @@ mod tests {
                             Box::new(AstType::StringLiteral("test, bbbb".to_string(), 1))
                         ),
                         AstType::Return(Box::new(AstType::Factor(1)),)
+                    ]))
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_sizeof() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Char, "char".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::RightParen, "(".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "end".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Char, Structure::Identifier, "a".to_string()),
+                        AstType::Return(Box::new(AstType::SizeOf(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::RightParen, "(".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "end".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Return(Box::new(AstType::SizeOf(8)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::Char, "char".to_string()),
+                create_token(Token::RightParen, "(".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "end".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Return(Box::new(AstType::SizeOf(1)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::IntPointer, "int*".to_string()),
+                create_token(Token::RightParen, "(".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "end".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Return(Box::new(AstType::SizeOf(8)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::CharPointer, "char*".to_string()),
+                create_token(Token::RightParen, "(".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "end".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Return(Box::new(AstType::SizeOf(8)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::RightParen, "(".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "end".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+                        AstType::Return(Box::new(AstType::SizeOf(8)),)
+                    ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::LeftBracket, " [".to_string()),
+                create_token(Token::Number, "3".to_string()),
+                create_token(Token::RightBracket, "]".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::SizeOf, "sizeof".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(Type::Int, Structure::Array(vec![3]), "a".to_string()),
+                        AstType::Return(Box::new(AstType::SizeOf(24)),)
                     ]))
                 )
             );
