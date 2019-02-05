@@ -3,7 +3,6 @@ mod asm;
 mod ast;
 mod config;
 mod lexer;
-mod map;
 mod semantic;
 mod symbol;
 mod token;
@@ -29,14 +28,12 @@ fn compile(inst: &str) -> Result<String, Vec<String>> {
     let ast_tree = ast_gen.parse();
 
     // 意味解析
-    let mut sem = Semantic::new(&ast_tree);
+    let sym = ast_gen.get_symbol();
+    let mut sem = Semantic::new(&ast_tree, &sym);
     sem.exec()?;
-    let global = sem.get_global_symbol();
-    let vars = sem.get_var_symbol();
-    let funcs = sem.get_func_symbol();
 
     // アセンブラへ変換.
-    let mut asm = Asm::new(&global, &vars, &funcs);
+    let mut asm = Asm::new(&sym);
     asm.exec(&ast_tree);
     Ok(asm.get_inst())
 }
@@ -344,7 +341,7 @@ mod test {
                 "\tFail Test: No.{}, inst: {}",
                 i,
                 d.inst
-            )
+            );
         });
 
         // ファイル削除

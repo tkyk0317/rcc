@@ -1,20 +1,6 @@
 use std::collections::HashMap;
+use symbol::{Scope, Structure, Symbol, SymbolTable, Type};
 use token::{Token, TokenInfo};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    Int,
-    Char,
-    Unknown(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Structure {
-    Identifier,
-    Pointer,
-    Array(Vec<usize>),
-    Unknown,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstType {
@@ -91,8 +77,9 @@ pub struct AstGen<'a> {
     tokens: &'a Vec<TokenInfo>, // トークン配列.
     current_pos: usize,         // 現在読み取り位置.
     str_count: usize,           // 文字列リテラル位置
-    v_sym: HashMap<String, (Type, Structure)>,
     f_sym: HashMap<String, (Type, Structure)>,
+    cur_scope: Scope,
+    sym_table: SymbolTable,
 }
 
 #[derive(Debug)]
@@ -121,9 +108,15 @@ impl<'a> AstGen<'a> {
             current_pos: 0,
             str_count: 0,
             tokens: tokens,
-            v_sym: HashMap::new(),
             f_sym: HashMap::new(),
+            cur_scope: Scope::Global,
+            sym_table: SymbolTable::new(),
         }
+    }
+
+    // シンボルテーブル取得
+    pub fn get_symbol(&self) -> &SymbolTable {
+        &self.sym_table
     }
 
     // トークン列を受け取り、抽象構文木を返す.
@@ -144,8 +137,15 @@ impl<'a> AstGen<'a> {
         AstTree::new(s)
     }
 
+    // スコープ切り替え
+    fn switch_scope(&mut self, scope: Scope) {
+        self.cur_scope = scope;
+    }
+
     // global variable
     fn global_var(&mut self, acc: Vec<AstType>) -> Vec<AstType> {
+        self.switch_scope(Scope::Global);
+
         // タイプを判断する為、先読み
         let (_t, _s) = self.generate_type();
         let token = self.next_consume();
@@ -179,19 +179,21 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::Variable => {
+                self.switch_scope(Scope::Local(token.get_token_value()));
+
                 // 既に同じシンボルが登録されていればエラー.
-                if self.f_sym.contains_key(&token.get_token_value()) {
-                    panic!(
-                        "{} {}: already define {}",
-                        file!(),
-                        line!(),
-                        token.get_token_value()
-                    );
+                if self.search_symbol(&Scope::Func, &token.get_token_value()).is_some() {
+                    panic!("{} {}: already define {}", file!(), line!(), token.get_token_value());
                 }
 
                 // 関数シンボルを登録.
-                self.f_sym
-                    .insert(token.get_token_value().clone(), (t.clone(), s.clone()));
+                self.sym_table.register_sym(Symbol::new(
+                    Scope::Func,
+                    token.get_token_value(),
+                    t.clone(),
+                    s.clone(),
+                ));
+
                 AstType::FuncDef(
                     t,
                     s,
@@ -536,7 +538,7 @@ impl<'a> AstGen<'a> {
                 );
                 call_func
             }
-            _ => panic!("{} {}: Not exists LeftParen", file!(), line!()),
+            _ => panic!("{} {}: Not exists LeftParen: {:?}", file!(), line!(), token),
         }
     }
 
@@ -793,26 +795,33 @@ impl<'a> AstGen<'a> {
 
     // variable型の作成
     fn factor_variable(&mut self, token: &TokenInfo) -> AstType {
-        if self.v_sym.contains_key(&token.get_token_value()) {
-            let sym = self.v_sym.get(&token.get_token_value()).unwrap().clone();
-            let var = self.variable(sym.0, sym.1);
-            match self.next().get_token_type() {
-                Token::Inc => {
-                    self.consume();
-                    AstType::PostInc(Box::new(var))
+        // 変数シンボルサーチ
+        match self.search_symbol(&self.cur_scope, &token.get_token_value()) {
+            Some(ref sym) => {
+                // 後置演算子判定
+                let var = self.variable(sym.t.clone(), sym.strt.clone());
+                match self.next().get_token_type() {
+                    Token::Inc => {
+                        self.consume();
+                        AstType::PostInc(Box::new(var))
+                    }
+                    Token::Dec => {
+                        self.consume();
+                        AstType::PostDec(Box::new(var))
+                    }
+                    _ => var,
                 }
-                Token::Dec => {
-                    self.consume();
-                    AstType::PostDec(Box::new(var))
-                }
-                _ => var,
             }
-        } else if self.f_sym.contains_key(&token.get_token_value()) {
-            let sym = self.f_sym.get(&token.get_token_value()).unwrap().clone();
-            let f_sym = self.variable_func(sym.0, sym.1);
-            self.call_func(f_sym)
-        } else {
-            panic!("")
+            None => {
+                // 関数シンボルサーチ
+                match self.search_symbol(&Scope::Func, &token.get_token_value()) {
+                    Some(s) => {
+                        let f_sym = self.variable_func(s.t.clone(), s.strt.clone());
+                        self.call_func(f_sym)
+                    }
+                    _ => panic!("{} {}: cannot define {:?}", file!(), line!(), token),
+                }
+            }
         }
     }
 
@@ -895,10 +904,17 @@ impl<'a> AstGen<'a> {
             }
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
-                if false == self.v_sym.contains_key(&token.get_token_value()) {
-                    self.v_sym
-                        .insert(token.get_token_value(), (t.clone(), s.clone()));
-                }
+                match self.search_symbol(&self.cur_scope, &token.get_token_value()) {
+                    None => {
+                        self.sym_table.register_sym(Symbol::new(
+                            self.cur_scope.clone(),
+                            token.get_token_value(),
+                            t.clone(),
+                            s.clone(),
+                        ));
+                    }
+                    _ => {}
+                };
                 AstType::Variable(t, s, token.get_token_value())
             }
             _ => panic!("{} {}: not support token {:?}", file!(), line!(), token),
@@ -943,13 +959,19 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         match token.get_token_type() {
             Token::Variable => {
-                let s = Structure::Array(self.array_size(vec![]));
-
                 // シンボルテーブルへ保存（未登録の場合）.
-                if false == self.v_sym.contains_key(&token.get_token_value()) {
-                    self.v_sym
-                        .insert(token.get_token_value(), (t.clone(), s.clone()));
-                }
+                let s = Structure::Array(self.array_size(vec![]));
+                match self.search_symbol(&self.cur_scope, &token.get_token_value()) {
+                    None => {
+                        self.sym_table.register_sym(Symbol::new(
+                            self.cur_scope.clone(),
+                            token.get_token_value(),
+                            t.clone(),
+                            s.clone(),
+                        ));
+                    }
+                    _ => {}
+                };
                 AstType::Variable(t, s, token.get_token_value())
             }
             _ => panic!(
@@ -993,6 +1015,22 @@ impl<'a> AstGen<'a> {
         let token = self.next_consume();
         if token.get_token_type() != t {
             panic!("{} {}: {} {:?}", file!(), line!(), m, token)
+        }
+    }
+
+    // シンボルサーチ
+    //
+    // ローカルで発見できない場合、グローバルで検索
+    fn search_symbol(&self, scope: &Scope, var: &String) -> Option<Symbol> {
+        match scope {
+            Scope::Global => self.sym_table.search(scope, var),
+            _ => {
+                let sym = self.sym_table.search(scope, var);
+                match sym {
+                    Some(_) => sym,
+                    _ => self.search_symbol(&Scope::Global, var)
+                }
+            }
         }
     }
 }

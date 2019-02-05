@@ -1,8 +1,8 @@
 use arch::{x64::X64, Generator};
-use ast::{AstTree, AstType, Structure, Type};
+use ast::{AstTree, AstType};
 use config::Config;
 use std::process;
-use symbol::{Meta, Scope, SymbolTable};
+use symbol::{Scope, Structure, Symbol, SymbolTable, Type};
 
 #[doc = "ラベル管理"]
 struct Label {
@@ -81,26 +81,20 @@ const REGS: &'static [&str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 pub struct Asm<'a> {
     inst: String,
     const_literal: String,
-    global_table: &'a SymbolTable,
-    var_table: &'a SymbolTable,
-    func_table: &'a SymbolTable,
+    sym_table: &'a SymbolTable,
+    cur_scope: Scope,
     label: Label,
 }
 
 impl<'a> Asm<'a> {
     // コンストラクタ.
-    pub fn new(
-        global_table: &'a SymbolTable,
-        var_table: &'a SymbolTable,
-        func_table: &'a SymbolTable,
-    ) -> Asm<'a> {
+    pub fn new(sym_table: &'a SymbolTable) -> Asm<'a> {
         Asm {
             inst: "".to_string(),
             const_literal: "".to_string(),
-            global_table: global_table,
-            var_table: var_table,
-            func_table: func_table,
             label: Label::new(),
+            sym_table: sym_table,
+            cur_scope: Scope::Unknown,
         }
     }
 
@@ -121,13 +115,23 @@ impl<'a> Asm<'a> {
         tree.get_tree().iter().for_each(|a| self.generate(a));
     }
 
+    // 現在スコープ切り替え
+    fn switch_scope(&mut self, scope: Scope) {
+        self.cur_scope = scope;
+    }
+
     // アセンブラ生成.
     fn generate(&mut self, ast: &AstType) {
         match *ast {
-            AstType::Global(ref a) => self.generate_global(a),
-            AstType::FuncDef(ref t, ref _s, ref a, ref b, ref c) => {
-                self.generate_funcdef(t, a, b, c)
+            AstType::Global(ref a) => {
+                self.switch_scope(Scope::Global);
+                self.generate_global(a);
             }
+            AstType::FuncDef(ref t, ref _s, ref a, ref b, ref c) => {
+                self.switch_scope(Scope::Local(a.clone()));
+                self.generate_funcdef(t, a, b, c);
+            }
+            AstType::FuncCall(ref a, ref b) => self.generate_call_func(a, b),
             AstType::Statement(_) => self.generate_statement(ast),
             AstType::While(ref a, ref b) => self.generate_statement_while(a, b),
             AstType::Do(ref a, ref b) => self.generate_statement_do(a, b),
@@ -146,7 +150,6 @@ impl<'a> Asm<'a> {
             AstType::BitReverse(ref a) => self.generate_bit_reverse(a),
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
-            AstType::FuncCall(ref a, ref b) => self.generate_call_func(a, b),
             AstType::PreInc(ref a) => self.generate_pre_inc(a),
             AstType::PreDec(ref a) => self.generate_pre_dec(a),
             AstType::PostInc(ref a) => self.generate_post_inc(a),
@@ -224,7 +227,7 @@ impl<'a> Asm<'a> {
             "  .text\n".to_string()
         };
 
-        let pos = self.var_table.count() * 8 + 8;
+        let pos = self.sym_table.size(&Scope::Local(a.to_string())) + 8;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!(
             "{}{}{}{}",
@@ -463,7 +466,7 @@ impl<'a> Asm<'a> {
     }
 
     // assign variable with int
-    fn generate_assign_variable_with_int(&mut self, strt: &Structure, name: &String, sym: Meta) {
+    fn generate_assign_variable_with_int(&mut self, strt: &Structure, name: &String, sym: Symbol) {
         match *strt {
             Structure::Identifier => {
                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
@@ -472,7 +475,7 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", name))
                     }
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
@@ -492,7 +495,7 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64  + 8;
                         format!(
                             "{}{}{}{}",
                             self.inst,
@@ -508,7 +511,7 @@ impl<'a> Asm<'a> {
     }
 
     // assign variable with char
-    fn generate_assign_variable_with_char(&mut self, strt: &Structure, name: &String, sym: Meta) {
+    fn generate_assign_variable_with_char(&mut self, strt: &Structure, name: &String, sym: Symbol) {
         match *strt {
             Structure::Identifier => {
                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
@@ -517,7 +520,7 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().movb_to_glb("al", name))
                     }
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
@@ -537,7 +540,7 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}{}{}",
                             self.inst,
@@ -573,7 +576,7 @@ impl<'a> Asm<'a> {
     }
 
     // int variable生成
-    fn generate_variable_with_int(&mut self, s: &Structure, v: &String, sym: &Meta) {
+    fn generate_variable_with_int(&mut self, s: &Structure, v: &String, sym: &Symbol) {
         match s {
             Structure::Identifier => {
                 self.inst = match sym.scope {
@@ -581,7 +584,7 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v))
                     }
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
@@ -600,7 +603,7 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}{}",
                             self.inst,
@@ -624,7 +627,7 @@ impl<'a> Asm<'a> {
     }
 
     // char variable生成
-    fn generate_variable_with_char(&mut self, s: &Structure, name: &String, sym: &Meta) {
+    fn generate_variable_with_char(&mut self, s: &Structure, name: &String, sym: &Symbol) {
         match s {
             Structure::Identifier => {
                 self.inst = match sym.scope {
@@ -632,7 +635,7 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().movb_from_glb("eax", name))
                     }
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
@@ -651,7 +654,7 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.p as i64 * 8 + 8;
+                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}{}",
                             self.inst,
@@ -675,7 +678,7 @@ impl<'a> Asm<'a> {
     }
 
     // typeごとのVariable生成
-    fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, v: &String, sym: &Meta) {
+    fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, v: &String, sym: &Symbol) {
         match *t {
             Type::Int => self.generate_variable_with_int(s, v, sym),
             Type::Char => self.generate_variable_with_char(s, v, sym),
@@ -693,7 +696,7 @@ impl<'a> Asm<'a> {
     fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
         match *a {
             // 関数名.
-            AstType::Variable(_, _, ref n) if self.func_table.search(n).is_some() => {
+            AstType::Variable(_, _, ref n) if self.sym_table.search(&Scope::Func, n).is_some() => {
                 match *b {
                     AstType::Argment(ref v) => {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
@@ -836,16 +839,24 @@ impl<'a> Asm<'a> {
     }
 
     // シンボル情報取得
-    fn get_var_symbol(&self, k: &String) -> Meta {
-        self.var_table
-            .search(k)
-            .unwrap_or_else(|| {
-                self.global_table
-                    .search(k)
+    fn get_var_symbol(&self, k: &String) -> Symbol {
+        // 現在のスコープから変数をサーチ
+        match self.cur_scope {
+            Scope::Global => {
+                self.sym_table
+                    .search(&self.cur_scope, k)
                     .expect("asm.rs(generate_var_symbol): error option value")
-            })
-            .clone()
-    }
+            }
+            _ => {
+                // もし、ローカルスコープで存在しない場合、Globalから検索
+                self.sym_table.search(&self.cur_scope, k)
+                    .unwrap_or_else(||
+                        self.sym_table.search(&Scope::Global, k).expect("asm.rs(generate_var_symbol): error option value")
+                    )
+            }
+
+        }
+   }
 
     // 左辺値変数アドレス取得
     fn generate_lvalue_address(&mut self, a: &AstType) {
@@ -860,7 +871,11 @@ impl<'a> Asm<'a> {
         // アドレスをraxレジスタへ転送
         self.inst = match sym.scope {
             Scope::Global => format!("{}{}", self.inst, self.gen_asm().lea_glb(name)),
-            _ => format!("{}{}", self.inst, self.gen_asm().lea(sym.p as i64 * 8 + 8)),
+            _ => format!(
+                "{}{}",
+                self.inst,
+                self.gen_asm().lea(sym.offset as i64 + 8)
+            ),
         };
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
@@ -1123,7 +1138,8 @@ impl<'a> Asm<'a> {
         match *a {
             AstType::Variable(ref _t, ref _s, ref a) => {
                 let sym = self.get_var_symbol(a);
-                let pos = sym.p as i64 * 8 + 8;
+                //let pos = sym.pos as i64 * 8 + 8;
+                let pos = sym.offset as i64 + 8;
                 self.inst = format!("{}{}", self.inst, self.gen_asm().lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
             }

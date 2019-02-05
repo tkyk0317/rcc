@@ -1,76 +1,14 @@
-use ast;
-#[doc = "シンボルテーブル"]
-use map::Map;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Scope {
-    Global,
-    Local,
-    Func,
-}
-
-#[derive(Debug)]
-pub struct SymbolTable {
-    scope: Scope,
-    count: usize,
-    map: Map<Meta>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Meta {
-    pub scope: Scope,
-    pub p: usize,
-    pub t: ast::Type,
-    pub s: ast::Structure,
-}
-
-impl SymbolTable {
-    #[doc = "コンストラクタ"]
-    pub fn new(s: Scope) -> Self {
-        SymbolTable {
-            scope: s,
-            count: 0,
-            map: Map::new(),
-        }
-    }
-
-    #[doc = "シンボル追加"]
-    pub fn push(&mut self, k: String, t: &ast::Type, s: &ast::Structure) {
-        self.map.add(
-            k,
-            Meta {
-                scope: self.scope.clone(),
-                p: self.count,
-                t: t.clone(),
-                s: s.clone(),
-            },
-        );
-        // 配列の場合は要素数分、進める
-        match s {
-            ast::Structure::Array(s) => self.count += s.iter().fold(1, |acc, i| acc * i),
-            _ => self.count += 1,
-        };
-    }
-
-    #[doc = "シンボル検索"]
-    pub fn search(&self, k: &String) -> Option<&Meta> {
-        self.map.search(k)
-    }
-
-    #[doc = "シンボル数取得"]
-    pub fn count(&self) -> usize {
-        self.count
-    }
-}
 /**
  * シンボルテーブル
  */
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ScopeNew {
-    Global,        // グローバル
-    Func(String),  // ローカルスコープ
-    Block(String), // ブロックスコープ
+pub enum Scope {
+    Global,         // グローバル
+    Local(String),  // ローカルスコープ
+    Block(String),  // ブロックスコープ
+    Func,           // 関数シンボル
+    Unknown,
 }
 
 #[allow(dead_code)]
@@ -80,6 +18,7 @@ pub enum Type {
     Char,
     Short,
     Long,
+    Unknown(String),
 }
 
 #[allow(dead_code)]
@@ -93,35 +32,39 @@ pub enum Structure {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
-    pub scope: ScopeNew, // スコープ
+    pub scope: Scope, // スコープ
     pub var: String,     // 変数名
     pub t: Type,         // 型
     pub strt: Structure, // 構造
+    pub pos: usize,      // ポジション
+    pub offset: usize,   // オフセット
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SymbolTable2 {
+pub struct SymbolTable {
     table: Vec<Symbol>,
 }
 
 impl Symbol {
     // コンストラクタ
     #[allow(dead_code)]
-    pub fn new(scope: ScopeNew, var: String, t: Type, strt: Structure) -> Self {
+    pub fn new(scope: Scope, var: String, t: Type, strt: Structure) -> Self {
         Symbol {
             scope: scope,
             var: var,
             t: t,
             strt: strt,
+            pos: 0,
+            offset: 0,
         }
     }
 }
 
-impl SymbolTable2 {
+impl SymbolTable {
     // コンストラクタ
     #[allow(dead_code)]
     pub fn new() -> Self {
-        SymbolTable2 { table: vec![] }
+        SymbolTable { table: vec![] }
     }
 
     // シンボル登録
@@ -129,17 +72,66 @@ impl SymbolTable2 {
     pub fn register_sym(&mut self, sym: Symbol) {
         // 同じシンボルがなければ、登録
         match self.search(&sym.scope, &sym.var) {
-            None => self.table.push(sym),
+            None => {
+                // 関数シンボルの場合、ポジション算出は不要なのでそのまま登録
+                match sym.scope {
+                    Scope::Func => {
+                        let mut reg = sym.clone();
+                        reg.pos = 1;
+                        reg.offset = 0;
+                        self.table.push(reg);
+                    }
+                    _ => self.register_variable(sym),
+                }
+            }
             _ => {}
+        };
+    }
+
+    // 変数シンボル登録
+    fn register_variable(&mut self, sym: Symbol) {
+        // 同じスコープの最終要素からポジションを決定
+        let mut reg = sym.clone();
+        let last = self
+            .table
+            .iter()
+            .filter(|s| s.scope == sym.scope)
+            .cloned()
+            .last();
+
+        match last {
+            None => {
+                reg.pos = 1;
+                reg.offset = 0;
+                self.table.push(reg);
+            }
+            Some(pre_sym) => {
+                // 配列の場合、要素数を考慮
+                match pre_sym.strt {
+                    Structure::Array(ref v) => {
+                        // 要素数分、オフセットなどを計算
+                        let count = v.iter().fold(1, |acc, item| acc * item);
+                        reg.pos = pre_sym.pos + count;
+                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t) * count;
+                        self.table.push(reg);
+                    }
+                    _ => {
+                        reg.pos = pre_sym.pos + 1;
+                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t);
+                        self.table.push(reg);
+                    }
+                }
+            }
         };
     }
 
     // シンボルサーチ
     #[allow(dead_code)]
-    pub fn search(&self, scope: &ScopeNew, var: &String) -> Option<&Symbol> {
+    pub fn search(&self, scope: &Scope, var: &String) -> Option<Symbol> {
         self.table
             .iter()
             .find(|s| s.scope == *scope && s.var == *var)
+            .cloned()
     }
 
     // カウント取得
@@ -148,7 +140,7 @@ impl SymbolTable2 {
         self.table.len()
     }
     #[allow(dead_code)]
-    pub fn count(&self, scope: &ScopeNew) -> usize {
+    pub fn count(&self, scope: &Scope) -> usize {
         self.table
             .iter()
             .filter(|s| s.scope == *scope)
@@ -156,27 +148,32 @@ impl SymbolTable2 {
             .len()
     }
 
+    // 型に応じたサイズ取得
+    fn type_size(&self, t: &Type) -> usize {
+        match t {
+            Type::Int => 8,
+            // ToDo: アセンブラ側が未対応
+            //Type::Char => 1,
+            Type::Char => 8,
+            _ => 0,
+        }
+    }
+
     // 変数トータルサイズ
     #[allow(dead_code)]
-    pub fn size(&self, scope: &ScopeNew) -> usize {
-        let type_size = |t: &Type| match t {
-            Type::Int => 8,
-            Type::Char => 1,
-            _ => 0,
-        };
-
+    pub fn size(&self, scope: &Scope) -> usize {
         // 各要素のサイズを畳み込み
         self.table
             .iter()
             .filter(|s| s.scope == *scope)
             .fold(0, |acc, sym| match sym.strt {
                 Structure::Pointer => acc + 8,
-                Structure::Identifier => acc + type_size(&sym.t),
+                Structure::Identifier => acc + self.type_size(&sym.t),
                 // 配列の場合、要素数を考慮
                 Structure::Array(ref items) => {
                     acc + items
                         .iter()
-                        .fold(0, |acc2, i| acc2 + (i * type_size(&sym.t)))
+                        .fold(0, |acc2, i| acc2 + (i * self.type_size(&sym.t)))
                 }
                 _ => acc,
             })
@@ -188,89 +185,145 @@ mod test {
     use super::*;
 
     #[test]
-    fn test() {
-        {
-            let mut s = SymbolTable::new(Scope::Local);
-            s.push(
-                "key".to_string(),
-                &ast::Type::Int,
-                &ast::Structure::Identifier,
-            );
-            assert_eq!(s.count(), 1);
-            assert_eq!(
-                s.search(&"key".to_string()),
-                Some(&Meta {
-                    scope: Scope::Local,
-                    p: 0,
-                    t: ast::Type::Int,
-                    s: ast::Structure::Identifier
-                })
-            )
-        }
-        {
-            let mut s = SymbolTable::new(Scope::Global);
-            s.push(
-                "key".to_string(),
-                &ast::Type::Int,
-                &ast::Structure::Identifier,
-            );
-            assert_eq!(s.count(), 1);
-            assert_eq!(s.search(&"not_exist_key".to_string()), None)
-        }
-    }
-
-    #[test]
     fn test_register_symbol() {
         {
-            let mut table = SymbolTable2::new();
+            let mut table = SymbolTable::new();
             table.register_sym(Symbol::new(
-                ScopeNew::Global,
+                Scope::Global,
                 "a".to_string(),
                 Type::Int,
                 Structure::Identifier,
             ));
 
             // 期待値
-            assert_eq!(table.size(&ScopeNew::Global), 8);
+            assert_eq!(table.size(&Scope::Global), 8);
             assert_eq!(table.count_all(), 1);
-            assert_eq!(table.count(&ScopeNew::Global), 1);
+            assert_eq!(table.count(&Scope::Global), 1);
             assert_eq!(
-                table.search(&ScopeNew::Global, &"a".to_string()),
-                Some(&Symbol::new(
-                    ScopeNew::Global,
-                    "a".to_string(),
-                    Type::Int,
-                    Structure::Identifier
-                ))
+                table.search(&Scope::Global, &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Global,
+                    var: "a".to_string(),
+                    t: Type::Int,
+                    strt: Structure::Identifier,
+                    pos: 1,
+                    offset: 0,
+                })
             );
         }
         {
-            let mut table = SymbolTable2::new();
+            let mut table = SymbolTable::new();
             table.register_sym(Symbol::new(
-                ScopeNew::Global,
+                Scope::Local("test".to_string()),
+                "a".to_string(),
+                Type::Int,
+                Structure::Identifier,
+            ));
+            table.register_sym(Symbol::new(
+                Scope::Local("test".to_string()),
+                "b".to_string(),
+                Type::Int,
+                Structure::Identifier,
+            ));
+
+            // 期待値
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 16);
+            assert_eq!(table.count_all(), 2);
+            assert_eq!(table.count(&Scope::Local("test".to_string())), 2);
+            assert_eq!(
+                table.search(&Scope::Local("test".to_string()), &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Local("test".to_string()),
+                    var: "a".to_string(),
+                    t: Type::Int,
+                    strt: Structure::Identifier,
+                    pos: 1,
+                    offset: 0,
+                })
+            );
+            assert_eq!(
+                table.search(&Scope::Local("test".to_string()), &"b".to_string()),
+                Some(Symbol {
+                    scope: Scope::Local("test".to_string()),
+                    var: "b".to_string(),
+                    t: Type::Int,
+                    strt: Structure::Identifier,
+                    pos: 2,
+                    offset: 8,
+                })
+            );
+        }
+        {
+            let mut table = SymbolTable::new();
+            table.register_sym(Symbol::new(
+                Scope::Local("test".to_string()),
+                "a".to_string(),
+                Type::Int,
+                Structure::Identifier,
+            ));
+            table.register_sym(Symbol::new(
+                Scope::Local("test".to_string()),
+                "b".to_string(),
+                Type::Char,
+                Structure::Identifier,
+            ));
+
+            // 期待値
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 16);
+            assert_eq!(table.count_all(), 2);
+            assert_eq!(table.count(&Scope::Local("test".to_string())), 2);
+            assert_eq!(
+                table.search(&Scope::Local("test".to_string()), &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Local("test".to_string()),
+                    var: "a".to_string(),
+                    t: Type::Int,
+                    strt: Structure::Identifier,
+                    pos: 1,
+                    offset: 0,
+                })
+            );
+            assert_eq!(
+                table.search(&Scope::Local("test".to_string()), &"b".to_string()),
+                Some(Symbol {
+                    scope: Scope::Local("test".to_string()),
+                    var: "b".to_string(),
+                    t: Type::Char,
+                    strt: Structure::Identifier,
+                    pos: 2,
+                    offset: 8,
+                })
+            );
+        }
+        {
+            let mut table = SymbolTable::new();
+            table.register_sym(Symbol::new(
+                Scope::Global,
                 "a".to_string(),
                 Type::Int,
                 Structure::Array(vec![10]),
             ));
 
             // 期待値
-            assert_eq!(table.size(&ScopeNew::Global), 80);
+            assert_eq!(table.size(&Scope::Global), 80);
             assert_eq!(table.count_all(), 1);
-            assert_eq!(table.count(&ScopeNew::Global), 1);
+            assert_eq!(table.count(&Scope::Global), 1);
             assert_eq!(
-                table.search(&ScopeNew::Global, &"a".to_string()),
-                Some(&Symbol::new(
-                    ScopeNew::Global,
-                    "a".to_string(),
-                    Type::Int,
-                    Structure::Array(vec![10])
-                ))
+                table.search(&Scope::Global, &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Global,
+                    var: "a".to_string(),
+                    t: Type::Int,
+                    strt: Structure::Array(vec![10]),
+                    pos: 1,
+                    offset: 0,
+                })
             );
         }
         {
-            let mut table = SymbolTable2::new();
+            let mut table = SymbolTable::new();
             table.register_sym(Symbol::new(
-                ScopeNew::Func("test".to_string()),
+                Scope::Local("test".to_string()),
                 "a".to_string(),
                 Type::Char,
                 Structure::Pointer,
@@ -278,28 +331,30 @@ mod test {
 
             // 期待値
             assert_eq!(table.count_all(), 1);
-            assert_eq!(table.size(&ScopeNew::Func("test".to_string())), 8);
-            assert_eq!(table.count(&ScopeNew::Func("test".to_string())), 1);
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 8);
+            assert_eq!(table.count(&Scope::Local("test".to_string())), 1);
             assert_eq!(
-                table.search(&ScopeNew::Func("test".to_string()), &"a".to_string()),
-                Some(&Symbol::new(
-                    ScopeNew::Func("test".to_string()),
-                    "a".to_string(),
-                    Type::Char,
-                    Structure::Pointer
-                ))
+                table.search(&Scope::Local("test".to_string()), &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Local("test".to_string()),
+                    var: "a".to_string(),
+                    t: Type::Char,
+                    strt: Structure::Pointer,
+                    pos: 1,
+                    offset: 0,
+                })
             );
         }
         {
-            let mut table = SymbolTable2::new();
+            let mut table = SymbolTable::new();
             table.register_sym(Symbol::new(
-                ScopeNew::Func("test".to_string()),
+                Scope::Local("test".to_string()),
                 "a".to_string(),
                 Type::Char,
                 Structure::Identifier,
             ));
             table.register_sym(Symbol::new(
-                ScopeNew::Global,
+                Scope::Global,
                 "a".to_string(),
                 Type::Int,
                 Structure::Identifier,
@@ -307,27 +362,31 @@ mod test {
 
             // 期待値
             assert_eq!(table.count_all(), 2);
-            assert_eq!(table.count(&ScopeNew::Global), 1);
-            assert_eq!(table.size(&ScopeNew::Global), 8);
-            assert_eq!(table.count(&ScopeNew::Func("test".to_string())), 1);
-            assert_eq!(table.size(&ScopeNew::Func("test".to_string())), 1);
+            assert_eq!(table.count(&Scope::Global), 1);
+            assert_eq!(table.size(&Scope::Global), 8);
+            assert_eq!(table.count(&Scope::Local("test".to_string())), 1);
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 8);
             assert_eq!(
-                table.search(&ScopeNew::Global, &"a".to_string()),
-                Some(&Symbol::new(
-                    ScopeNew::Global,
-                    "a".to_string(),
-                    Type::Int,
-                    Structure::Identifier
-                ))
+                table.search(&Scope::Global, &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Global,
+                    var: "a".to_string(),
+                    t: Type::Int,
+                    strt: Structure::Identifier,
+                    pos: 1,
+                    offset: 0,
+                })
             );
             assert_eq!(
-                table.search(&ScopeNew::Func("test".to_string()), &"a".to_string()),
-                Some(&Symbol::new(
-                    ScopeNew::Func("test".to_string()),
-                    "a".to_string(),
-                    Type::Char,
-                    Structure::Identifier
-                ))
+                table.search(&Scope::Local("test".to_string()), &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Local("test".to_string()),
+                    var: "a".to_string(),
+                    t: Type::Char,
+                    strt: Structure::Identifier,
+                    pos: 1,
+                    offset: 0,
+                })
             );
         }
     }

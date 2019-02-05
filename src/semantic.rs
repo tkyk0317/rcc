@@ -1,13 +1,12 @@
-use ast::{AstTree, AstType, Structure, Type};
+use ast::{AstTree, AstType};
 use std::result::Result;
 use symbol::{Scope, SymbolTable};
+use symbol::{Structure, Type};
 
 #[doc = "意味解析部"]
 pub struct Semantic<'a> {
     ast: &'a AstTree,
-    vars_table: SymbolTable,
-    global_table: SymbolTable,
-    funcs_table: SymbolTable,
+    sym_table: &'a SymbolTable,
 }
 
 // 解析結果返却マクロ
@@ -22,126 +21,16 @@ macro_rules! analyzed {
 }
 
 impl<'a> Semantic<'a> {
-    pub fn new(ast: &'a AstTree) -> Self {
+    pub fn new(ast: &'a AstTree, sym_table: &'a SymbolTable) -> Self {
         Semantic {
-            ast: ast,
-            vars_table: SymbolTable::new(Scope::Local),
-            global_table: SymbolTable::new(Scope::Global),
-            funcs_table: SymbolTable::new(Scope::Func),
+            ast: ast, sym_table: sym_table,
         }
-    }
-
-    // Global用シンボルテーブル作成
-    fn make_global_sym_table(&mut self, a: &AstType) {
-        match *a {
-            AstType::Global(ref stmt) => stmt.iter().for_each(|s| self.make_global_sym_table(s)),
-            AstType::Variable(ref t, ref s, ref n) => {
-                if self.global_table.search(n).is_none() {
-                    self.global_table.push(n.to_string(), t, s);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    // if用シンボルテーブル作成
-    fn make_local_sym_table_for_if(&mut self, a: &AstType, b: &Option<AstType>) {
-        self.make_local_sym_table(a);
-        match b {
-            Some(c) => self.make_local_sym_table(&c),
-            _ => {}
-        };
-    }
-
-    // シンボルテーブル作成
-    fn make_local_sym_table(&mut self, a: &AstType) {
-        // ASTタイプを解析し、シンボルテーブル作成
-        match *a {
-            AstType::Statement(ref stmt) => stmt.iter().for_each(|s| self.make_local_sym_table(s)),
-            AstType::FuncCall(_, ref a) => self.make_local_sym_table(a),
-            AstType::Argment(ref args) => args.iter().for_each(|a| self.make_local_sym_table(a)),
-            AstType::FuncDef(ref t, ref s, ref n, ref a, ref stmt) => {
-                if self.funcs_table.search(n).is_none() {
-                    self.funcs_table.push(n.to_string(), &t, &s);
-                }
-                self.make_local_sym_table(a);
-                self.make_local_sym_table(stmt);
-            }
-            AstType::Variable(ref t, ref s, ref n) => {
-                if self.vars_table.search(n).is_none() && self.global_table.search(n).is_none() {
-                    self.vars_table.push(n.to_string(), t, s);
-                }
-            }
-            AstType::While(_, ref b) => self.make_local_sym_table(b),
-            AstType::Do(ref a, _) => self.make_local_sym_table(a),
-            AstType::If(_, ref a, ref b) => {
-                // optionがmatchで参照できないので、関数化
-                self.make_local_sym_table_for_if(a, b);
-            }
-            AstType::For(_, _, _, ref a) => self.make_local_sym_table(a),
-            AstType::Plus(ref a, ref b)
-            | AstType::Minus(ref a, ref b)
-            | AstType::Multiple(ref a, ref b)
-            | AstType::Division(ref a, ref b)
-            | AstType::Remainder(ref a, ref b)
-            | AstType::Equal(ref a, ref b)
-            | AstType::NotEqual(ref a, ref b)
-            | AstType::LessThan(ref a, ref b)
-            | AstType::GreaterThan(ref a, ref b)
-            | AstType::LessThanEqual(ref a, ref b)
-            | AstType::GreaterThanEqual(ref a, ref b)
-            | AstType::LeftShift(ref a, ref b)
-            | AstType::RightShift(ref a, ref b)
-            | AstType::BitAnd(ref a, ref b)
-            | AstType::BitOr(ref a, ref b)
-            | AstType::BitXor(ref a, ref b)
-            | AstType::Assign(ref a, ref b)
-            | AstType::LogicalAnd(ref a, ref b)
-            | AstType::LogicalOr(ref a, ref b) => {
-                self.make_local_sym_table(a);
-                self.make_local_sym_table(b);
-            }
-            AstType::Condition(ref a, ref b, ref c) => {
-                self.make_local_sym_table(a);
-                self.make_local_sym_table(b);
-                self.make_local_sym_table(c);
-            }
-            AstType::Return(ref a)
-            | AstType::UnPlus(ref a)
-            | AstType::UnMinus(ref a)
-            | AstType::Not(ref a)
-            | AstType::BitReverse(ref a)
-            | AstType::Address(ref a)
-            | AstType::Indirect(ref a) => self.make_local_sym_table(a),
-            _ => {}
-        }
-    }
-
-    // グローバルシンボルテーブル取得.
-    pub fn get_global_symbol(&self) -> &SymbolTable {
-        &self.global_table
-    }
-
-    // シンボルテーブル取得.
-    pub fn get_var_symbol(&self) -> &SymbolTable {
-        &self.vars_table
-    }
-
-    // 関数シンボルテーブル取得.
-    pub fn get_func_symbol(&self) -> &SymbolTable {
-        &self.funcs_table
     }
 
     // 解析開始
     pub fn exec(&mut self) -> Result<(), Vec<String>> {
         let tree = self.ast.get_tree();
         let errs = tree.iter().fold(Vec::<String>::new(), |mut init, t| {
-            match t {
-                AstType::Global(_) => self.make_global_sym_table(t),
-                _ => {}
-            };
-
-            self.make_local_sym_table(t);
             match self.analysis(&t) {
                 Err(ref mut r) => {
                     init.append(r);
@@ -201,7 +90,7 @@ impl<'a> Semantic<'a> {
         let mut errs = vec![];
         match v {
             AstType::Variable(ref _t, ref _s, ref n) => {
-                if self.funcs_table.search(n).is_none() {
+                if self.sym_table.search(&Scope::Func, n).is_none() {
                     errs.push(format!("Not define function name: {:?}", n));
                 }
             }
@@ -312,7 +201,8 @@ fn test_func_type() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_ok());
     }
     // 型がおかしい
@@ -327,7 +217,8 @@ fn test_func_type() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -351,7 +242,8 @@ fn test_variable() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -387,7 +279,8 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -418,7 +311,8 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -449,7 +343,8 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -480,7 +375,8 @@ fn test_arithmetic() {
             ])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -504,7 +400,8 @@ fn test_func_argment() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_ok());
     }
     // 引数の型がおかしい
@@ -523,7 +420,8 @@ fn test_func_argment() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -549,7 +447,8 @@ fn test_func_argment() {
             ))])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
     }
@@ -564,7 +463,8 @@ fn test_func_call() {
             Box::new(AstType::Argment(vec![])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -578,7 +478,8 @@ fn test_func_call() {
             Box::new(AstType::Argment(vec![])),
         )];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
@@ -605,7 +506,8 @@ fn test_global() {
             ),
         ];
         let tree = AstTree { tree: ast };
-        let r = Semantic::new(&tree).exec();
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 1);
     }
