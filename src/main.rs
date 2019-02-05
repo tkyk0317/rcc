@@ -70,6 +70,7 @@ fn main() {
 #[cfg(test)]
 mod test {
     use super::*;
+    use config::Config;
     use std::fs;
     use std::io::Write;
     use std::process::Command;
@@ -114,7 +115,7 @@ mod test {
     #[test]
     fn test_integration() {
         // テスト用データ
-        [
+        let mut data = vec![
             TestData { inst: "int main() { return 1+2; }", ex_ret: 3 },
             TestData { inst: "int main() { return 10+20; }", ex_ret: 30 },
             TestData { inst: "int main() { return 100+101; }", ex_ret: 201 },
@@ -329,20 +330,30 @@ mod test {
             TestData { inst: "int main() { char a[10]; char *x = a; *(x + 2) = 100; return *(x + 2); }", ex_ret: 100, },
             TestData { inst: "char a[10]; char main() { char i; for (i = 0 ; i < 10 ; i++) { a[i] = i * 2; } return a[1] + a[4] + a[8]; }", ex_ret: 26 },
             TestData { inst: "char main() { char i[10]; char *x = i; *(i + 1) = 77; return i[1]; }", ex_ret: 77 },
-            TestData { inst: "int main() { char* i; i = \"test\"; return 1; }", ex_ret: 1, },
-            TestData { inst: "int main() { char* a; a = \"test\"; char* b; b = \"bbbb\"; return 9; }", ex_ret: 9, },
-        ]
-        .iter()
-        .enumerate()
-        .for_each(|(i, d)| {
-            assert_eq!(
-                d.ex_ret,
-                eval(d.inst),
-                "\tFail Test: No.{}, inst: {}",
-                i,
-                d.inst
+            TestData { inst: "int i; int main() { int i = 20; return i + 100; }", ex_ret: 120 },
+        ];
+
+        // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
+        if false == Config::is_mac() {
+            data.push(
+                TestData { inst: "int main() { char* i; i = \"test\"; return 1; }", ex_ret: 1, }
             );
-        });
+            data.push(
+                TestData { inst: "int main() { char* a; a = \"test\"; char* b; b = \"bbbb\"; return 9; }", ex_ret: 9, }
+            );
+        }
+
+        data.iter()
+            .enumerate()
+            .for_each(|(i, d)| {
+                assert_eq!(
+                    d.ex_ret,
+                    eval(d.inst),
+                    "\tFail Test: No.{}, inst: {}",
+                    i,
+                    d.inst
+                );
+            });
 
         // ファイル削除
         let _ = fs::remove_file("test.s");
