@@ -228,7 +228,9 @@ impl<'a> Asm<'a> {
             "  .text\n".to_string()
         };
 
-        let pos = self.sym_table.size(&Scope::Local(a.to_string())) + 8;
+        // 16バイトアライメント
+        let mut pos = self.sym_table.size(&Scope::Local(a.to_string())) ;
+        pos = (pos / 16) * 16 + 16;
         start = format!("{}{}{}:\n", self.inst, start, self.generate_func_symbol(a));
         start = format!(
             "{}{}{}{}",
@@ -614,12 +616,11 @@ impl<'a> Asm<'a> {
                     }
                 }
             }
-            Structure::Array(size) => {
-                let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
+            Structure::Array(_) => {
                 self.inst = format!(
                     "{}{}{}",
                     self.inst,
-                    self.gen_asm().lea(num * 8),
+                    self.gen_asm().lea(sym.size as i64),
                     self.gen_asm().push("rax")
                 );
             }
@@ -665,12 +666,11 @@ impl<'a> Asm<'a> {
                     }
                 }
             }
-            Structure::Array(size) => {
-                let num: i64 = size.iter().fold(1, |acc, i| acc * *i as i64);
+            Structure::Array(_) => {
                 self.inst = format!(
                     "{}{}{}",
                     self.inst,
-                    self.gen_asm().lea(num * 8),
+                    self.gen_asm().lea(sym.size as i64),
                     self.gen_asm().push("rax")
                 );
             }
@@ -861,9 +861,8 @@ impl<'a> Asm<'a> {
                 self.sym_table.search(&self.cur_scope, k)
                     .unwrap_or_else(||
                         self.sym_table.search(&Scope::Global, k).expect("asm.rs(generate_var_symbol): error option value")
-                    )
+                )
             }
-
         }
    }
 
@@ -1147,7 +1146,6 @@ impl<'a> Asm<'a> {
         match *a {
             AstType::Variable(ref _t, ref _s, ref a) => {
                 let sym = self.get_var_symbol(a);
-                //let pos = sym.pos as i64 * 8 + 8;
                 let pos = sym.offset as i64 + 8;
                 self.inst = format!("{}{}", self.inst, self.gen_asm().lea(pos));
                 self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));

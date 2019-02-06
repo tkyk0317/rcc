@@ -985,30 +985,11 @@ impl<'a> AstGen<'a> {
 
     // sizeof演算子
     fn factor_sizeof(&mut self) -> AstType {
-        // タイプ別のサイズ算出
-        let type_size = |t: &Type| -> usize {
-            match t {
-                Type::Int => 8,
-                Type::Long => 8,
-                Type::Short => 4,
-                Type::Char => 1,
-                _ => 0
-            }
-        };
-        let array_size = |t: &Type, items: &Vec<usize>| {
-            match t {
-                Type::Int => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
-                Type::Long => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
-                Type::Short => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
-                Type::Char => AstType::SizeOf(type_size(&t) * items.iter().fold(1, |acc, i| acc * i)),
-                _ => panic!("{} {}: not supprt type: {:?}", file!(), line!(), t)
-            }
-        };
-
         self.must_next(Token::LeftParen, "ast.rs(factor_sizeof): Not exists LeftParen");
 
         // 次のトークンが型であるか判定
-        let ast = match self.next().get_token_type() {
+        let token = self.next();
+        let ast = match token.get_token_type() {
             Token::Int => {
                 self.consume();
                 AstType::SizeOf(8)
@@ -1027,14 +1008,10 @@ impl<'a> AstGen<'a> {
 
                 // サイズを算出し、AST作成
                 match factor {
-                    AstType::Variable(ref t, ref s, _) => {
-                        // 変数の型からサイズ算出
-                        match s {
-                            Structure::Pointer => AstType::SizeOf(8),
-                            Structure::Identifier => AstType::SizeOf(type_size(&t)),
-                            Structure::Array(ref items) => array_size(t, items),
-                            _ => panic!("{} {}: not supprt structure: {:?}", file!(), line!(), t)
-                        }
+                    AstType::Variable(_, _, _) => {
+                        // シンボルテーブルから変数をサーチし、サイズ算出
+                        let sym = self.search_symbol(&self.cur_scope, &token.get_token_value()).expect("cannot search token");
+                        AstType::SizeOf(sym.size)
 
                     }
                     AstType::Factor(_) => AstType::SizeOf(8),

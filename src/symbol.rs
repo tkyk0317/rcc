@@ -32,12 +32,13 @@ pub enum Structure {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
-    pub scope: Scope, // スコープ
+    pub scope: Scope,    // スコープ
     pub var: String,     // 変数名
     pub t: Type,         // 型
     pub strt: Structure, // 構造
     pub pos: usize,      // ポジション
     pub offset: usize,   // オフセット
+    pub size: usize,     // サイズ
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +57,7 @@ impl Symbol {
             strt: strt,
             pos: 0,
             offset: 0,
+            size: 0,
         }
     }
 }
@@ -73,19 +75,23 @@ impl SymbolTable {
         // 同じシンボルがなければ、登録
         match self.search(&sym.scope, &sym.var) {
             None => {
-                // 関数シンボルの場合、ポジション算出は不要なのでそのまま登録
                 match sym.scope {
-                    Scope::Func => {
-                        let mut reg = sym.clone();
-                        reg.pos = 1;
-                        reg.offset = 0;
-                        self.table.push(reg);
-                    }
+                    Scope::Func => self.register_func(sym),
                     _ => self.register_variable(sym),
                 }
             }
             _ => {}
         };
+    }
+
+    // 関数シンボル登録
+    fn register_func(&mut self, sym: Symbol) {
+        // 関数シンボルの場合、ポジション算出は不要なのでそのまま登録
+        let mut reg = sym.clone();
+        reg.pos = 1;
+        reg.offset = 0;
+        reg.size = 8; // 関数ポインタサイズとして登録
+        self.table.push(reg);
     }
 
     // 変数シンボル登録
@@ -101,8 +107,14 @@ impl SymbolTable {
 
         match last {
             None => {
+                // 配列の場合、要素数を考慮し、サイズ算出
+                let size = match sym.strt {
+                    Structure::Array(ref v) => self.type_size(&sym.t, &sym.strt) * v.iter().fold(1, |acc, item| acc * item),
+                    _ => self.type_size(&sym.t, &sym.strt)
+                };
                 reg.pos = 1;
                 reg.offset = 0;
+                reg.size = size;
                 self.table.push(reg);
             }
             Some(pre_sym) => {
@@ -112,12 +124,16 @@ impl SymbolTable {
                         // 要素数分、オフセットなどを計算
                         let count = v.iter().fold(1, |acc, item| acc * item);
                         reg.pos = pre_sym.pos + count;
-                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t) * count;
+                        reg.size = self.type_size(&sym.t, &sym.strt) * count;
+                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t, &pre_sym.strt) * count;
+                        reg.offset = (reg.offset / 8) * 8;
                         self.table.push(reg);
                     }
                     _ => {
                         reg.pos = pre_sym.pos + 1;
-                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t);
+                        reg.size = self.type_size(&sym.t, &sym.strt);
+                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t, &pre_sym.strt);
+                        reg.offset = (reg.offset / 8) * 8;
                         self.table.push(reg);
                     }
                 }
@@ -149,13 +165,17 @@ impl SymbolTable {
     }
 
     // 型に応じたサイズ取得
-    fn type_size(&self, t: &Type) -> usize {
-        match t {
-            Type::Int => 8,
-            // ToDo: アセンブラ側が未対応
-            //Type::Char => 1,
-            Type::Char => 8,
-            _ => 0,
+    fn type_size(&self, t: &Type, s: &Structure) -> usize {
+        match s {
+            Structure::Pointer => 8,
+            Structure::Array(_) => 8,
+            _ => {
+                match t {
+                    Type::Int => 8,
+                    Type::Char => 1,
+                    _ => 0,
+                }
+            }
         }
     }
 
@@ -168,12 +188,12 @@ impl SymbolTable {
             .filter(|s| s.scope == *scope)
             .fold(0, |acc, sym| match sym.strt {
                 Structure::Pointer => acc + 8,
-                Structure::Identifier => acc + self.type_size(&sym.t),
+                Structure::Identifier => acc + self.type_size(&sym.t, &sym.strt),
                 // 配列の場合、要素数を考慮
                 Structure::Array(ref items) => {
                     acc + items
                         .iter()
-                        .fold(0, |acc2, i| acc2 + (i * self.type_size(&sym.t)))
+                        .fold(0, |acc2, i| acc2 + (i * self.type_size(&sym.t, &sym.strt)))
                 }
                 _ => acc,
             })
@@ -208,6 +228,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
+                    size: 8,
                 })
             );
         }
@@ -239,6 +260,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
+                    size: 8,
                 })
             );
             assert_eq!(
@@ -250,6 +272,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 2,
                     offset: 8,
+                    size: 8,
                 })
             );
         }
@@ -269,7 +292,7 @@ mod test {
             ));
 
             // 期待値
-            assert_eq!(table.size(&Scope::Local("test".to_string())), 16);
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 9);
             assert_eq!(table.count_all(), 2);
             assert_eq!(table.count(&Scope::Local("test".to_string())), 2);
             assert_eq!(
@@ -281,6 +304,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
+                    size: 8,
                 })
             );
             assert_eq!(
@@ -292,6 +316,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 2,
                     offset: 8,
+                    size: 1,
                 })
             );
         }
@@ -317,6 +342,33 @@ mod test {
                     strt: Structure::Array(vec![10]),
                     pos: 1,
                     offset: 0,
+                    size: 80,
+                })
+            );
+        }
+        {
+            let mut table = SymbolTable::new();
+            table.register_sym(Symbol::new(
+                Scope::Global,
+                "a".to_string(),
+                Type::Char,
+                Structure::Array(vec![10]),
+            ));
+
+            // 期待値
+            assert_eq!(table.size(&Scope::Global), 80);
+            assert_eq!(table.count_all(), 1);
+            assert_eq!(table.count(&Scope::Global), 1);
+            assert_eq!(
+                table.search(&Scope::Global, &"a".to_string()),
+                Some(Symbol {
+                    scope: Scope::Global,
+                    var: "a".to_string(),
+                    t: Type::Char,
+                    strt: Structure::Array(vec![10]),
+                    pos: 1,
+                    offset: 0,
+                    size: 80,
                 })
             );
         }
@@ -342,6 +394,7 @@ mod test {
                     strt: Structure::Pointer,
                     pos: 1,
                     offset: 0,
+                    size: 8,
                 })
             );
         }
@@ -365,7 +418,7 @@ mod test {
             assert_eq!(table.count(&Scope::Global), 1);
             assert_eq!(table.size(&Scope::Global), 8);
             assert_eq!(table.count(&Scope::Local("test".to_string())), 1);
-            assert_eq!(table.size(&Scope::Local("test".to_string())), 8);
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 1);
             assert_eq!(
                 table.search(&Scope::Global, &"a".to_string()),
                 Some(Symbol {
@@ -375,6 +428,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
+                    size: 8,
                 })
             );
             assert_eq!(
@@ -386,6 +440,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
+                    size: 1,
                 })
             );
         }
