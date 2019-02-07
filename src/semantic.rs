@@ -101,7 +101,7 @@ impl<'a> Semantic<'a> {
 
     // 関数引数解析
     fn analysis_argment(&self, args: &Vec<AstType>) -> Result<(), Vec<String>> {
-        let errs = args.iter().fold(Vec::<String>::new(), |mut acc, ref a| {
+        let mut errs = args.iter().fold(Vec::<String>::new(), |mut acc, ref a| {
             match self.analysis(a) {
                 Ok(_) => acc,
                 Err(ref mut e) => {
@@ -110,6 +110,11 @@ impl<'a> Semantic<'a> {
                 }
             }
         });
+
+        // 引数の数をチェック
+        if args.len() > 6 {
+            errs.push(format!("Argment Count is over six(max count is six)"));
+        }
         analyzed!(errs)
     }
 
@@ -451,6 +456,31 @@ fn test_func_argment() {
         let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
         assert!(r.err().unwrap().len() == 2);
+    }
+    // 引数の数が多い
+    {
+        let ast = vec![AstType::FuncDef(
+            Type::Int,
+            Structure::Identifier,
+            "main".to_string(),
+            Box::new(AstType::Argment(vec![
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string(),),
+                AstType::Variable(Type::Int, Structure::Identifier, "b".to_string(),),
+                AstType::Variable(Type::Int, Structure::Identifier, "c".to_string(),),
+                AstType::Variable(Type::Int, Structure::Identifier, "d".to_string(),),
+                AstType::Variable(Type::Int, Structure::Identifier, "e".to_string(),),
+                AstType::Variable(Type::Int, Structure::Identifier, "f".to_string(),),
+                AstType::Variable(Type::Int, Structure::Identifier, "f".to_string(),),
+            ])),
+            Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
+            ))])),
+        )];
+        let tree = AstTree { tree: ast };
+        let sym = SymbolTable::new();
+        let r = Semantic::new(&tree, &sym).exec();
+        assert!(r.is_err());
+        assert!(r.err().unwrap().len() == 1);
     }
 }
 
