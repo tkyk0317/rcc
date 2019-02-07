@@ -73,15 +73,12 @@ impl SymbolTable {
     #[allow(dead_code)]
     pub fn register_sym(&mut self, sym: Symbol) {
         // 同じシンボルがなければ、登録
-        match self.search(&sym.scope, &sym.var) {
-            None => {
-                match sym.scope {
-                    Scope::Func => self.register_func(sym),
-                    _ => self.register_variable(sym),
-                }
+        if self.search(&sym.scope, &sym.var).is_none() {
+            match sym.scope {
+                Scope::Func => self.register_func(sym),
+                _ => self.register_variable(sym),
             }
-            _ => {}
-        };
+        }
     }
 
     // 関数シンボル登録
@@ -105,6 +102,7 @@ impl SymbolTable {
             .cloned()
             .last();
 
+        // 前の要素をもとにオフセット等の情報を算出
         match last {
             None => {
                 // 配列の場合、要素数を考慮し、サイズ算出
@@ -191,9 +189,7 @@ impl SymbolTable {
                 Structure::Identifier => acc + self.type_size(&sym.t, &sym.strt),
                 // 配列の場合、要素数を考慮
                 Structure::Array(ref items) => {
-                    acc + items
-                        .iter()
-                        .fold(0, |acc2, i| acc2 + (i * self.type_size(&sym.t, &sym.strt)))
+                    acc + items.iter().fold(0, |acc2, i| acc2 + (i * self.type_size(&sym.t, &sym.strt)))
                 }
                 _ => acc,
             })

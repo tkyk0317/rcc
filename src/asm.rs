@@ -478,11 +478,10 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", name))
                     }
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movl_dst("eax", "rbp", -offset)
+                            self.gen_asm().movl_dst("eax", "rbp", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -498,12 +497,11 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.offset as i64  + 8;
                         format!(
                             "{}{}{}{}",
                             self.inst,
                             self.gen_asm().pop("rax"),
-                            self.gen_asm().mov_dst("rax", "rbp", -offset),
+                            self.gen_asm().mov_dst("rax", "rbp", -(sym.offset as i64 + 8)),
                             self.gen_asm().push("rax")
                         )
                     }
@@ -523,11 +521,10 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().movb_to_glb("al", name))
                     }
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movb_dst("al", "rbp", -offset)
+                            self.gen_asm().movb_dst("al", "rbp", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -543,12 +540,11 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}{}{}",
                             self.inst,
                             self.gen_asm().pop("rax"),
-                            self.gen_asm().mov_dst("rax", "rbp", -offset),
+                            self.gen_asm().mov_dst("rax", "rbp", -(sym.offset as i64 + 8)),
                             self.gen_asm().push("rax")
                         )
                     }
@@ -587,11 +583,10 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v))
                     }
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movl_src("rbp", "eax", -offset)
+                            self.gen_asm().movl_src("rbp", "eax", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -606,11 +601,10 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}{}",
                             self.inst,
-                            self.gen_asm().mov_src("rbp", "rax", -offset),
+                            self.gen_asm().mov_src("rbp", "rax", -(sym.offset as i64 + 8)),
                             self.gen_asm().push("rax")
                         )
                     }
@@ -637,11 +631,10 @@ impl<'a> Asm<'a> {
                         format!("{}{}", self.inst, self.gen_asm().movb_from_glb("eax", name))
                     }
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movsbl_src("rbp", "eax", -offset)
+                            self.gen_asm().movsbl_src("rbp", "eax", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -656,11 +649,10 @@ impl<'a> Asm<'a> {
                         self.gen_asm().push("rax")
                     ),
                     _ => {
-                        let offset = sym.offset as i64 + 8;
                         format!(
                             "{}{}{}",
                             self.inst,
-                            self.gen_asm().mov_src("rbp", "rax", -offset),
+                            self.gen_asm().mov_src("rbp", "rax", -(sym.offset as i64 + 8)),
                             self.gen_asm().push("rax")
                         )
                     }

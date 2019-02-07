@@ -352,42 +352,52 @@ impl<'a> LexicalAnalysis<'a> {
         v == '-' && self.read() == '-'
     }
 
+    // type int作成
+    fn generate_type_int(&mut self) -> TokenInfo {
+        let col = self.col;
+        self.skip(2);
+
+        // ポインタ型であるかチェック.
+        if self.is_pointer() {
+            // 位置が先頭を指し示すように修正
+            self.skip(1);
+            let mut t = self.create_token(Token::IntPointer, "int*".to_string());
+            t.pos.col = col;
+            t
+        } else {
+            // 位置が先頭を指し示すように修正
+            let mut t = self.create_token(Token::Int, "int".to_string());
+            t.pos.col = col;
+            t
+        }
+    }
+
+    // type char作成
+    fn generate_type_char(&mut self) -> TokenInfo {
+        let col = self.col;
+        self.skip(3);
+
+        // ポインタ型であるかチェック.
+        if self.is_pointer() {
+            // 位置が先頭を指し示すように修正
+            self.skip(1);
+            let mut t = self.create_token(Token::CharPointer, "char*".to_string());
+            t.pos.col = col;
+            t
+        } else {
+            // 位置が先頭を指し示すように修正
+            let mut t = self.create_token(Token::Char, "char".to_string());
+            t.pos.col = col;
+            t
+        }
+    }
+
     // type作成
     fn generate_type(&mut self, c: char) -> Option<TokenInfo> {
         if true == self.is_type_int(c) {
-            let col = self.col;
-            self.skip(2);
-
-            // ポインタ型であるかチェック.
-            if self.is_pointer() {
-                // 位置が先頭を指し示すように修正
-                self.skip(1);
-                let mut t = self.create_token(Token::IntPointer, "int*".to_string());
-                t.pos.col = col;
-                Some(t)
-            } else {
-                // 位置が先頭を指し示すように修正
-                let mut t = self.create_token(Token::Int, "int".to_string());
-                t.pos.col = col;
-                Some(t)
-            }
+            Some(self.generate_type_int())
         } else if self.is_type_char(c) {
-            let col = self.col;
-            self.skip(3);
-
-            // ポインタ型であるかチェック.
-            if self.is_pointer() {
-                // 位置が先頭を指し示すように修正
-                self.skip(1);
-                let mut t = self.create_token(Token::CharPointer, "char*".to_string());
-                t.pos.col = col;
-                Some(t)
-            } else {
-                // 位置が先頭を指し示すように修正
-                let mut t = self.create_token(Token::Char, "char".to_string());
-                t.pos.col = col;
-                Some(t)
-            }
+            Some(self.generate_type_char())
         } else {
             None
         }
@@ -419,19 +429,23 @@ impl<'a> LexicalAnalysis<'a> {
 
     // sizeof演算
     fn generate_sizeof(&mut self, c: char) -> Option<TokenInfo> {
-        let s = self.read_string(6);
-        let l = s.chars().last();
-        if c == 's'
-            && s.len() == 6
-            && "izeof" == &s[0..5]
-            && false == self.is_variable(l.expect("lexer.rs(generate_sizeof): read error")) {
-            // トークンを作成してからSKIPしないと、位置がずれる（skipで更新される）
+        if self.is_sizeof(c) {
             let t = Some(self.create_token(Token::SizeOf, "sizeof".to_string()));
             self.skip(5);
             t
         } else {
             None
         }
+    }
+
+    // sizeof演算子チェック
+    fn is_sizeof(&mut self, c: char) -> bool {
+        let s = self.read_string(6);
+        let l = s.chars().last();
+        c == 's'
+            && s.len() == 6
+            && "izeof" == &s[0..5]
+            && false == self.is_variable(l.expect("lexer.rs(generate_sizeof): read error"))
     }
 
     // ポインタ演算子が存在するか.
