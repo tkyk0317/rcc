@@ -340,7 +340,17 @@ mod test {
             TestData { inst: "int main() { char* a; return sizeof(a); }", ex_ret: 8 },
             TestData { inst: "int main() { int a[2]; return sizeof(a); }", ex_ret: 16 },
             TestData { inst: "int main() { int a[2][10]; return sizeof(a); }", ex_ret: 160 },
-        ];
+            TestData { inst: "int main() { int a = 0; a += 102; return a; }", ex_ret: 102 },
+            TestData { inst: "int main() { int a = 0; a += (10 * 2); return a; }", ex_ret: 20 },
+            TestData { inst: "int main() { int a = 100; a -= 81; return a; }", ex_ret: 19 },
+            TestData { inst: "int main() { int a = 100; int b = 10;  a -= (12 + b); return a; }", ex_ret: 78 },
+            TestData { inst: "int x; int main() { x = 0; x += 102; return x; }", ex_ret: 102 },
+            TestData { inst: "int x; int main() { x = 0; x += (10 * 2); return x; }", ex_ret: 20 },
+            TestData { inst: "int x; int main() { x = 100; x -= 81; return x; }", ex_ret: 19 },
+            TestData { inst: "int x; int main() { x = 100; int b = 10;  x -= (12 + b); return x; }", ex_ret: 78 },
+            TestData { inst: "int main() { char a = 0; a += 13; return a; }", ex_ret: 13 },
+            TestData { inst: "int main() { char a = 100; a -= 51; return a; }", ex_ret: 49 },
+         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
         if false == Config::is_mac() {

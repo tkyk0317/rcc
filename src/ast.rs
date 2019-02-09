@@ -54,6 +54,8 @@ pub enum AstType {
     PostInc(Box<AstType>),
     PostDec(Box<AstType>),
     StringLiteral(String, usize),
+    PlusAssign(Box<AstType>, Box<AstType>),
+    MinusAssign(Box<AstType>, Box<AstType>),
     SizeOf(usize),
 }
 
@@ -520,6 +522,22 @@ impl<'a> AstGen<'a> {
                 self.consume();
                 AstType::Assign(Box::new(var), Box::new(self.condition()))
             }
+            Token::Variable if Token::PlusAssign == next_token.get_token_type() => {
+                let var = self.factor();
+
+                // Assignトークン消費
+                self.consume();
+                AstType::PlusAssign(Box::new(var), Box::new(self.condition()))
+            }
+            Token::Variable if Token::MinusAssign == next_token.get_token_type() => {
+                println!("{:?}", next_token);
+
+                let var = self.factor();
+
+                // Assignトークン消費
+                self.consume();
+                AstType::MinusAssign(Box::new(var), Box::new(self.condition()))
+             }
             _ => self.condition(),
         }
     }
@@ -6751,6 +6769,106 @@ mod tests {
                     ]))
                 )
             );
+        }
+    }
+
+    #[test]
+    fn test_plus_assign() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::PlusAssign, "+=".to_string()),
+                create_token(Token::Number, "3".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        ),
+                        AstType::PlusAssign(
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
+                            Box::new(AstType::Factor(3))
+                        )
+                    ])),
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_minus_assign() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::MinusAssign, "-=".to_string()),
+                create_token(Token::Number, "3".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        ),
+                        AstType::MinusAssign(
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
+                            Box::new(AstType::Factor(3))
+                        )
+                    ,])),
+                )
+            )
         }
     }
 }

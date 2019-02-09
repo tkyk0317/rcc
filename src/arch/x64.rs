@@ -96,6 +96,9 @@ impl Generator for X64 {
     fn add(&self, src: &str, dst: &str) -> String {
         format!("  add %{}, %{}\n", src, dst)
     }
+    fn add_src(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  add {}(%{}), %{}\n", n, src, dst)
+    }
     fn add_imm(&self, i: usize, reg: &str) -> String {
         format!("  add ${}, %{}\n", i, reg)
     }
@@ -129,6 +132,9 @@ impl Generator for X64 {
     }
     fn movb_dst(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  movb %{}, {}(%{})\n", src, n, dst)
+    }
+    fn movb_src(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  movb {}(%{}), %{}\n", n, src, dst)
     }
     // 即値をn(%dst)へ転送
     fn movl_imm_dst(&self, i: i64, dst: &str, n: i64) -> String {

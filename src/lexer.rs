@@ -118,6 +118,10 @@ impl<'a> LexicalAnalysis<'a> {
                                 let token = self.create_token(Token::Inc, "++".to_string());
                                 self.skip(1);
                                 token
+                            } else if true == self.is_plus_assign(v) {
+                                let token = self.create_token(Token::PlusAssign, "+=".to_string());
+                                self.skip(1);
+                                token
                             } else {
                                 self.create_token(Token::Plus, v.to_string())
                             }
@@ -127,7 +131,11 @@ impl<'a> LexicalAnalysis<'a> {
                                 let token = self.create_token(Token::Dec, "--".to_string());
                                 self.skip(1);
                                 token
-                            } else {
+                            } else if true == self.is_minus_assign(v)  {
+                                let token = self.create_token(Token::MinusAssign, "-=".to_string());
+                                self.skip(1);
+                                token
+                             } else {
                                 self.create_token(Token::Minus, v.to_string())
                             }
                         }
@@ -350,6 +358,16 @@ impl<'a> LexicalAnalysis<'a> {
 
     fn is_decrement(&self, v: char) -> bool {
         v == '-' && self.read() == '-'
+    }
+
+    // plus assign演算子
+    fn is_plus_assign(&self, v: char) -> bool {
+        v == '+' && self.read() == '='
+    }
+
+    // minus assign演算子
+    fn is_minus_assign(&self, v: char) -> bool {
+        v == '-' && self.read() == '='
     }
 
     // type int作成
@@ -2250,6 +2268,98 @@ mod tests {
             assert_eq!(
                 TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 10)),
                 lexer.get_tokens()[5]
+            );
+        }
+    }
+
+    #[test]
+    fn test_plus_assign() {
+        {
+            let input = "a += 1;".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::PlusAssign,
+                    "+=".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Number,
+                    "1".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 7)),
+                lexer.get_tokens()[4]
+            );
+        }
+    }
+
+    #[test]
+    fn test_minus_assign() {
+        {
+            let input = "a -= 1;".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::MinusAssign,
+                    "-=".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Number,
+                    "1".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 7)),
+                lexer.get_tokens()[4]
             );
         }
     }

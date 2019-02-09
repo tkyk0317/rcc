@@ -150,6 +150,8 @@ impl<'a> Asm<'a> {
             AstType::Not(ref a) => self.generate_not(a),
             AstType::BitReverse(ref a) => self.generate_bit_reverse(a),
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
+            AstType::PlusAssign(ref a, ref b) => self.generate_plus_assign(a, b),
+            AstType::MinusAssign(ref a, ref b) => self.generate_minus_assign(a, b),
             AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
             AstType::PreInc(ref a) => self.generate_pre_inc(a),
             AstType::PreDec(ref a) => self.generate_pre_dec(a),
@@ -574,6 +576,57 @@ impl<'a> Asm<'a> {
         }
     }
 
+    // plus assign生成.
+    fn generate_plus_assign(&mut self, a: &AstType, b: &AstType) {
+        match a {
+            AstType::Variable(_, _, ref name) => {
+                self.generate_lvalue_address(a);
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().add_src("rcx", "rax", 0));
+
+                // 型に応じた転送サイズを考慮
+                let sym = self.get_var_symbol(name);
+                match sym.t {
+                    Type::Char => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().movb_dst("al", "rcx", 0));
+                    }
+                    _ =>  {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
+                    }
+                }
+            }
+            _ => panic!("{} {}: cannot support AstType {:?}", file!(), line!(), a)
+        }
+    }
+
+    // minus assign生成.
+    fn generate_minus_assign(&mut self, a: &AstType, b: &AstType) {
+        match a {
+            AstType::Variable(_, _, ref name) => {
+                self.generate_lvalue_address(a);
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rdx", 0));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().sub("rax", "rdx"));
+
+                // 型に応じた転送サイズを考慮
+                let sym = self.get_var_symbol(name);
+                match sym.t {
+                    Type::Char => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().movb_dst("dl", "rcx", 0));
+                    }
+                    _ =>  {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rdx", "rcx", 0));
+                    }
+                }
+            }
+            _ => panic!("{} {}: cannot support AstType {:?}", file!(), line!(), a)
+        }
+    }
+
     // int variable生成
     fn generate_variable_with_int(&mut self, s: &Structure, v: &String, sym: &Symbol) {
         match s {
@@ -904,13 +957,9 @@ impl<'a> Asm<'a> {
                     self.inst =
                         format!("{}{}", self.inst, self.gen_asm().movq_dst("rax", "rcx", 0));
                 }
-                _ => panic!(format!(
-                    "asm.rs(generate_post_inc): Not Support Structure {:?}",
-                    s
-                )),
+                _ => panic!(format!("asm.rs(generate_post_inc): Not Support Structure {:?}", s)),
             },
-            _ => panic!(format!(
-                "asm.rs(generate_post_inc): Not Support AstType {:?}",
+            _ => panic!(format!("asm.rs(generate_post_inc): Not Support AstType {:?}",
                 a
             )),
         }
