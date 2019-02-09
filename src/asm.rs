@@ -1,4 +1,6 @@
-use arch::{x64::X64, Generator};
+use arch::Generator;
+use arch::{x64::X64};
+use arch::{x64_mac::X64Mac};
 use ast::{AstTree, AstType};
 use config::Config;
 use std::process;
@@ -99,15 +101,18 @@ impl<'a> Asm<'a> {
     }
 
     // アセンブラ生成部取得
-    fn gen_asm(&self) -> impl Generator {
-        X64
+    fn gen_asm(&self) -> Box<dyn Generator> {
+        if Config::is_mac() {
+            Box::new(X64Mac)
+        } else {
+            Box::new(X64)
+        }
     }
 
     // アセンブラ取得
     pub fn get_inst(&self) -> String {
         // 定数領域と結合
         format!("{}{}", self.const_literal, self.inst)
-        //self.inst.clone()
     }
 
     // アセンブラ生成開始.
@@ -473,8 +478,7 @@ impl<'a> Asm<'a> {
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            AstType::Variable(ref t, ref s, ref name) => {
-                println!("{:?}", a);
+            AstType::Variable(ref t, ref s, _) => {
                 self.generate_lvalue_address(a);
                 self.generate(b);
                 self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));

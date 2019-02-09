@@ -1,4 +1,5 @@
 pub mod x64;
+pub mod x64_mac;
 
 pub trait Generator {
     fn push(&self, reg: &str) -> String;

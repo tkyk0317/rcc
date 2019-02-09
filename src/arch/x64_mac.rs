@@ -1,8 +1,8 @@
 use arch::Generator;
 
-// x64アセンブリ.
-pub struct X64;
-impl Generator for X64 {
+// x64 macアセンブリ.
+pub struct X64Mac;
+impl Generator for X64Mac {
     fn push(&self, reg: &str) -> String {
         format!("  push %{}\n", reg)
     }
@@ -142,7 +142,7 @@ impl Generator for X64 {
     }
     // n(%src)から%dstへ転送
     fn movsbl_src(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  mov {}(%{}), %{}\n", n, src, dst)
+        format!("  movsb {}(%{}), %{}\n", n, src, dst)
     }
     fn movl_src(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  mov {}(%{}), %{}\n", n, src, dst)
@@ -155,7 +155,7 @@ impl Generator for X64 {
     }
     // global変数からの代入
     fn mov_from_glb(&self, dst: &str, name: &str) -> String {
-        format!("  mov {}(%rip), %{}\n", name, dst)
+        format!("  movsb {}(%rip), %{}\n", name, dst)
     }
     fn movb_from_glb(&self, dst: &str, name: &str) -> String {
         format!("  mov {}(%rip), %{}\n", name, dst)
