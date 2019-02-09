@@ -274,7 +274,7 @@ impl<'a> Asm<'a> {
                                 "{}{}{}",
                                 self.inst,
                                 self.gen_asm().mov(&d.1, "rax"),
-                                self.gen_asm().movl_dst("eax", "rbp", -(p as i64))
+                                self.gen_asm().movl_dst("rax", "rbp", -(p as i64))
                             );
                         }
                     };
@@ -292,7 +292,7 @@ impl<'a> Asm<'a> {
         // 条件式部分生成.
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(1, "eax"); // 等しい場合は、1に設定されている.
+        self.generate_cmp_inst(1, "rax"); // 等しい場合は、1に設定されている.
 
         // elseブロック生成.
         match c {
@@ -339,7 +339,7 @@ impl<'a> Asm<'a> {
         self.generate(a);
         // conditionが偽であれば、ブロック終端へジャンプ.
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.generate_je_inst(label_end);
 
         // ブロック部生成.
@@ -374,7 +374,7 @@ impl<'a> Asm<'a> {
         self.generate(b);
         // conditionが真であれば、ブロック先頭へジャンプ.
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
 
         self.generate_jne_inst(label_begin);
         self.generate_label_inst(label_end);
@@ -411,7 +411,7 @@ impl<'a> Asm<'a> {
         if let Some(cond) = b {
             self.generate(cond);
             self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-            self.generate_cmp_inst(0, "eax");
+            self.generate_cmp_inst(0, "rax");
             self.generate_je_inst(label_end);
         }
 
@@ -470,107 +470,35 @@ impl<'a> Asm<'a> {
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
-    // assign variable with int
-    fn generate_assign_variable_with_int(&mut self, strt: &Structure, name: &String, sym: Symbol) {
-        match *strt {
-            Structure::Identifier => {
-                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-                self.inst = match sym.scope {
-                    Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().mov_to_glb("eax", name))
-                    }
-                    _ => {
-                        format!(
-                            "{}{}",
-                            self.inst,
-                            self.gen_asm().movl_dst("eax", "rbp", -(sym.offset as i64 + 8))
-                        )
-                    }
-                };
-                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-            }
-            Structure::Pointer => {
-                self.inst = match sym.scope {
-                    Scope::Global => format!(
-                        "{}{}{}{}",
-                        self.inst,
-                        self.gen_asm().pop("rax"),
-                        self.gen_asm().movq_to_glb("rax", name),
-                        self.gen_asm().push("rax")
-                    ),
-                    _ => {
-                        format!(
-                            "{}{}{}{}",
-                            self.inst,
-                            self.gen_asm().pop("rax"),
-                            self.gen_asm().mov_dst("rax", "rbp", -(sym.offset as i64 + 8)),
-                            self.gen_asm().push("rax")
-                        )
-                    }
-                };
-            }
-            _ => panic!("{} {}: not support structure {:?}", file!(), line!(), strt),
-        }
-    }
-
-    // assign variable with char
-    fn generate_assign_variable_with_char(&mut self, strt: &Structure, name: &String, sym: Symbol) {
-        match *strt {
-            Structure::Identifier => {
-                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-                self.inst = match sym.scope {
-                    Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().movb_to_glb("al", name))
-                    }
-                    _ => {
-                        format!(
-                            "{}{}",
-                            self.inst,
-                            self.gen_asm().movb_dst("al", "rbp", -(sym.offset as i64 + 8))
-                        )
-                    }
-                };
-                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-            }
-            Structure::Pointer => {
-                self.inst = match sym.scope {
-                    Scope::Global => format!(
-                        "{}{}{}{}",
-                        self.inst,
-                        self.gen_asm().pop("rax"),
-                        self.gen_asm().movq_to_glb("rax", name),
-                        self.gen_asm().push("rax")
-                    ),
-                    _ => {
-                        format!(
-                            "{}{}{}{}",
-                            self.inst,
-                            self.gen_asm().pop("rax"),
-                            self.gen_asm().mov_dst("rax", "rbp", -(sym.offset as i64 + 8)),
-                            self.gen_asm().push("rax")
-                        )
-                    }
-                };
-            }
-            _ => panic!("{} {}: not support structure {:?}", file!(), line!(), strt),
-        }
-    }
-
-    // assign variable
-    fn generate_assign_variable(&mut self, a: &String, t: &Type, s: &Structure, b: &AstType) {
-        let sym = self.get_var_symbol(a);
-        self.generate(b);
-        match *t {
-            Type::Int => self.generate_assign_variable_with_int(s, a, sym),
-            Type::Char => self.generate_assign_variable_with_char(s, a, sym),
-            _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
-        }
-    }
-
     // assign生成.
     fn generate_assign(&mut self, a: &AstType, b: &AstType) {
         match *a {
-            AstType::Variable(ref t, ref s, ref a) => self.generate_assign_variable(a, t, s, b),
+            AstType::Variable(ref t, ref s, ref name) => {
+                println!("{:?}", a);
+                self.generate_lvalue_address(a);
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+
+                // ポインタは64bitで転送
+                match s {
+                    Structure::Pointer => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rcx", "rax", 0));
+                    }
+                    _ => {
+                        // 型に応じた転送サイズを考慮
+                        match t {
+                            Type::Char => {
+                                self.inst = format!("{}{}", self.inst, self.gen_asm().movb_dst("cl", "rax", 0));
+                            }
+                            _ =>  {
+                                self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rcx", "rax", 0));
+                            }
+                        }
+                    }
+                }
+               self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+            }
             AstType::Indirect(ref a) => self.generate_assign_indirect(a, b),
             _ => self.generate(b),
         }
@@ -633,13 +561,13 @@ impl<'a> Asm<'a> {
             Structure::Identifier => {
                 self.inst = match sym.scope {
                     Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().mov_from_glb("eax", v))
+                        format!("{}{}", self.inst, self.gen_asm().mov_from_glb("rax", v))
                     }
                     _ => {
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movl_src("rbp", "eax", -(sym.offset as i64 + 8))
+                            self.gen_asm().movl_src("rbp", "rax", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -681,13 +609,13 @@ impl<'a> Asm<'a> {
             Structure::Identifier => {
                 self.inst = match sym.scope {
                     Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().movb_from_glb("eax", name))
+                        format!("{}{}", self.inst, self.gen_asm().movb_from_glb("rax", name))
                     }
                     _ => {
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movsbl_src("rbp", "eax", -(sym.offset as i64 + 8))
+                            self.gen_asm().movsbl_src("rbp", "rax", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -787,7 +715,7 @@ impl<'a> Asm<'a> {
     fn generate_bit_reverse(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().not("eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().not("rax"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
@@ -795,9 +723,9 @@ impl<'a> Asm<'a> {
     fn generate_not(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.inst = format!("{}{}", self.inst, self.gen_asm().set("al"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movz("al", "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movz("al", "rax"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
@@ -805,7 +733,7 @@ impl<'a> Asm<'a> {
     fn generate_unminus(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().neg("eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().neg("rax"));
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
@@ -821,7 +749,7 @@ impl<'a> Asm<'a> {
 
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.generate_je_inst(label_false);
 
         self.generate(b);
@@ -839,17 +767,17 @@ impl<'a> Asm<'a> {
 
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.generate_je_inst(label_false);
         self.generate(b);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.generate_je_inst(label_false);
 
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "rax"));
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_false);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "rax"));
         self.generate_label_inst(label_end);
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
@@ -861,17 +789,17 @@ impl<'a> Asm<'a> {
 
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.generate_jne_inst(label_true);
         self.generate(b);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.generate_cmp_inst(0, "eax");
+        self.generate_cmp_inst(0, "rax");
         self.generate_jne_inst(label_true);
 
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "rax"));
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_true);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "eax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "rax"));
         self.generate_label_inst(label_end);
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
@@ -942,11 +870,11 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-                    self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "eax"));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
                 }
                 Structure::Pointer => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
@@ -974,11 +902,11 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-                    self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "eax"));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
                 }
                 Structure::Pointer => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
@@ -1010,10 +938,10 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
-                    self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "eax"));
+                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
                 Structure::Pointer => {
@@ -1046,10 +974,10 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
-                    self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "eax"));
+                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
+                    self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("eax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
                 Structure::Pointer => {

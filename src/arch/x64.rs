@@ -22,55 +22,55 @@ impl Generator for X64 {
         format!("  jne .L{}\n", no)
     }
     fn cmpl(&self, f: usize, r: &str) -> String {
-        format!("  cmpl ${}, %{}\n", f, r)
+        format!("  cmp ${}, %{}\n", f, r)
     }
     fn mul(&self, reg: &str) -> String {
         format!("  mul %{}\n", reg)
     }
     fn multiple(&self) -> String {
-        "  imull %ecx\n".to_string()
+        "  imul %rcx\n".to_string()
     }
     fn plus(&self) -> String {
-        "  addl %ecx, %eax\n".to_string()
+        "  add %rcx, %rax\n".to_string()
     }
     fn minus(&self) -> String {
-        "  subl %ecx, %eax\n".to_string()
+        "  sub %rcx, %rax\n".to_string()
     }
     fn equal(&self) -> String {
-        "  cmpl %ecx, %eax\n  sete %al\n  movzbl %al, %eax\n".to_string()
+        "  cmp %rcx, %rax\n  sete %al\n  movzb %al, %rax\n".to_string()
     }
     fn not_equal(&self) -> String {
-        "  cmpl %ecx, %eax\n  setne %al\n  movzbl %al, %eax\n".to_string()
+        "  cmp %rcx, %rax\n  setne %al\n  movzb %al, %rax\n".to_string()
     }
     fn less_than(&self) -> String {
-        "  cmpl %ecx, %eax\n  setl %al\n  movzbl %al, %eax\n".to_string()
+        "  cmp %rcx, %rax\n  setl %al\n  movzb %al, %rax\n".to_string()
     }
     fn less_than_equal(&self) -> String {
-        "  cmpl %ecx, %eax\n  setle %al\n  movzbl %al, %eax\n".to_string()
+        "  cmp %rcx, %rax\n  setle %al\n  movzb %al, %rax\n".to_string()
     }
     fn greater_than(&self) -> String {
-        "  cmpl %ecx, %eax\n  setg %al\n  movzbl %al, %eax\n".to_string()
+        "  cmp %rcx, %rax\n  setg %al\n  movzb %al, %rax\n".to_string()
     }
     fn greater_than_equal(&self) -> String {
-        "  cmpl %ecx, %eax\n  setge %al\n  movzbl %al, %eax\n".to_string()
+        "  cmp %rcx, %rax\n  setge %al\n  movzb %al, %rax\n".to_string()
     }
     fn left_shift(&self) -> String {
-        "  sall %cl, %eax\n".to_string()
+        "  sal %cl, %rax\n".to_string()
     }
     fn right_shift(&self) -> String {
-        "  sarl %cl, %eax\n".to_string()
+        "  sar %cl, %rax\n".to_string()
     }
     fn bit_and(&self) -> String {
-        "  andl %ecx, %eax\n".to_string()
+        "  and %rcx, %rax\n".to_string()
     }
     fn bit_or(&self) -> String {
-        "  orl %ecx, %eax\n".to_string()
+        "  or %rcx, %rax\n".to_string()
     }
     fn bit_xor(&self) -> String {
-        "  xorl %ecx, %eax\n".to_string()
+        "  xor %rcx, %rax\n".to_string()
     }
     fn bit_division(&self) -> String {
-        "  movl $0, %edx\n  idivl %ecx\n".to_string()
+        "  mov $0, %rdx\n  idiv %rcx\n".to_string()
     }
     fn lea(&self, p: i64) -> String {
         format!("  leaq -{}(%rbp), %rax\n", p)
@@ -79,13 +79,13 @@ impl Generator for X64 {
         format!("  leaq {}(%rip), %rax\n", n)
     }
     fn not(&self, reg: &str) -> String {
-        format!("  notl %{}\n", reg)
+        format!("  not %{}\n", reg)
     }
     fn set(&self, reg: &str) -> String {
         format!("  sete %{}\n", reg)
     }
     fn neg(&self, reg: &str) -> String {
-        format!("  negl %{}\n", reg)
+        format!("  neg %{}\n", reg)
     }
     fn sub(&self, src: &str, dst: &str) -> String {
         format!("  sub %{}, %{}\n", src, dst)
@@ -121,14 +121,14 @@ impl Generator for X64 {
         format!("  movq ${}, {}(%{})\n", n, offset, dst)
     }
     fn movz(&self, src: &str, dst: &str) -> String {
-        format!("  movzbl %{}, %{}\n", src, dst)
+        format!("  movzb %{}, %{}\n", src, dst)
     }
     fn movl_imm(&self, n: i64, reg: &str) -> String {
-        format!("  movl ${}, %{}\n", n, reg)
+        format!("  mov ${}, %{}\n", n, reg)
     }
     // %srcからn(%dst)へ転送
     fn movl_dst(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  movl %{}, {}(%{})\n", src, n, dst)
+        format!("  mov %{}, {}(%{})\n", src, n, dst)
     }
     fn movb_dst(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  movb %{}, {}(%{})\n", src, n, dst)
@@ -138,14 +138,14 @@ impl Generator for X64 {
     }
     // 即値をn(%dst)へ転送
     fn movl_imm_dst(&self, i: i64, dst: &str, n: i64) -> String {
-        format!("  movl ${}, {}(%{})\n", i, n, dst)
+        format!("  mov ${}, {}(%{})\n", i, n, dst)
     }
     // n(%src)から%dstへ転送
     fn movsbl_src(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  movsbl {}(%{}), %{}\n", n, src, dst)
+        format!("  movsb {}(%{}), %{}\n", n, src, dst)
     }
     fn movl_src(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  movl {}(%{}), %{}\n", n, src, dst)
+        format!("  mov {}(%{}), %{}\n", n, src, dst)
     }
     fn movq_src(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  movq {}(%{}), %{}\n", n, src, dst)
@@ -155,17 +155,17 @@ impl Generator for X64 {
     }
     // global変数からの代入
     fn mov_from_glb(&self, dst: &str, name: &str) -> String {
-        format!("  movl {}(%rip), %{}\n", name, dst)
+        format!("  mov {}(%rip), %{}\n", name, dst)
     }
     fn movb_from_glb(&self, dst: &str, name: &str) -> String {
-        format!("  movsbl {}(%rip), %{}\n", name, dst)
+        format!("  movsb {}(%rip), %{}\n", name, dst)
     }
     fn movq_from_glb(&self, dst: &str, name: &str) -> String {
         format!("  movq {}(%rip), %{}\n", name, dst)
     }
     // global変数の代入
     fn mov_to_glb(&self, src: &str, name: &str) -> String {
-        format!("  movl %{}, {}(%rip)\n", src, name)
+        format!("  mov %{}, {}(%rip)\n", src, name)
     }
     fn movb_to_glb(&self, src: &str, name: &str) -> String {
         format!("  movb %{}, {}(%rip)\n", src, name)
