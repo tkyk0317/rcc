@@ -127,11 +127,17 @@ impl SymbolTable {
                         reg.offset = (reg.offset / 8) * 8;
                         self.table.push(reg);
                     }
-                    _ => {
+                    Structure::Pointer => {
                         reg.pos = pre_sym.pos + 1;
                         reg.size = self.type_size(&sym.t, &sym.strt);
                         reg.offset = pre_sym.offset + self.type_size(&pre_sym.t, &pre_sym.strt);
                         reg.offset = (reg.offset / 8) * 8;
+                        self.table.push(reg);
+                    }
+                    _ => {
+                        reg.pos = pre_sym.pos + 1;
+                        reg.size = self.type_size(&sym.t, &sym.strt);
+                        reg.offset = pre_sym.offset + self.type_size(&pre_sym.t, &pre_sym.strt);
                         self.table.push(reg);
                     }
                 }

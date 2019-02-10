@@ -502,7 +502,7 @@ impl<'a> Asm<'a> {
                         }
                     }
                 }
-               self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
             }
             AstType::Indirect(ref a) => self.generate_assign_indirect(a, b),
             _ => self.generate(b),

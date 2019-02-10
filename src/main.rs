@@ -323,10 +323,9 @@ mod test {
             TestData { inst: "int main() { char i[2]; i[0] = 0; i[1] = 19; return i[0] + i[1]; }", ex_ret: 19 },
             TestData { inst: "char i; int main() { i = 20; return i }", ex_ret: 20 },
             TestData { inst: "int main() { char* i; char y = 10; i = &y; return *i + 20; }", ex_ret: 30 },
-            TestData { inst: "int main() { char* i; char y = 10; i = &y; char x = *i + 2; return x; }", ex_ret: 12 },
             TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i + 20; return *i; }", ex_ret: 30, },
             TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i - 2; return *i; }", ex_ret: 8, },
-            TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i + 100 -10; return *i; }", ex_ret: 100, },
+            TestData { inst: "int main() { char* i; char y = 10; i = &y; *i = *i + 100 - 10; return *i; }", ex_ret: 100, },
             TestData { inst: "int main() { char a[10]; char *x = a; *(x + 2) = 100; return *(x + 2); }", ex_ret: 100, },
             TestData { inst: "char a[10]; char main() { char i; for (i = 0 ; i < 10 ; i++) { a[i] = i * 2; } return a[1] + a[4] + a[8]; }", ex_ret: 26 },
             TestData { inst: "char main() { char i[10]; char *x = i; *(i + 1) = 77; return i[1]; }", ex_ret: 77 },
@@ -360,6 +359,8 @@ mod test {
             TestData { inst: "int a; int main() { a = 2; int b = 4; a *= b; return a; }", ex_ret: 8 },
             TestData { inst: "char a; int main() { a = 2; a *= 3; return a; }", ex_ret: 6 },
             TestData { inst: "char a; int main() { a = 2; a *= (3 + 11); return a; }", ex_ret: 28 },
+            TestData { inst: "int main() { char a = 0; char b = 10;   return b; }", ex_ret: 10 },
+            TestData { inst: "int main() { char a = 0; char b = 10;  a += b; return a; }", ex_ret: 10 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
