@@ -279,7 +279,7 @@ impl<'a> Asm<'a> {
                                 "{}{}{}",
                                 self.inst,
                                 self.gen_asm().mov(&d.1, "rax"),
-                                self.gen_asm().movl_dst("rax", "rbp", -(p as i64))
+                                self.gen_asm().mov_dst("rax", "rbp", -(p as i64))
                             );
                         }
                     };
@@ -571,7 +571,7 @@ impl<'a> Asm<'a> {
                         format!(
                             "{}{}",
                             self.inst,
-                            self.gen_asm().movl_src("rbp", "rax", -(sym.offset as i64 + 8))
+                            self.gen_asm().mov_src("rbp", "rax", -(sym.offset as i64 + 8))
                         )
                     }
                 };
@@ -582,7 +582,7 @@ impl<'a> Asm<'a> {
                     Scope::Global => format!(
                         "{}{}{}",
                         self.inst,
-                        self.gen_asm().movq_from_glb("rax", v),
+                        self.gen_asm().mov_from_glb("rax", v),
                         self.gen_asm().push("rax")
                     ),
                     _ => {
@@ -630,7 +630,7 @@ impl<'a> Asm<'a> {
                     Scope::Global => format!(
                         "{}{}{}",
                         self.inst,
-                        self.gen_asm().movq_from_glb("rax", name),
+                        self.gen_asm().mov_from_glb("rax", name),
                         self.gen_asm().push("rax")
                     ),
                     _ => {
@@ -778,10 +778,10 @@ impl<'a> Asm<'a> {
         self.generate_cmp_inst(0, "rax");
         self.generate_je_inst(label_false);
 
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rax", 1));
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_false);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rax", 0));
         self.generate_label_inst(label_end);
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
@@ -800,10 +800,10 @@ impl<'a> Asm<'a> {
         self.generate_cmp_inst(0, "rax");
         self.generate_jne_inst(label_true);
 
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(0, "rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rax", 0));
         self.generate_jmp_inst(label_end);
         self.generate_label_inst(label_true);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_imm(1, "rax"));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rax", 1));
         self.generate_label_inst(label_end);
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
@@ -813,7 +813,7 @@ impl<'a> Asm<'a> {
         // 数値.
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
         self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movq_imm_dst("rsp", a, 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm_dst("rsp", a, 0));
     }
 
     // sizeof演算子.
@@ -821,7 +821,7 @@ impl<'a> Asm<'a> {
         // 数値.
         self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
         self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movq_imm_dst("rsp", a as i64, 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm_dst("rsp", a as i64, 0));
     }
 
     // シンボル情報取得
@@ -874,20 +874,20 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                 }
                 Structure::Pointer => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(8, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                 }
                 _ => panic!(format!("asm.rs(generate_post_inc): Not Support Structure {:?}", s)),
             },
@@ -906,20 +906,20 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                 }
                 Structure::Pointer => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                 }
                 _ => panic!(format!(
                     "asm.rs(generate_post_dec): Not Support Structure {:?}",
@@ -942,19 +942,19 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
                 Structure::Pointer => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().add_imm(8, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
                 _ => panic!(format!(
@@ -978,19 +978,19 @@ impl<'a> Asm<'a> {
                 Structure::Identifier => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(1, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movl_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
                 Structure::Pointer => {
                     self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_src("rcx", "rax", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rax", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rax"));
                     self.inst =
-                        format!("{}{}", self.inst, self.gen_asm().movq_dst("rax", "rcx", 0));
+                        format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                     self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
                 }
                 _ => panic!(format!(
@@ -1131,7 +1131,7 @@ impl<'a> Asm<'a> {
     fn generate_indirect(&mut self, a: &AstType) {
         self.generate(a);
         self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
-        self.inst = format!("{}{}", self.inst, self.gen_asm().movq_src("rax", "rcx", 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_src("rax", "rcx", 0));
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rcx"));
     }
 

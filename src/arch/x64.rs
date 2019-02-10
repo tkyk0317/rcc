@@ -117,41 +117,22 @@ impl Generator for X64 {
     fn mov_imm(&self, dst: &str, n: i64) -> String {
         format!("  mov ${}, %{}\n", n, dst)
     }
-    fn movq_imm_dst(&self, dst: &str, n: i64, offset: i64) -> String {
+    fn mov_imm_dst(&self, dst: &str, n: i64, offset: i64) -> String {
         format!("  movq ${}, {}(%{})\n", n, offset, dst)
     }
     fn movz(&self, src: &str, dst: &str) -> String {
         format!("  movzb %{}, %{}\n", src, dst)
     }
-    fn movl_imm(&self, n: i64, reg: &str) -> String {
-        format!("  mov ${}, %{}\n", n, reg)
-    }
     // %srcからn(%dst)へ転送
-    fn movl_dst(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  mov %{}, {}(%{})\n", src, n, dst)
-    }
     fn movb_dst(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  movb %{}, {}(%{})\n", src, n, dst)
     }
     fn movb_src(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  movb {}(%{}), %{}\n", n, src, dst)
     }
-    // 即値をn(%dst)へ転送
-    fn movl_imm_dst(&self, i: i64, dst: &str, n: i64) -> String {
-        format!("  mov ${}, {}(%{})\n", i, n, dst)
-    }
     // n(%src)から%dstへ転送
     fn movsbl_src(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  mov {}(%{}), %{}\n", n, src, dst)
-    }
-    fn movl_src(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  mov {}(%{}), %{}\n", n, src, dst)
-    }
-    fn movq_src(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  movq {}(%{}), %{}\n", n, src, dst)
-    }
-    fn movq_dst(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  movq %{}, {}(%{})\n", src, n, dst)
     }
     // global変数からの代入
     fn mov_from_glb(&self, dst: &str, name: &str) -> String {
@@ -160,18 +141,12 @@ impl Generator for X64 {
     fn movb_from_glb(&self, dst: &str, name: &str) -> String {
         format!("  mov {}(%rip), %{}\n", name, dst)
     }
-    fn movq_from_glb(&self, dst: &str, name: &str) -> String {
-        format!("  movq {}(%rip), %{}\n", name, dst)
-    }
     // global変数の代入
     fn mov_to_glb(&self, src: &str, name: &str) -> String {
         format!("  mov %{}, {}(%rip)\n", src, name)
     }
     fn movb_to_glb(&self, src: &str, name: &str) -> String {
         format!("  movb %{}, {}(%rip)\n", src, name)
-    }
-    fn movq_to_glb(&self, src: &str, name: &str) -> String {
-        format!("  movq %{}, {}(%rip)\n", src, name)
     }
     fn call(&self, a: &str) -> String {
         format!("  call {}\n", a)
