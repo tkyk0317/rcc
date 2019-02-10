@@ -53,6 +53,7 @@ pub enum Token {
     SizeOf,           // sizeof演算子
     PlusAssign,       // +=演算子
     MinusAssign,      // -=演算子
+    MultipleAssign,   // *=演算子
     End,              // 終了.
 }
 

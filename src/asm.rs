@@ -157,6 +157,7 @@ impl<'a> Asm<'a> {
             AstType::Assign(ref a, ref b) => self.generate_assign(a, b),
             AstType::PlusAssign(ref a, ref b) => self.generate_plus_assign(a, b),
             AstType::MinusAssign(ref a, ref b) => self.generate_minus_assign(a, b),
+            AstType::MultipleAssign(ref a, ref b) => self.generate_multiple_assign(a, b),
             AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
             AstType::PreInc(ref a) => self.generate_pre_inc(a),
             AstType::PreDec(ref a) => self.generate_pre_dec(a),
@@ -552,6 +553,32 @@ impl<'a> Asm<'a> {
                     }
                     _ =>  {
                         self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rdx", "rcx", 0));
+                    }
+                }
+            }
+            _ => panic!("{} {}: cannot support AstType {:?}", file!(), line!(), a)
+        }
+    }
+
+    // multiple assign生成.
+    fn generate_multiple_assign(&mut self, a: &AstType, b: &AstType) {
+        match a {
+            AstType::Variable(_, _, ref name) => {
+                self.generate_lvalue_address(a);
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rax"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().mov_src("rcx", "rdx", 0));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().mul("rdx"));
+
+                // 型に応じた転送サイズを考慮
+                let sym = self.get_var_symbol(name);
+                match sym.t {
+                    Type::Char => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().movb_dst("al", "rcx", 0));
+                    }
+                    _ =>  {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rcx", 0));
                     }
                 }
             }

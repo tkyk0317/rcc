@@ -350,7 +350,17 @@ mod test {
             TestData { inst: "int x; int main() { x = 100; int b = 10;  x -= (12 + b); return x; }", ex_ret: 78 },
             TestData { inst: "int main() { char a = 0; a += 13; return a; }", ex_ret: 13 },
             TestData { inst: "int main() { char a = 100; a -= 51; return a; }", ex_ret: 49 },
-         ];
+            TestData { inst: "int main() { int a = 2; a *= 3; return a; }", ex_ret: 6 },
+            TestData { inst: "int main() { int a = 2; a *= (3 + 11); return a; }", ex_ret: 28 },
+            TestData { inst: "int main() { int a = 2; int b = 4; a *= b; return a; }", ex_ret: 8 },
+            TestData { inst: "int main() { char a = 2; a *= 3; return a; }", ex_ret: 6 },
+            TestData { inst: "int main() { char a = 2; a *= (3 + 11); return a; }", ex_ret: 28 },
+            TestData { inst: "int a; int main() { a = 2; a *= 3; return a; }", ex_ret: 6 },
+            TestData { inst: "int a; int main() { a = 2; a *= (3 + 11); return a; }", ex_ret: 28 },
+            TestData { inst: "int a; int main() { a = 2; int b = 4; a *= b; return a; }", ex_ret: 8 },
+            TestData { inst: "char a; int main() { a = 2; a *= 3; return a; }", ex_ret: 6 },
+            TestData { inst: "char a; int main() { a = 2; a *= (3 + 11); return a; }", ex_ret: 28 },
+        ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
         if false == Config::is_mac() {
