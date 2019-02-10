@@ -838,17 +838,15 @@ impl<'a> Asm<'a> {
     // 数値生成.
     fn generate_factor(&mut self, a: i64) {
         // 数値.
-        self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
-        self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm_dst("rsp", a, 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rax", a));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
     // sizeof演算子.
     fn generate_sizeof(&mut self, a: usize) {
         // 数値.
-        self.inst = format!("{}{}", self.inst, self.gen_asm().sub_imm(8, "rsp"));
-        self.inst = format!("{}  movq ${}, (%rsp)\n", self.inst, a);
-        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm_dst("rsp", a as i64, 0));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_imm("rax", a as i64));
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
     // シンボル情報取得

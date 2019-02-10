@@ -152,6 +152,6 @@ impl Generator for X64 {
         format!("  call {}\n", a)
     }
     fn leave(&self) -> String {
-        "leave\n".to_string()
+        "  leave\n".to_string()
     }
 }
