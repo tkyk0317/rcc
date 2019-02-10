@@ -871,41 +871,29 @@ impl<'a> AstGen<'a> {
 
     // array index
     fn array_index(&mut self, s: &Structure) -> AstType {
+        self.consume();
+        let index = self.expression();
+        self.must_next(
+            Token::RightBracket,
+            "ast.rs(variable): Not exists RightBracket",
+        );
+        // 多次元配列か？
         match self.next().get_token_type() {
+            // 最初のインデックス分のオフセットを算出
             Token::LeftBracket => {
-                self.consume();
-                let index = self.expression();
-                self.must_next(
-                    Token::RightBracket,
-                    "ast.rs(variable): Not exists RightBracket",
+                let (count, tails) = match s {
+                    Structure::Array(v) => (v[1] as i64, v.split_first().unwrap().1.to_vec()),
+                    _ => panic!("ast.rs(array_index): cannot support structure {:?}", s),
+                };
+                let offset = AstType::Multiple(
+                    Box::new(index), Box::new(AstType::Factor(count))
                 );
-                // 多次元配列か？
-                match self.next().get_token_type() {
-                    // 最初の要素と他を分割し、インデックスを解析
-                    Token::LeftBracket => {
-                        let (_, tails) = match s {
-                            Structure::Array(v) => v.split_first().expect("failed split array"),
-                            _ => panic!("ast.rs(array_index): not Array"),
-                        };
-
-                        let offset = tails.to_vec();
-                        AstType::Plus(
-                            Box::new(AstType::Multiple(
-                                Box::new(index),
-                                Box::new(AstType::Factor(*offset.first().expect("") as i64)),
-                            )),
-                            Box::new(self.array_index(&Structure::Array(tails.to_vec()))),
-                        )
-                    }
-                    _ => index,
-                }
+                AstType::Plus(
+                    Box::new(offset),
+                    Box::new(self.array_index(&Structure::Array(tails))),
+                )
             }
-            _ => panic!(
-                "{} {}: ast.rs(array_size) not support token {:?}",
-                file!(),
-                line!(),
-                self.next()
-            ),
+            _ => index,
         }
     }
 
