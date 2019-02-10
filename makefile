@@ -1,9 +1,11 @@
 all:
-	cargo build --release
+	docker build . -t rcc-test
+	docker run --rm -it rcc-test cargo build && cargo build --release
 
 test:
 	docker build . -t rcc-test
-	docker run --rm rcc-test
+	docker run --rm -it rcc-test cargo t
 
 clean:
-	cargo clean
+	docker build . -t rcc-test
+	docker run --rm -it rcc-test cargo clean
