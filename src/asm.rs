@@ -189,16 +189,38 @@ impl<'a> Asm<'a> {
         }
     }
 
+    // グローバル変数代入
+    fn generate_global_assign(&mut self, a: &AstType, b: &AstType) {
+        // 左辺が変数、右辺は数字をサポート
+        match b {
+            AstType::Factor(i) => match a {
+                AstType::Variable(ref t, _, ref name) => {
+                    self.inst = format!("{}{}:\n", self.inst, name);
+                    self.inst = match t {
+                        Type::Int =>  format!("{}  .long {}\n", self.inst, i),
+                        Type::Char => format!("{}  .byte {}\n", self.inst, i),
+                        _ => panic!("{}{}: cannot support type {:?}", file!(), line!(), t)
+                    }
+                }
+                _ => panic!("{}{}: cannot support AstType {:?}", file!(), line!(), b)
+            }
+            _ => panic!("{}{}: cannot support AstType {:?}", file!(), line!(), a)
+        }
+    }
+
     // グローバル変数定義
     fn generate_global(&mut self, a: &Vec<AstType>) {
         self.inst = format!("{}{}", self.inst, "  .data\n");
-        a.iter().for_each(|d| match *d {
-            AstType::Variable(_, _, ref a) => {
-                self.inst = format!("{}{}:\n", self.inst, a);
-                self.inst = format!("{}  .zero 8\n", self.inst);
+        a.iter().for_each(|d| {
+            match d {
+                AstType::Assign(ref a, ref b) => self.generate_global_assign(a, b),
+                AstType::Variable(_, _, ref name) => {
+                    self.inst = format!("{}{}:\n", self.inst, name);
+                    self.inst = format!("{}  .zero 8\n", self.inst);
+                }
+                _ => panic!("{}{}: cannot support AstType {:?}", file!(), line!(), d)
             }
-            _ => panic!("not support ast type: {:?}", d),
-        })
+        });
     }
 
     // 関数定義.

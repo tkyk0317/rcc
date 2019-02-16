@@ -367,6 +367,8 @@ mod test {
             TestData { inst: "int main() { int a = 10; char b = 8;  b = a * b; return b; }", ex_ret: 80 },
             TestData { inst: "int a; char b; int main() { a = 10; b = 30;  a = a + b; return a; }", ex_ret: 40 },
             TestData { inst: "int a; char b; int main() { a = 10; b = 8;  b = a * b; return b; }", ex_ret: 80 },
+            TestData { inst: "int a = 22; int main() { return a; }", ex_ret: 22 },
+            TestData { inst: "char a = 99; int main() { return a; }", ex_ret: 99 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
