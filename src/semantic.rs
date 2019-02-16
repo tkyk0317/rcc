@@ -153,18 +153,6 @@ impl<'a> Semantic<'a> {
 
     // 四則演算解析
     fn analysis_arithmetic(&self, a: &AstType, b: &AstType) -> Result<(), Vec<String>> {
-        // 左辺、右辺の型チェック
-        let check_both_side = |l: &AstType, r: &AstType| match (l, r) {
-            (AstType::Variable(ref t1, _, _), AstType::Variable(ref t2, _, _)) => {
-                if t1 != t2 {
-                    Some(format!("Both Type Difference: {:?} {:?}", t1, t2))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
         // 左辺、右辺の解析
         let mut errs = vec![];
         if let Err(ref mut e) = self.analysis(a) {
@@ -172,11 +160,6 @@ impl<'a> Semantic<'a> {
         }
         if let Err(ref mut e) = self.analysis(b) {
             errs.append(e);
-        }
-
-        // 左辺、右辺の型解析
-        if let Some(e) = check_both_side(a, b) {
-            errs.push(e);
         }
         analyzed!(errs)
     }
@@ -287,7 +270,7 @@ fn test_arithmetic() {
         let sym = SymbolTable::new();
         let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 2);
+        assert!(r.err().unwrap().len() == 1);
     }
     {
         let ast = vec![AstType::FuncDef(
@@ -319,7 +302,7 @@ fn test_arithmetic() {
         let sym = SymbolTable::new();
         let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 2);
+        assert!(r.err().unwrap().len() == 1);
     }
     {
         let ast = vec![AstType::FuncDef(
@@ -351,7 +334,7 @@ fn test_arithmetic() {
         let sym = SymbolTable::new();
         let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 2);
+        assert!(r.err().unwrap().len() == 1);
     }
     {
         let ast = vec![AstType::FuncDef(
@@ -383,7 +366,7 @@ fn test_arithmetic() {
         let sym = SymbolTable::new();
         let r = Semantic::new(&tree, &sym).exec();
         assert!(r.is_err());
-        assert!(r.err().unwrap().len() == 2);
+        assert!(r.err().unwrap().len() == 1);
     }
 }
 
