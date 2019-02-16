@@ -37,7 +37,10 @@ pub trait Generator {
     fn sub_imm(&self, i: usize, reg: &str) -> String;
     fn ret(&self) -> String;
     fn mov(&self, src: &str, dst: &str) -> String;
+    fn movq(&self, src: &str, dst: &str) -> String;
     fn mov_src(&self, src: &str, dst: &str, n: i64) -> String;
+    fn movl_src(&self, src: &str, dst: &str, n: i64) -> String;
+    fn movq_src(&self, src: &str, dst: &str, n: i64) -> String;
     fn mov_dst(&self, src: &str, dst: &str, n: i64) -> String;
     fn mov_imm(&self, dst: &str, n: i64) -> String;
     fn mov_imm_dst(&self, dst: &str, n: i64, offset: i64) -> String;

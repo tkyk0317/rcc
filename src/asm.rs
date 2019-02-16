@@ -158,7 +158,7 @@ impl<'a> Asm<'a> {
             AstType::PlusAssign(ref a, ref b) => self.generate_plus_assign(a, b),
             AstType::MinusAssign(ref a, ref b) => self.generate_minus_assign(a, b),
             AstType::MultipleAssign(ref a, ref b) => self.generate_multiple_assign(a, b),
-            AstType::Variable(ref t, ref a, ref s) => self.generate_variable(t, a, s),
+            AstType::Variable(_, _, _) => self.generate_variable(ast),
             AstType::PreInc(ref a) => self.generate_pre_inc(a),
             AstType::PreDec(ref a) => self.generate_pre_dec(a),
             AstType::PostInc(ref a) => self.generate_post_inc(a),
@@ -586,117 +586,42 @@ impl<'a> Asm<'a> {
         }
     }
 
-    // int variable生成
-    fn generate_variable_with_int(&mut self, s: &Structure, v: &String, sym: &Symbol) {
-        match s {
-            Structure::Identifier => {
-                self.inst = match sym.scope {
-                    Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().mov_from_glb("rax", v))
-                    }
-                    _ => {
-                        format!(
-                            "{}{}{}{} movl (%rcx), %eax\n",
-                            self.inst,
-                            self.gen_asm().lea(sym.offset as i64 + 8),
-                            self.gen_asm().push("rax"),
-                            self.gen_asm().pop("rcx"),
-                        )
-                    }
-                };
-                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-            }
+    // 型や構造を判断し、variable生成
+    fn generate_variable_by_strt(&mut self, sym: &Symbol) {
+        match sym.strt {
             Structure::Pointer => {
-                self.inst = match sym.scope {
-                    Scope::Global => format!(
-                        "{}{}{}",
-                        self.inst,
-                        self.gen_asm().mov_from_glb("rax", v),
-                        self.gen_asm().push("rax")
-                    ),
-                    _ => {
-                        format!(
-                            "{}{}{}",
-                            self.inst,
-                            self.gen_asm().mov_src("rbp", "rax", -(sym.offset as i64 + 8)),
-                            self.gen_asm().push("rax")
-                        )
-                    }
-                }
+                self.inst = format!("{}{}", self.inst, self.gen_asm().movq_src("rcx", "rax", 0));
             }
             Structure::Array(_) => {
-                self.inst = format!(
-                    "{}{}{}",
-                    self.inst,
-                    self.gen_asm().lea(sym.size as i64),
-                    self.gen_asm().push("rax")
-                );
+                self.inst = format!("{}{}", self.inst, self.gen_asm().movq("rcx", "rax"));
             }
-            _ => {}
-        }
-    }
-
-    // char variable生成
-    fn generate_variable_with_char(&mut self, s: &Structure, name: &String, sym: &Symbol) {
-        match s {
             Structure::Identifier => {
-                self.inst = match sym.scope {
-                    Scope::Global => {
-                        format!("{}{}", self.inst, self.gen_asm().movb_from_glb("rax", name))
+                match sym.t {
+                    Type::Int => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().movl_src("rcx", "eax", 0));
                     }
-                    _ => {
-                        format!(
-                            "{}{}",
-                            self.inst,
-                            self.gen_asm().movsbl_src("rbp", "rax", -(sym.offset as i64 + 8))
-                        )
+                    Type::Char => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().movsbl_src("rcx", "eax", 0));
                     }
-                };
-                self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
-            }
-            Structure::Pointer => {
-                self.inst = match sym.scope {
-                    Scope::Global => format!(
-                        "{}{}{}",
-                        self.inst,
-                        self.gen_asm().mov_from_glb("rax", name),
-                        self.gen_asm().push("rax")
-                    ),
-                    _ => {
-                        format!(
-                            "{}{}{}",
-                            self.inst,
-                            self.gen_asm().mov_src("rbp", "rax", -(sym.offset as i64 + 8)),
-                            self.gen_asm().push("rax")
-                        )
-                    }
+                    _ => panic!("{}{}: cannot support type: {:?}", file!(), line!(), sym.t)
                 }
             }
-            Structure::Array(_) => {
-                self.inst = format!(
-                    "{}{}{}",
-                    self.inst,
-                    self.gen_asm().lea(sym.size as i64),
-                    self.gen_asm().push("rax")
-                );
-            }
-            _ => {}
-        }
-    }
-
-    // typeごとのVariable生成
-    fn generate_variable_with_type(&mut self, t: &Type, s: &Structure, v: &String, sym: &Symbol) {
-        match *t {
-            Type::Int => self.generate_variable_with_int(s, v, sym),
-            Type::Char => self.generate_variable_with_char(s, v, sym),
-            _ => panic!("{} {}: not support type {:?}", file!(), line!(), t),
+            _ => panic!("{}{}: cannot support structure: {:?}", file!(), line!(), sym.strt)
         }
     }
 
     // variable生成.
-    fn generate_variable(&mut self, t: &Type, s: &Structure, v: &String) {
-        let sym = self.get_var_symbol(v);
-        self.generate_variable_with_type(t, s, v, &sym);
+    fn generate_variable(&mut self, a: &AstType) {
+        self.generate_lvalue_address(a);
+        match a {
+            AstType::Variable(_, _, ref name) => {
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                let sym = self.get_var_symbol(name);
+                self.generate_variable_by_strt(&sym);
+            }
+            _ => panic!("{}{}: cannot support AstType: {:?}", file!(), line!(), a)
+        }
+        self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }
 
     // 関数コール生成.
@@ -883,11 +808,12 @@ impl<'a> Asm<'a> {
         // アドレスをraxレジスタへ転送
         self.inst = match sym.scope {
             Scope::Global => format!("{}{}", self.inst, self.gen_asm().lea_glb(name)),
-            _ => format!(
-                "{}{}",
-                self.inst,
-                self.gen_asm().lea(sym.offset as i64 + 8)
-            ),
+            _ => match sym.strt {
+                Structure::Array(_) => {
+                    format!("{}{}", self.inst, self.gen_asm().lea(sym.size as i64))
+                }
+                _ => format!("{}{}", self.inst, self.gen_asm().lea(sym.offset as i64 + 8))
+            }
         };
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }

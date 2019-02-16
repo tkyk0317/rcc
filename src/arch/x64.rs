@@ -108,8 +108,17 @@ impl Generator for X64 {
     fn mov(&self, src: &str, dst: &str) -> String {
         format!("  mov %{}, %{}\n", src, dst)
     }
+    fn movq(&self, src: &str, dst: &str) -> String {
+        format!("  movq %{}, %{}\n", src, dst)
+    }
     fn mov_src(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  mov {}(%{}), %{}\n", n, src, dst)
+    }
+    fn movl_src(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  movl {}(%{}), %{}\n", n, src, dst)
+    }
+    fn movq_src(&self, src: &str, dst: &str, n: i64) -> String {
+        format!("  movq {}(%{}), %{}\n", n, src, dst)
     }
     fn mov_dst(&self, src: &str, dst: &str, n: i64) -> String {
         format!("  mov %{}, {}(%{})\n", src, n, dst)
@@ -132,7 +141,7 @@ impl Generator for X64 {
     }
     // n(%src)から%dstへ転送
     fn movsbl_src(&self, src: &str, dst: &str, n: i64) -> String {
-        format!("  mov {}(%{}), %{}\n", n, src, dst)
+        format!("  movsbl {}(%{}), %{}\n", n, src, dst)
     }
     // global変数からの代入
     fn mov_from_glb(&self, dst: &str, name: &str) -> String {
