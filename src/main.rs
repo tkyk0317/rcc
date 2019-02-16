@@ -365,7 +365,9 @@ mod test {
             TestData { inst: "int main() { char a = 0; char b = 10;  a += b; return a; }", ex_ret: 10 },
             TestData { inst: "int main() { int a = 10; char b = 30;  a = a + b; return a; }", ex_ret: 40 },
             TestData { inst: "int main() { int a = 10; char b = 8;  b = a * b; return b; }", ex_ret: 80 },
-         ];
+            TestData { inst: "int a; char b; int main() { a = 10; b = 30;  a = a + b; return a; }", ex_ret: 40 },
+            TestData { inst: "int a; char b; int main() { a = 10; b = 8;  b = a * b; return b; }", ex_ret: 80 },
+        ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
         if false == Config::is_mac() {

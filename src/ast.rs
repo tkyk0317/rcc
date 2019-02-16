@@ -168,7 +168,7 @@ impl<'a> AstGen<'a> {
 
                 let mut vars = acc.clone();
                 vars.push(var);
-                vars
+                self.global_var(vars)
             }
             _ => acc,
         }
@@ -5785,6 +5785,55 @@ mod tests {
                         AstType::Variable(Type::Char, Structure::Pointer, "b".to_string()),
                         AstType::Return(Box::new(AstType::Factor(1)),)
                     ]))
+                )
+            );
+        }
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Char, "char".to_string()),
+                create_token(Token::Variable, "x".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Return, "return".to_string()),
+                create_token(Token::Number, "1".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::Global(vec![AstType::Variable(
+                    Type::Int,
+                    Structure::Identifier,
+                    "a".to_string()
+                ),
+                AstType::Variable(
+                    Type::Char,
+                    Structure::Identifier,
+                    "x".to_string()
+                ),])
+            );
+            assert_eq!(
+                result.get_tree()[1],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![AstType::Return(Box::new(
+                        AstType::Factor(1)
+                    ),)]))
                 )
             );
         }
