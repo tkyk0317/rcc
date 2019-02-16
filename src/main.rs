@@ -98,17 +98,19 @@ mod test {
             Ok(inst) => {
                 // gccを使用して実行.
                 let _ = create_asm_file(&inst);
-                let _ = Command::new("gcc")
-                    .args(&["-g3", "-no-pie", "./test.s", "-o", "test"])
-                    .output();
-                match Command::new("./test").status() {
-                    Ok(r) => match r.code() {
-                        Some(r) => r,
-                        None => panic!("code() is failed"),
-                    },
+                match Command::new("gcc").args(&["-g3", "-no-pie", "./test.s", "-o", "test"]).output() {
                     Err(e) => panic!(e),
+                    Ok(_) => {
+                        match Command::new("./test").status() {
+                            Ok(r) => match r.code() {
+                                Some(r) => r,
+                                None => panic!("code() is failed"),
+                            },
+                            Err(e) => panic!(e),
+                        }
+                    }
                 }
-            }
+           }
         }
     }
 
@@ -331,9 +333,9 @@ mod test {
             TestData { inst: "char main() { char i[10]; char *x = i; *(i + 1) = 77; return i[1]; }", ex_ret: 77 },
             TestData { inst: "int i; int main() { int i = 20; return i + 100; }", ex_ret: 120 },
             TestData { inst: "int main() { return sizeof(char); }", ex_ret: 1 },
-            TestData { inst: "int main() { return sizeof(int); }", ex_ret: 8 },
+            TestData { inst: "int main() { return sizeof(int); }", ex_ret: 4 },
             TestData { inst: "int main() { return sizeof(10); }", ex_ret: 8 },
-            TestData { inst: "int main() { int a = 1; return sizeof(a); }", ex_ret: 8 },
+            TestData { inst: "int main() { int a = 1; return sizeof(a); }", ex_ret: 4 },
             TestData { inst: "int main() { char a = 1; return sizeof(a); }", ex_ret: 1 },
             TestData { inst: "int main() { int* a; return sizeof(a); }", ex_ret: 8 },
             TestData { inst: "int main() { char* a; return sizeof(a); }", ex_ret: 8 },

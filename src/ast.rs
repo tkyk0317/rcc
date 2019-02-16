@@ -996,7 +996,7 @@ impl<'a> AstGen<'a> {
         let ast = match token.get_token_type() {
             Token::Int => {
                 self.consume();
-                AstType::SizeOf(8)
+                AstType::SizeOf(4)
             }
             Token::Char  => {
                 self.consume();
@@ -6575,7 +6575,7 @@ mod tests {
                     "main".to_string(),
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
-                        AstType::Return(Box::new(AstType::SizeOf(8)),)
+                        AstType::Return(Box::new(AstType::SizeOf(4)),)
                     ]))
                 )
             );
@@ -6711,7 +6711,7 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(AstType::Statement(vec![
                         AstType::Variable(Type::Int, Structure::Identifier, "a".to_string()),
-                        AstType::Return(Box::new(AstType::SizeOf(8)),)
+                        AstType::Return(Box::new(AstType::SizeOf(4)),)
                     ]))
                 )
             );

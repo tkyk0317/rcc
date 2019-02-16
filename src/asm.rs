@@ -596,9 +596,11 @@ impl<'a> Asm<'a> {
                     }
                     _ => {
                         format!(
-                            "{}{}",
+                            "{}{}{}{} movl (%rcx), %eax\n",
                             self.inst,
-                            self.gen_asm().mov_src("rbp", "rax", -(sym.offset as i64 + 8))
+                            self.gen_asm().lea(sym.offset as i64 + 8),
+                            self.gen_asm().push("rax"),
+                            self.gen_asm().pop("rcx"),
                         )
                     }
                 };

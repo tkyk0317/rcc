@@ -28,10 +28,10 @@ impl Generator for X64 {
         format!("  mul %{}\n", reg)
     }
     fn multiple(&self) -> String {
-        "  imul %rcx\n".to_string()
+        "  imul %ecx\n".to_string()
     }
     fn plus(&self) -> String {
-        "  add %rcx, %rax\n".to_string()
+        "  add %ecx, %eax\n".to_string()
     }
     fn minus(&self) -> String {
         "  sub %rcx, %rax\n".to_string()
@@ -73,10 +73,10 @@ impl Generator for X64 {
         "  mov $0, %rdx\n  idiv %rcx\n".to_string()
     }
     fn lea(&self, p: i64) -> String {
-        format!("  leaq -{}(%rbp), %rax\n", p)
+        format!("  lea -{}(%rbp), %rax\n", p)
     }
     fn lea_glb(&self, n: &str) -> String {
-        format!("  leaq {}(%rip), %rax\n", n)
+        format!("  lea {}(%rip), %rax\n", n)
     }
     fn not(&self, reg: &str) -> String {
         format!("  not %{}\n", reg)

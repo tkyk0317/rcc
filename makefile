@@ -4,7 +4,7 @@ all:
 
 test:
 	docker build . -t rcc-test
-	docker run --rm -it rcc-test cargo t
+	docker run -v $(PWD):/usr/src/rcc/ -it rcc-test cargo t
 
 clean:
 	docker build . -t rcc-test

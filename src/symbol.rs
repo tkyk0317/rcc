@@ -138,6 +138,7 @@ impl SymbolTable {
                         reg.pos = pre_sym.pos + 1;
                         reg.size = self.type_size(&sym.t, &sym.strt);
                         reg.offset = pre_sym.offset + self.type_size(&pre_sym.t, &pre_sym.strt);
+                        reg.offset = (reg.offset / 8) * 8 + 8;
                         self.table.push(reg);
                     }
                 }
@@ -175,7 +176,7 @@ impl SymbolTable {
             Structure::Array(_) => 8,
             _ => {
                 match t {
-                    Type::Int => 8,
+                    Type::Int => 4,
                     Type::Char => 1,
                     _ => 0,
                 }
@@ -218,7 +219,7 @@ mod test {
             ));
 
             // 期待値
-            assert_eq!(table.size(&Scope::Global), 8);
+            assert_eq!(table.size(&Scope::Global), 4);
             assert_eq!(table.count_all(), 1);
             assert_eq!(table.count(&Scope::Global), 1);
             assert_eq!(
@@ -230,7 +231,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
-                    size: 8,
+                    size: 4,
                 })
             );
         }
@@ -250,7 +251,7 @@ mod test {
             ));
 
             // 期待値
-            assert_eq!(table.size(&Scope::Local("test".to_string())), 16);
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 8);
             assert_eq!(table.count_all(), 2);
             assert_eq!(table.count(&Scope::Local("test".to_string())), 2);
             assert_eq!(
@@ -262,7 +263,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
-                    size: 8,
+                    size: 4,
                 })
             );
             assert_eq!(
@@ -274,7 +275,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 2,
                     offset: 8,
-                    size: 8,
+                    size: 4,
                 })
             );
         }
@@ -294,7 +295,7 @@ mod test {
             ));
 
             // 期待値
-            assert_eq!(table.size(&Scope::Local("test".to_string())), 9);
+            assert_eq!(table.size(&Scope::Local("test".to_string())), 5);
             assert_eq!(table.count_all(), 2);
             assert_eq!(table.count(&Scope::Local("test".to_string())), 2);
             assert_eq!(
@@ -306,7 +307,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
-                    size: 8,
+                    size: 4,
                 })
             );
             assert_eq!(
@@ -418,7 +419,7 @@ mod test {
             // 期待値
             assert_eq!(table.count_all(), 2);
             assert_eq!(table.count(&Scope::Global), 1);
-            assert_eq!(table.size(&Scope::Global), 8);
+            assert_eq!(table.size(&Scope::Global), 4);
             assert_eq!(table.count(&Scope::Local("test".to_string())), 1);
             assert_eq!(table.size(&Scope::Local("test".to_string())), 1);
             assert_eq!(
@@ -430,7 +431,7 @@ mod test {
                     strt: Structure::Identifier,
                     pos: 1,
                     offset: 0,
-                    size: 8,
+                    size: 4,
                 })
             );
             assert_eq!(
