@@ -372,6 +372,18 @@ mod test {
             TestData { inst: "int a = 10; char b = 8; int main() { b = a * b; return b; }", ex_ret: 80 },
             TestData { inst: "int a = 10; char b = 8; int main() { int x =  a + b; return x; }", ex_ret: 18 },
             TestData { inst: "int a = 10; char b = 8; int main() { return a + b; }", ex_ret: 18 },
+            TestData { inst: "int main() { int a = 4; a /= 2; return a; }", ex_ret: 2 },
+            TestData { inst: "int main() { int a = 10; a /= 2; return a; }", ex_ret: 5 },
+            TestData { inst: "int main() { int a = 22; a /= 3; return a; }", ex_ret: 7 },
+            TestData { inst: "int a = 4; int main() { a /= 2; return a; }", ex_ret: 2 },
+            TestData { inst: "int a = 10; int main() { a /= 2; return a; }", ex_ret: 5 },
+            TestData { inst: "int a = 22; int main() { a /= 3; return a; }", ex_ret: 7 },
+            TestData { inst: "int main() { char a = 4; a /= 2; return a; }", ex_ret: 2 },
+            TestData { inst: "int main() { char a = 10; a /= 2; return a; }", ex_ret: 5 },
+            TestData { inst: "int main() { char a = 22; a /= 3; return a; }", ex_ret: 7 },
+            TestData { inst: "char a = 4; int main() { a /= 2; return a; }", ex_ret: 2 },
+            TestData { inst: "char a = 10; int main() { a /= 2; return a; }", ex_ret: 5 },
+            TestData { inst: "char a = 22; int main() { a /= 3; return a; }", ex_ret: 7 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
