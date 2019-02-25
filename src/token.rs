@@ -55,6 +55,7 @@ pub enum Token {
     MinusAssign,      // -=演算子
     MultipleAssign,   // *=演算子
     DivisionAssign,   // /=演算子
+    RemainderAssign,  // %=演算子
     End,              // 終了.
 }
 

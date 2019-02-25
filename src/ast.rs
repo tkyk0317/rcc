@@ -58,6 +58,7 @@ pub enum AstType {
     MinusAssign(Box<AstType>, Box<AstType>),
     MultipleAssign(Box<AstType>, Box<AstType>),
     DivisionAssign(Box<AstType>, Box<AstType>),
+    RemainderAssign(Box<AstType>, Box<AstType>),
     SizeOf(usize),
 }
 
@@ -541,8 +542,13 @@ impl<'a> AstGen<'a> {
                 let var = self.factor();
                 self.consume();  // Assignトークン消費
                 AstType::DivisionAssign(Box::new(var), Box::new(self.condition()))
+            }
+            Token::Variable if Token::RemainderAssign == next_token.get_token_type() => {
+                let var = self.factor();
+                self.consume();  // Assignトークン消費
+                AstType::RemainderAssign(Box::new(var), Box::new(self.condition()))
              }
-            _ => self.condition(),
+             _ => self.condition(),
         }
     }
 
@@ -7000,6 +7006,56 @@ mod tests {
                             "a".to_string()
                         ),
                         AstType::DivisionAssign(
+                            Box::new(AstType::Variable(
+                                Type::Int,
+                                Structure::Identifier,
+                                "a".to_string()
+                            )),
+                            Box::new(AstType::Factor(3))
+                        )
+                    ,])),
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_remainder_assign() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Variable, "a".to_string()),
+                create_token(Token::RemainderAssign, "%=".to_string()),
+                create_token(Token::Number, "3".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(AstType::Statement(vec![
+                        AstType::Variable(
+                            Type::Int,
+                            Structure::Identifier,
+                            "a".to_string()
+                        ),
+                        AstType::RemainderAssign(
                             Box::new(AstType::Variable(
                                 Type::Int,
                                 Structure::Identifier,

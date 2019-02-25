@@ -157,10 +157,18 @@ impl<'a> LexicalAnalysis<'a> {
                                 self.create_token(Token::Division, v.to_string())
                             }
                         }
+                        '%' => {
+                            if true == self.is_remainder_assign(v) {
+                                let token = self.create_token(Token::RemainderAssign, "%=".to_string());
+                                self.skip(1);
+                                token
+                            } else {
+                                self.create_token(Token::Remainder, v.to_string())
+                            }
+                        }
                         '"' => self.generate_string(),
                         '^' => self.create_token(Token::BitXor, v.to_string()),
                         '~' => self.create_token(Token::BitReverse, v.to_string()),
-                        '%' => self.create_token(Token::Remainder, v.to_string()),
                         '(' => self.create_token(Token::LeftParen, v.to_string()),
                         ')' => self.create_token(Token::RightParen, v.to_string()),
                         '{' => self.create_token(Token::LeftBrace, v.to_string()),
@@ -394,6 +402,11 @@ impl<'a> LexicalAnalysis<'a> {
     // division assign演算子
     fn is_division_assign(&self, v: char) -> bool {
         v == '/' && self.read() == '='
+    }
+
+    // remainder assign演算子
+    fn is_remainder_assign(&self, v: char) -> bool {
+        v == '%' && self.read() == '='
     }
 
     // type int作成
@@ -2455,6 +2468,52 @@ mod tests {
                 TokenInfo::new(
                     Token::DivisionAssign,
                     "/=".to_string(),
+                    ("test.c".to_string(), 1, 3)
+                ),
+                lexer.get_tokens()[1]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Number,
+                    "1".to_string(),
+                    ("test.c".to_string(), 1, 6)
+                ),
+                lexer.get_tokens()[2]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::SemiColon,
+                    ";".to_string(),
+                    ("test.c".to_string(), 1, 7)
+                ),
+                lexer.get_tokens()[3]
+            );
+            assert_eq!(
+                TokenInfo::new(Token::End, "End".to_string(), ("test.c".to_string(), 1, 7)),
+                lexer.get_tokens()[4]
+            );
+        }
+    }
+
+    #[test]
+    fn test_remainder_assign() {
+        {
+            let input = "a %= 1;".to_string();
+            let mut lexer = LexicalAnalysis::new("test.c".to_string(), &input);
+
+            lexer.read_token();
+            assert_eq!(
+                TokenInfo::new(
+                    Token::Variable,
+                    "a".to_string(),
+                    ("test.c".to_string(), 1, 1)
+                ),
+                lexer.get_tokens()[0]
+            );
+            assert_eq!(
+                TokenInfo::new(
+                    Token::RemainderAssign,
+                    "%=".to_string(),
                     ("test.c".to_string(), 1, 3)
                 ),
                 lexer.get_tokens()[1]

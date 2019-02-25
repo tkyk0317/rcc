@@ -159,6 +159,7 @@ impl<'a> Asm<'a> {
             AstType::MinusAssign(ref a, ref b) => self.generate_minus_assign(a, b),
             AstType::MultipleAssign(ref a, ref b) => self.generate_multiple_assign(a, b),
             AstType::DivisionAssign(ref a, ref b) => self.generate_division_assign(a, b),
+            AstType::RemainderAssign(ref a, ref b) => self.generate_remainder_assign(a, b),
             AstType::Variable(_, _, _) => self.generate_variable(ast),
             AstType::PreInc(ref a) => self.generate_pre_inc(a),
             AstType::PreDec(ref a) => self.generate_pre_dec(a),
@@ -628,6 +629,32 @@ impl<'a> Asm<'a> {
                     }
                     _ =>  {
                         self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rax", "rbx", 0));
+                    }
+                }
+            }
+            _ => panic!("{} {}: cannot support AstType {:?}", file!(), line!(), a)
+        }
+    }
+
+    // remainder assign生成.
+    fn generate_remainder_assign(&mut self, a: &AstType, b: &AstType) {
+        match a {
+            AstType::Variable(_, _, ref name) => {
+                self.generate_lvalue_address(a);
+                self.generate(b);
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rcx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().pop("rbx"));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().mov_src("rbx", "rax", 0));
+                self.inst = format!("{}{}", self.inst, self.gen_asm().bit_division());
+
+                // 型に応じた転送サイズを考慮
+                let sym = self.get_var_symbol(name);
+                match sym.t {
+                    Type::Char => {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().movb_dst("dl", "rbx", 0));
+                    }
+                    _ =>  {
+                        self.inst = format!("{}{}", self.inst, self.gen_asm().mov_dst("rdx", "rbx", 0));
                     }
                 }
             }

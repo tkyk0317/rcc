@@ -384,6 +384,18 @@ mod test {
             TestData { inst: "char a = 4; int main() { a /= 2; return a; }", ex_ret: 2 },
             TestData { inst: "char a = 10; int main() { a /= 2; return a; }", ex_ret: 5 },
             TestData { inst: "char a = 22; int main() { a /= 3; return a; }", ex_ret: 7 },
+            TestData { inst: "int main() { int a = 4; a %= 2; return a; }", ex_ret: 0 },
+            TestData { inst: "int main() { int a = 5; a %= 2; return a; }", ex_ret: 1 },
+            TestData { inst: "int main() { int a = 31; a %= 4; return a; }", ex_ret: 3 },
+            TestData { inst: "int main() { char a = 4; a %= 2; return a; }", ex_ret: 0 },
+            TestData { inst: "int main() { char a = 5; a %= 2; return a; }", ex_ret: 1 },
+            TestData { inst: "int main() { char a = 31; a %= 4; return a; }", ex_ret: 3 },
+            TestData { inst: "int a = 4; int main() { a %= 2; return a; }", ex_ret: 0 },
+            TestData { inst: "int a = 5; int main() { a %= 2; return a; }", ex_ret: 1 },
+            TestData { inst: "int a = 31; int main() { a %= 4; return a; }", ex_ret: 3 },
+            TestData { inst: "char a = 4; int main() { a %= 2; return a; }", ex_ret: 0 },
+            TestData { inst: "char a = 5; int main() { a %= 2; return a; }", ex_ret: 1 },
+            TestData { inst: "char a = 31; int main() { a %= 4; return a; }", ex_ret: 3 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
