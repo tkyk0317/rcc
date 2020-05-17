@@ -77,7 +77,7 @@ impl Label {
 }
 
 // 関数引数レジスタ.
-const REGS: &'static [&str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+const REGS: &[&str] = &["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
 #[doc = "アセンブラ生成部"]
 pub struct Asm<'a> {
@@ -90,12 +90,12 @@ pub struct Asm<'a> {
 
 impl<'a> Asm<'a> {
     // コンストラクタ.
-    pub fn new(sym_table: &'a SymbolTable) -> Asm<'a> {
+    pub fn new(table: &'a SymbolTable) -> Asm<'a> {
         Asm {
             inst: "".to_string(),
             const_literal: "".to_string(),
             label: Label::new(),
-            sym_table: sym_table,
+            sym_table: table,
             cur_scope: Scope::Unknown,
         }
     }
@@ -185,7 +185,7 @@ impl<'a> Asm<'a> {
             AstType::Indirect(ref a) => self.generate_indirect(a),
             AstType::StringLiteral(ref s, ref i) => {
                 self.generate_string_literal(&AstType::StringLiteral(s.to_string(), *i));
-                self.generate_string(s, i);
+                self.generate_string(s, *i);
             }
             _ => panic!("{} {}: not support expression", file!(), line!()),
         }
@@ -211,7 +211,7 @@ impl<'a> Asm<'a> {
     }
 
     // グローバル変数定義
-    fn generate_global(&mut self, a: &Vec<AstType>) {
+    fn generate_global(&mut self, a: &[AstType]) {
         self.inst = format!("{}{}", self.inst, "  .data\n");
         a.iter().for_each(|d| {
             match d {
@@ -226,7 +226,7 @@ impl<'a> Asm<'a> {
     }
 
     // 関数定義.
-    fn generate_funcdef(&mut self, _t: &Type, a: &String, b: &AstType, c: &AstType) {
+    fn generate_funcdef(&mut self, _t: &Type, a: &str, b: &AstType, c: &AstType) {
         // return文のラベルを生成.
         let return_label = self.label.next_return_label();
 
@@ -252,7 +252,7 @@ impl<'a> Asm<'a> {
     }
 
     // 関数開始アセンブラ出力.
-    fn generate_func_start(&mut self, a: &String) {
+    fn generate_func_start(&mut self, a: &str) {
         // スタート部分設定.
         let mut start = if a == "main" {
             format!("  .text\n.global {}\n", self.generate_func_symbol(a))
@@ -271,7 +271,7 @@ impl<'a> Asm<'a> {
             self.gen_asm().mov("rsp", "rbp"),
             self.gen_asm().sub_imm(pos, "rsp")
         );
-        self.inst = format!("{}", start);
+        self.inst = start;
     }
 
     // 関数終了部分アセンブラ生成
@@ -701,14 +701,14 @@ impl<'a> Asm<'a> {
     }
 
     // 関数コール生成.
-    fn generate_call_func(&mut self, a: &AstType, b: &AstType) {
-        match *a {
+    fn generate_call_func(&mut self, lhs: &AstType, rhs: &AstType) {
+        match *lhs {
             // 関数名.
             AstType::Variable(_, _, ref n) if self.sym_table.search(&Scope::Func, n).is_some() => {
-                match *b {
+                match *rhs {
                     AstType::Argment(ref v) => {
                         // 各引数を評価（スタックに積むので、逆順で積んでいく）.
-                        v.into_iter().rev().for_each(|d| self.generate(d));
+                        v.iter().rev().for_each(|d| self.generate(d));
 
                         // 関数引数をスタックからレジスタへ.
                         v.iter().zip(REGS.iter()).for_each(|d| match d.0 {
@@ -737,7 +737,7 @@ impl<'a> Asm<'a> {
     }
 
     // 関数シンボル生成.
-    fn generate_func_symbol(&self, s: &String) -> String {
+    fn generate_func_symbol(&self, s: &str) -> String {
         if Config::is_mac() {
             format!("_{}", s)
         } else {
@@ -853,7 +853,7 @@ impl<'a> Asm<'a> {
     }
 
     // シンボル情報取得
-    fn get_var_symbol(&self, k: &String) -> Symbol {
+    fn get_var_symbol(&self, k: &str) -> Symbol {
         // 現在のスコープから変数をサーチ
         match self.cur_scope {
             Scope::Global => {
@@ -1197,7 +1197,7 @@ impl<'a> Asm<'a> {
     }
 
     // 文字列リテラル命令
-    fn generate_string(&mut self, _s: &String, i: &usize) {
+    fn generate_string(&mut self, _s: &str, i: usize) {
         self.inst = format!("{}  movq $.LC{}, %rax\n", self.inst, i);
         self.inst = format!("{}{}", self.inst, self.gen_asm().push("rax"));
     }

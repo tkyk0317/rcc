@@ -12,10 +12,10 @@ pub struct LexicalAnalysis<'a> {
 
 impl<'a> LexicalAnalysis<'a> {
     // コンストラクタ.
-    pub fn new(name: String, input: &'a str) -> LexicalAnalysis {
+    pub fn new(n: String, i: &'a str) -> LexicalAnalysis {
         LexicalAnalysis {
-            name: name,
-            input: input,
+            name: n,
+            input: i,
             row: 1,
             col: 0,
             pos: 0,
@@ -31,162 +31,160 @@ impl<'a> LexicalAnalysis<'a> {
     // トークン読み込み.
     pub fn read_token(&mut self) {
         // 終了まで読み込み、字句解析を行う.
-        while false == self.is_eof() {
+        while !self.is_eof() {
             // 空白、改行などは読み飛ばし.
             self.skip_ascii_whitespace();
             // コメント読み飛ばし
             self.skip_comment();
 
             // 一文字読み取って、トークン生成.
-            match self.next() {
-                Some(v) => {
-                    let token = match v {
-                        s if true == s.is_alphabetic() || s == '_' => {
-                            if let Some(t) = self.generate_type(s) {
-                                t
-                            } else if let Some(t) = self.generate_statement(s) {
-                                t
-                            } else if let Some(t) = self.generate_sizeof(s) {
-                                t
-                            } else {
-                                self.generate_variable_token(s)
-                            }
+            //match self.next() {
+            if let Some(v) = self.next() {
+                let token = match v {
+                    s if s.is_alphabetic() || s == '_' => {
+                        if let Some(t) = self.generate_type(s) {
+                            t
+                        } else if let Some(t) = self.generate_statement(s) {
+                            t
+                        } else if let Some(t) = self.generate_sizeof(s) {
+                            t
+                        } else {
+                            self.generate_variable_token(s)
                         }
-                        '=' => {
-                            if true == self.is_equal(v) {
-                                let t = self.create_token(Token::Equal, "==".to_string());
-                                self.skip(1);
-                                t
-                            } else {
-                                self.create_token(Token::Assign, v.to_string())
-                            }
+                    }
+                    '=' => {
+                        if self.is_equal(v) {
+                            let t = self.create_token(Token::Equal, "==".to_string());
+                            self.skip(1);
+                            t
+                        } else {
+                            self.create_token(Token::Assign, v.to_string())
                         }
-                        '!' => {
-                            if true == self.is_not_equal(v) {
-                                let t = self.create_token(Token::NotEqual, "!=".to_string());
-                                self.skip(1);
-                                t
-                            } else {
-                                self.create_token(Token::Not, v.to_string())
-                            }
+                    }
+                    '!' => {
+                        if self.is_not_equal(v) {
+                            let t = self.create_token(Token::NotEqual, "!=".to_string());
+                            self.skip(1);
+                            t
+                        } else {
+                            self.create_token(Token::Not, v.to_string())
                         }
-                        '>' => {
-                            if true == self.is_greater_than_equal(v) {
-                                let t =
-                                    self.create_token(Token::GreaterThanEqual, ">=".to_string());
-                                self.skip(1);
-                                t
-                            } else if true == self.is_right_shift(v) {
-                                let t = self.create_token(Token::RightShift, ">>".to_string());
-                                self.skip(1);
-                                t
-                            } else {
-                                self.create_token(Token::GreaterThan, v.to_string())
-                            }
+                    }
+                    '>' => {
+                        if self.is_greater_than_equal(v) {
+                            let t =
+                                self.create_token(Token::GreaterThanEqual, ">=".to_string());
+                            self.skip(1);
+                            t
+                        } else if self.is_right_shift(v) {
+                            let t = self.create_token(Token::RightShift, ">>".to_string());
+                            self.skip(1);
+                            t
+                        } else {
+                            self.create_token(Token::GreaterThan, v.to_string())
                         }
-                        '<' => {
-                            if true == self.is_less_than_equal(v) {
-                                let t = self.create_token(Token::LessThanEqual, "<=".to_string());
-                                self.skip(1);
-                                t
-                            } else if true == self.is_left_shift(v) {
-                                let t = self.create_token(Token::LeftShift, "<<".to_string());
-                                self.skip(1);
-                                t
-                            } else {
-                                self.create_token(Token::LessThan, v.to_string())
-                            }
+                    }
+                    '<' => {
+                        if self.is_less_than_equal(v) {
+                            let t = self.create_token(Token::LessThanEqual, "<=".to_string());
+                            self.skip(1);
+                            t
+                        } else if self.is_left_shift(v) {
+                            let t = self.create_token(Token::LeftShift, "<<".to_string());
+                            self.skip(1);
+                            t
+                        } else {
+                            self.create_token(Token::LessThan, v.to_string())
                         }
-                        '&' => {
-                            if true == self.is_logical_and(v) {
-                                self.skip(1);
-                                self.create_token(Token::LogicalAnd, "&&".to_string())
-                            } else {
-                                self.create_token(Token::And, v.to_string())
-                            }
+                    }
+                    '&' => {
+                        if self.is_logical_and(v) {
+                            self.skip(1);
+                            self.create_token(Token::LogicalAnd, "&&".to_string())
+                        } else {
+                            self.create_token(Token::And, v.to_string())
                         }
-                        '|' => {
-                            if true == self.is_logical_or(v) {
-                                self.skip(1);
-                                self.create_token(Token::LogicalOr, "||".to_string())
-                            } else {
-                                self.create_token(Token::BitOr, v.to_string())
-                            }
+                    }
+                    '|' => {
+                        if self.is_logical_or(v) {
+                            self.skip(1);
+                            self.create_token(Token::LogicalOr, "||".to_string())
+                        } else {
+                            self.create_token(Token::BitOr, v.to_string())
                         }
-                        '+' => {
-                            if true == self.is_increment(v) {
-                                let token = self.create_token(Token::Inc, "++".to_string());
-                                self.skip(1);
-                                token
-                            } else if true == self.is_plus_assign(v) {
-                                let token = self.create_token(Token::PlusAssign, "+=".to_string());
-                                self.skip(1);
-                                token
-                            } else {
-                                self.create_token(Token::Plus, v.to_string())
-                            }
+                    }
+                    '+' => {
+                        if self.is_increment(v) {
+                            let token = self.create_token(Token::Inc, "++".to_string());
+                            self.skip(1);
+                            token
+                        } else if self.is_plus_assign(v) {
+                            let token = self.create_token(Token::PlusAssign, "+=".to_string());
+                            self.skip(1);
+                            token
+                        } else {
+                            self.create_token(Token::Plus, v.to_string())
                         }
-                        '-' => {
-                            if true == self.is_decrement(v) {
-                                let token = self.create_token(Token::Dec, "--".to_string());
-                                self.skip(1);
-                                token
-                            } else if true == self.is_minus_assign(v)  {
-                                let token = self.create_token(Token::MinusAssign, "-=".to_string());
-                                self.skip(1);
-                                token
-                             } else {
-                                self.create_token(Token::Minus, v.to_string())
-                            }
+                    }
+                    '-' => {
+                        if self.is_decrement(v) {
+                            let token = self.create_token(Token::Dec, "--".to_string());
+                            self.skip(1);
+                            token
+                        } else if self.is_minus_assign(v)  {
+                            let token = self.create_token(Token::MinusAssign, "-=".to_string());
+                            self.skip(1);
+                            token
+                        } else {
+                            self.create_token(Token::Minus, v.to_string())
                         }
-                        '*' => {
-                            if true == self.is_multiple_assign(v) {
-                                let token = self.create_token(Token::MultipleAssign, "*=".to_string());
-                                self.skip(1);
-                                token
-                            } else {
-                                self.create_token(Token::Multi, v.to_string())
-                            }
+                    }
+                    '*' => {
+                        if self.is_multiple_assign(v) {
+                            let token = self.create_token(Token::MultipleAssign, "*=".to_string());
+                            self.skip(1);
+                            token
+                        } else {
+                            self.create_token(Token::Multi, v.to_string())
                         }
-                        '/' => {
-                            if true == self.is_division_assign(v) {
-                                let token = self.create_token(Token::DivisionAssign, "/=".to_string());
-                                self.skip(1);
-                                token
-                            } else {
-                                self.create_token(Token::Division, v.to_string())
-                            }
+                    }
+                    '/' => {
+                        if self.is_division_assign(v) {
+                            let token = self.create_token(Token::DivisionAssign, "/=".to_string());
+                            self.skip(1);
+                            token
+                        } else {
+                            self.create_token(Token::Division, v.to_string())
                         }
-                        '%' => {
-                            if true == self.is_remainder_assign(v) {
-                                let token = self.create_token(Token::RemainderAssign, "%=".to_string());
-                                self.skip(1);
-                                token
-                            } else {
-                                self.create_token(Token::Remainder, v.to_string())
-                            }
+                    }
+                    '%' => {
+                        if self.is_remainder_assign(v) {
+                            let token = self.create_token(Token::RemainderAssign, "%=".to_string());
+                            self.skip(1);
+                            token
+                        } else {
+                            self.create_token(Token::Remainder, v.to_string())
                         }
-                        '"' => self.generate_string(),
-                        '^' => self.create_token(Token::BitXor, v.to_string()),
-                        '~' => self.create_token(Token::BitReverse, v.to_string()),
-                        '(' => self.create_token(Token::LeftParen, v.to_string()),
-                        ')' => self.create_token(Token::RightParen, v.to_string()),
-                        '{' => self.create_token(Token::LeftBrace, v.to_string()),
-                        '}' => self.create_token(Token::RightBrace, v.to_string()),
-                        '[' => self.create_token(Token::LeftBracket, v.to_string()),
-                        ']' => self.create_token(Token::RightBracket, v.to_string()),
-                        '?' => self.create_token(Token::Question, v.to_string()),
-                        ':' => self.create_token(Token::Colon, v.to_string()),
-                        ';' => self.create_token(Token::SemiColon, v.to_string()),
-                        ',' => self.create_token(Token::Comma, v.to_string()),
-                        '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                            self.generate_number_token(v)
-                        }
-                        _ => panic!("{} {}: Not Support Lexer {}", file!(), line!(), v),
-                    };
-                    self.tokens.push(token);
-                }
-                _ => {}
+                    }
+                    '"' => self.generate_string(),
+                    '^' => self.create_token(Token::BitXor, v.to_string()),
+                    '~' => self.create_token(Token::BitReverse, v.to_string()),
+                    '(' => self.create_token(Token::LeftParen, v.to_string()),
+                    ')' => self.create_token(Token::RightParen, v.to_string()),
+                    '{' => self.create_token(Token::LeftBrace, v.to_string()),
+                    '}' => self.create_token(Token::RightBrace, v.to_string()),
+                    '[' => self.create_token(Token::LeftBracket, v.to_string()),
+                    ']' => self.create_token(Token::RightBracket, v.to_string()),
+                    '?' => self.create_token(Token::Question, v.to_string()),
+                    ':' => self.create_token(Token::Colon, v.to_string()),
+                    ';' => self.create_token(Token::SemiColon, v.to_string()),
+                    ',' => self.create_token(Token::Comma, v.to_string()),
+                    '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                        self.generate_number_token(v)
+                    }
+                    _ => panic!("{} {}: Not Support Lexer {}", file!(), line!(), v),
+                };
+                self.tokens.push(token);
             }
         }
         let end = self.create_token(Token::End, "End".to_string());
@@ -216,7 +214,7 @@ impl<'a> LexicalAnalysis<'a> {
             if let Some(c) = self.next() {
                 return (d.0 + &c.to_string(), d.1 + 1);
             }
-            return (d.0, d.1);
+            d
         });
         self.back(c);
         s
@@ -230,13 +228,13 @@ impl<'a> LexicalAnalysis<'a> {
     }
 
     // 改行文字判定
-    fn is_linefeed(&self, s: &String) -> bool {
+    fn is_linefeed(&self, s: &str) -> bool {
         s == "\n"
     }
 
     // 空白や改行、タブをスキップ.
     fn skip_ascii_whitespace(&mut self) {
-        while false == self.is_eof() && self.read().is_ascii_whitespace() {
+        while !self.is_eof() && self.read().is_ascii_whitespace() {
             let next = self.read_string(1);
             if self.is_linefeed(&next) {
                 // 行とカラムを更新
@@ -249,11 +247,11 @@ impl<'a> LexicalAnalysis<'a> {
 
     // コメント読み飛ばし
     fn skip_comment(&mut self) {
-        if self.read_string(2) == "//".to_string() {
+        if self.read_string(2) == "//" {
             // 改行コードまで読み飛ばし
             self.skip(2);
             let mut next = self.read_string(1);
-            while false == self.is_eof() && false == self.is_linefeed(&next) {
+            while !self.is_eof() && !self.is_linefeed(&next) {
                 self.skip(1);
                 next = self.read_string(1);
             }
@@ -295,7 +293,7 @@ impl<'a> LexicalAnalysis<'a> {
         // 文字列先頭位置を退避
         let col = self.col;
         let mut s = String::new();
-        while '"' != self.read() && false == self.is_eof() {
+        while '"' != self.read() && !self.is_eof() {
             let c = self.next();
             s.push(c.expect("lexer.rs(generate_string): cannot read next char"));
         }
@@ -313,7 +311,7 @@ impl<'a> LexicalAnalysis<'a> {
         let mut s = String::new();
         s.push(v);
 
-        while false == self.is_eof() && true == self.read().is_digit(10) {
+        while !self.is_eof() && self.read().is_digit(10) {
             let n = self.next();
             s.push(n.expect("lexer.rs(generate_number_token): cannot read next char"));
         }
@@ -324,7 +322,7 @@ impl<'a> LexicalAnalysis<'a> {
     fn generate_variable_token(&mut self, v: char) -> TokenInfo {
         let mut s = String::new();
         s.push(v);
-        while false == self.is_eof() && self.is_variable(self.read()) {
+        while !self.is_eof() && self.is_variable(self.read()) {
             s.push(self.read());
             self.skip(1);
         }
@@ -451,7 +449,7 @@ impl<'a> LexicalAnalysis<'a> {
 
     // type作成
     fn generate_type(&mut self, c: char) -> Option<TokenInfo> {
-        if true == self.is_type_int(c) {
+        if self.is_type_int(c) {
             Some(self.generate_type_int())
         } else if self.is_type_char(c) {
             Some(self.generate_type_char())
@@ -469,7 +467,7 @@ impl<'a> LexicalAnalysis<'a> {
         c == 'c'
             && s.len() == 4
             && &s[0..3] == "har"
-            && false == self.is_variable(l.expect("lexer.rs(is_type_char): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_type_char): read error"))
     }
 
     // int型チェック
@@ -481,7 +479,7 @@ impl<'a> LexicalAnalysis<'a> {
         c == 'i'
             && s.len() == 3
             && &s[0..2] == "nt"
-            && false == self.is_variable(l.expect("lexer.rs(is_type_int): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_type_int): read error"))
     }
 
     // sizeof演算
@@ -502,7 +500,7 @@ impl<'a> LexicalAnalysis<'a> {
         c == 's'
             && s.len() == 6
             && "izeof" == &s[0..5]
-            && false == self.is_variable(l.expect("lexer.rs(generate_sizeof): read error"))
+            && !self.is_variable(l.expect("lexer.rs(generate_sizeof): read error"))
     }
 
     // ポインタ演算子が存在するか.
@@ -514,35 +512,35 @@ impl<'a> LexicalAnalysis<'a> {
 
     // statement作成.
     fn generate_statement(&mut self, c: char) -> Option<TokenInfo> {
-        if true == self.is_statement_if(c) {
+        if self.is_statement_if(c) {
             let s = Some(self.create_token(Token::If, "if".to_string()));
             self.skip(1);
             s
-        } else if true == self.is_statement_else(c) {
+        } else if self.is_statement_else(c) {
             let s = Some(self.create_token(Token::Else, "else".to_string()));
             self.skip(3);
             s
-        } else if true == self.is_statement_while(c) {
+        } else if self.is_statement_while(c) {
             let s = Some(self.create_token(Token::While, "while".to_string()));
             self.skip(4);
             s
-        } else if true == self.is_statement_for(c) {
+        } else if self.is_statement_for(c) {
             let s = Some(self.create_token(Token::For, "for".to_string()));
             self.skip(2);
             s
-        } else if true == self.is_statement_do(c) {
+        } else if self.is_statement_do(c) {
             let s = Some(self.create_token(Token::Do, "do".to_string()));
             self.skip(1);
             s
-        } else if true == self.is_statement_continue(c) {
+        } else if self.is_statement_continue(c) {
             let s = Some(self.create_token(Token::Continue, "continue".to_string()));
             self.skip(7);
             s
-        } else if true == self.is_statement_break(c) {
+        } else if self.is_statement_break(c) {
             let s = Some(self.create_token(Token::Break, "break".to_string()));
             self.skip(4);
             s
-        } else if true == self.is_statement_return(c) {
+        } else if self.is_statement_return(c) {
             let s = Some(self.create_token(Token::Return, "return".to_string()));
             self.skip(5);
             s
@@ -558,7 +556,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'i'
             && s.len() == 2
             && "f" == &s[0..1]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_if): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_if): read error"))
     }
 
     // else statementチェック.
@@ -568,7 +566,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'e'
             && s.len() == 4
             && "lse" == &s[0..3]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_else): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_else): read error"))
     }
 
     // while statementチェック.
@@ -578,7 +576,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'w'
             && s.len() == 5
             && "hile" == &s[0..4]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_while): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_while): read error"))
     }
 
     // do-while statementチェック.
@@ -588,7 +586,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'd'
             && s.len() == 2
             && "o" == &s[0..1]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_do): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_do): read error"))
     }
 
     // for statementチェック.
@@ -598,7 +596,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'f'
             && s.len() == 3
             && "or" == &s[0..2]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_for): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_for): read error"))
     }
 
     // continue statementチェック.
@@ -608,7 +606,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'c'
             && s.len() == 8
             && "ontinue" == &s[0..7]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_continue): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_continue): read error"))
     }
 
     // break statementチェック.
@@ -618,7 +616,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'b'
             && s.len() == 5
             && "reak" == &s[0..4]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_break): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_break): read error"))
     }
 
     // return statementチェック.
@@ -628,7 +626,7 @@ impl<'a> LexicalAnalysis<'a> {
         v == 'r'
             && s.len() == 6
             && "eturn" == &s[0..5]
-            && false == self.is_variable(l.expect("lexer.rs(is_statement_return): read error"))
+            && !self.is_variable(l.expect("lexer.rs(is_statement_return): read error"))
     }
 }
 

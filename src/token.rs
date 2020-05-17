@@ -68,11 +68,11 @@ pub struct PosInfo {
 }
 
 impl PosInfo {
-    pub fn new(name: String, row: usize, col: usize) -> Self {
+    pub fn new(n: String, r: usize, c: usize) -> Self {
         PosInfo {
-            name: name,
-            row: row,
-            col: col,
+            name: n,
+            row: r,
+            col: c,
         }
     }
 }
@@ -88,10 +88,10 @@ pub struct TokenInfo {
 // トークン実装.
 impl TokenInfo {
     // コンストラクタ.
-    pub fn new(token: Token, val: String, pos: (String, usize, usize)) -> TokenInfo {
+    pub fn new(t: Token, v: String, pos: (String, usize, usize)) -> TokenInfo {
         TokenInfo {
-            token: token,
-            val: val,
+            token: t,
+            val: v,
             pos: PosInfo::new(pos.0, pos.1, pos.2),
         }
     }

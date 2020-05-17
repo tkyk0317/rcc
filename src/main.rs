@@ -55,7 +55,7 @@ fn main() {
             std::io::stdin().read_line(&mut s).unwrap();
         }
         _ => {
-            let mut f = File::open(&args[1]).expect(&format!("not found file {}", args[1]));
+            let mut f = File::open(&args[1]).unwrap_or_else(|_| panic!("not found file {}", args[1]));
             f.read_to_string(&mut s).expect("read file error");
         }
     };
@@ -82,7 +82,7 @@ mod test {
     }
 
     // アセンブラ書き込み
-    fn create_asm_file(inst: &str) -> Result<(), Box<std::error::Error>> {
+    fn create_asm_file(inst: &str) -> Result<(), Box<dyn std::error::Error>> {
         let mut file = fs::File::create("test.s")?;
         file.write_all(inst.as_bytes())?;
         file.flush()?;

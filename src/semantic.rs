@@ -21,9 +21,9 @@ macro_rules! analyzed {
 }
 
 impl<'a> Semantic<'a> {
-    pub fn new(ast: &'a AstTree, sym_table: &'a SymbolTable) -> Self {
+    pub fn new(a: &'a AstTree, s: &'a SymbolTable) -> Self {
         Semantic {
-            ast: ast, sym_table: sym_table,
+            ast: a, sym_table: s,
         }
     }
 
@@ -67,14 +67,13 @@ impl<'a> Semantic<'a> {
         &self,
         t: &Type,
         _s: &Structure,
-        _name: &String,
+        _name: &str,
         args: &AstType,
         stmt: &AstType,
     ) -> Result<(), Vec<String>> {
         let mut errs = vec![];
-        match t {
-            Type::Unknown(n) => errs.push(format!("Cannot found Type: {:?}", n)),
-            _ => {}
+        if let Type::Unknown(n) = t {
+            errs.push(format!("Cannot found Type: {:?}", n));
         }
         if let Err(ref mut e) = self.analysis(args) {
             errs.append(e);
@@ -100,7 +99,7 @@ impl<'a> Semantic<'a> {
     }
 
     // 関数引数解析
-    fn analysis_argment(&self, args: &Vec<AstType>) -> Result<(), Vec<String>> {
+    fn analysis_argment(&self, args: &[AstType]) -> Result<(), Vec<String>> {
         let mut errs = args.iter().fold(Vec::<String>::new(), |mut acc, ref a| {
             match self.analysis(a) {
                 Ok(_) => acc,
@@ -113,13 +112,13 @@ impl<'a> Semantic<'a> {
 
         // 引数の数をチェック
         if args.len() > 6 {
-            errs.push(format!("Argment Count is over six(max count is six)"));
+            errs.push("Argment Count is over six(max count is six)".to_string());
         }
         analyzed!(errs)
     }
 
     // global解析
-    fn analysis_global(&self, glb: &Vec<AstType>) -> Result<(), Vec<String>> {
+    fn analysis_global(&self, glb: &[AstType]) -> Result<(), Vec<String>> {
         let errs = glb.iter().fold(Vec::<String>::new(), |mut acc, ref s| {
             match self.analysis(s) {
                 Ok(_) => acc,
@@ -133,7 +132,7 @@ impl<'a> Semantic<'a> {
     }
 
     // statement解析
-    fn analysis_statement(&self, stmt: &Vec<AstType>) -> Result<(), Vec<String>> {
+    fn analysis_statement(&self, stmt: &[AstType]) -> Result<(), Vec<String>> {
         let errs = stmt.iter().fold(Vec::<String>::new(), |mut acc, ref s| {
             match self.analysis(s) {
                 Ok(_) => acc,
@@ -165,11 +164,10 @@ impl<'a> Semantic<'a> {
     }
 
     // 変数定義解析
-    fn analysis_variable(&self, t: &Type, _s: &Structure, _n: &String) -> Result<(), Vec<String>> {
+    fn analysis_variable(&self, t: &Type, _s: &Structure, _n: &str) -> Result<(), Vec<String>> {
         let mut errs = vec![];
-        match t {
-            Type::Unknown(n) => errs.push(format!("Cannot found Type: {:?}", n)),
-            _ => {}
+        if let Type::Unknown(n) = t {
+            errs.push(format!("Cannot found Type: {:?}", n));
         }
         analyzed!(errs)
     }

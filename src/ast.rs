@@ -80,7 +80,7 @@ impl AstType {
 
 #[derive(Debug)]
 pub struct AstGen<'a> {
-    tokens: &'a Vec<TokenInfo>, // トークン配列.
+    tokens: &'a [TokenInfo], // トークン配列.
     current_pos: usize,         // 現在読み取り位置.
     str_count: usize,           // 文字列リテラル位置
     f_sym: HashMap<String, (Type, Structure)>,
@@ -96,8 +96,8 @@ pub struct AstTree {
 // 抽象構文木.
 impl AstTree {
     // コンストラクタ.
-    fn new(tree: Vec<AstType>) -> Self {
-        AstTree { tree: tree }
+    fn new(t: Vec<AstType>) -> Self {
+        AstTree { tree: t }
     }
 
     // 抽象構文木取得.
@@ -109,11 +109,11 @@ impl AstTree {
 // 抽象構文木をトークン列から作成する
 impl<'a> AstGen<'a> {
     // コンストラクタ.
-    pub fn new(tokens: &'a Vec<TokenInfo>) -> AstGen<'a> {
+    pub fn new(t: &'a [TokenInfo]) -> AstGen<'a> {
         AstGen {
             current_pos: 0,
             str_count: 0,
-            tokens: tokens,
+            tokens: t,
             f_sym: HashMap::new(),
             cur_scope: Scope::Global,
             sym_table: SymbolTable::new(),
@@ -168,7 +168,7 @@ impl<'a> AstGen<'a> {
                     "ast.rs(global_var): Not exists semi-colon",
                 );
 
-                let mut vars = acc.clone();
+                let mut vars = acc;
                 vars.push(var);
                 self.global_var(vars)
             }
@@ -256,8 +256,8 @@ impl<'a> AstGen<'a> {
     // recur func argment.
     fn recur_func_args(&mut self, a: Vec<AstType>) -> Vec<AstType> {
         // 型が定義されていれば、引数として評価.
-        if false == self.is_type_token() {
-            return a.clone();
+        if !self.is_type_token() {
+            return a;
         }
 
         // 引数を評価
@@ -270,19 +270,19 @@ impl<'a> AstGen<'a> {
                 self.consume();
                 self.recur_func_args(args)
             }
-            _ => args.clone(),
+            _ => args,
         }
     }
 
     // statement.
     fn statement(&mut self) -> AstType {
-        AstType::Statement(self.sub_statement(&vec![]))
+        AstType::Statement(self.sub_statement(&[]))
     }
 
     // sub statement.
-    fn sub_statement(&mut self, expr: &Vec<AstType>) -> Vec<AstType> {
+    fn sub_statement(&mut self, expr: &[AstType]) -> Vec<AstType> {
         // トークンがなくなるまで、構文木生成.
-        let mut stmt = expr.clone();
+        let mut stmt = expr.to_owned();
         let token = self.next_consume();
         match token.get_token_type() {
             Token::If => {
@@ -327,7 +327,7 @@ impl<'a> AstGen<'a> {
     }
 
     // continue variable
-    fn continue_variable_define(&mut self, stmt: &Vec<AstType>) -> AstType {
+    fn continue_variable_define(&mut self, stmt: &[AstType]) -> AstType {
         let last = stmt.last();
         match last {
             Some(ref s) => match s {
@@ -500,14 +500,13 @@ impl<'a> AstGen<'a> {
 
     // expression.
     fn expression(&mut self) -> AstType {
-        let expr = match self.next().get_token_type() {
+        match self.next().get_token_type() {
             Token::Return => {
                 self.consume();
                 self.statement_return()
             }
             _ => self.assign(),
-        };
-        expr
+        }
     }
 
     // assign.
@@ -846,7 +845,7 @@ impl<'a> AstGen<'a> {
                 // 関数シンボルサーチ
                 match self.search_symbol(&Scope::Func, &token.get_token_value()) {
                     Some(s) => {
-                        let f_sym = self.variable_func(s.t.clone(), s.strt.clone());
+                        let f_sym = self.variable_func(s.t.clone(), s.strt);
                         self.call_func(f_sym)
                     }
                     _ => panic!("{} {}: cannot define {:?}", file!(), line!(), token),
@@ -922,17 +921,14 @@ impl<'a> AstGen<'a> {
             }
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
-                match self.search_symbol(&self.cur_scope, &token.get_token_value()) {
-                    None => {
-                        self.sym_table.register_sym(Symbol::new(
+                if self.search_symbol(&self.cur_scope, &token.get_token_value()).is_none() {
+                    self.sym_table.register_sym(Symbol::new(
                             self.cur_scope.clone(),
                             token.get_token_value(),
                             t.clone(),
                             s.clone(),
-                        ));
-                    }
-                    _ => {}
-                };
+                    ));
+                }
                 AstType::Variable(t, s, token.get_token_value())
             }
             _ => panic!("{} {}: not support token {:?}", file!(), line!(), token),
@@ -953,7 +949,7 @@ impl<'a> AstGen<'a> {
     fn array_size(&mut self, size: Vec<usize>) -> Vec<usize> {
         match self.next().get_token_type() {
             Token::LeftBracket => {
-                let mut sizes = size.clone();
+                let mut sizes = size;
                 self.consume();
                 let s = self
                     .next()
@@ -979,17 +975,14 @@ impl<'a> AstGen<'a> {
             Token::Variable => {
                 // シンボルテーブルへ保存（未登録の場合）.
                 let s = Structure::Array(self.array_size(vec![]));
-                match self.search_symbol(&self.cur_scope, &token.get_token_value()) {
-                    None => {
-                        self.sym_table.register_sym(Symbol::new(
+                if self.search_symbol(&self.cur_scope, &token.get_token_value()).is_none() {
+                    self.sym_table.register_sym(Symbol::new(
                             self.cur_scope.clone(),
                             token.get_token_value(),
                             t.clone(),
                             s.clone(),
-                        ));
-                    }
-                    _ => {}
-                };
+                    ));
+                }
                 AstType::Variable(t, s, token.get_token_value())
             }
             _ => panic!(
@@ -1080,7 +1073,7 @@ impl<'a> AstGen<'a> {
     // シンボルサーチ
     //
     // ローカルで発見できない場合、グローバルで検索
-    fn search_symbol(&self, scope: &Scope, var: &String) -> Option<Symbol> {
+    fn search_symbol(&self, scope: &Scope, var: &str) -> Option<Symbol> {
         match scope {
             Scope::Global => self.sym_table.search(scope, var),
             _ => {

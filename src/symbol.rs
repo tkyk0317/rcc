@@ -49,12 +49,12 @@ pub struct SymbolTable {
 impl Symbol {
     // コンストラクタ
     #[allow(dead_code)]
-    pub fn new(scope: Scope, var: String, t: Type, strt: Structure) -> Self {
+    pub fn new(s: Scope, v: String, ty: Type, st: Structure) -> Self {
         Symbol {
-            scope: scope,
-            var: var,
-            t: t,
-            strt: strt,
+            scope: s,
+            var: v,
+            t: ty,
+            strt: st,
             pos: 0,
             offset: 0,
             size: 0,
@@ -84,7 +84,7 @@ impl SymbolTable {
     // 関数シンボル登録
     fn register_func(&mut self, sym: Symbol) {
         // 関数シンボルの場合、ポジション算出は不要なのでそのまま登録
-        let mut reg = sym.clone();
+        let mut reg = sym;
         reg.pos = 1;
         reg.offset = 0;
         reg.size = 8; // 関数ポインタサイズとして登録
@@ -107,7 +107,7 @@ impl SymbolTable {
             None => {
                 // 配列の場合、要素数を考慮し、サイズ算出
                 let size = match sym.strt {
-                    Structure::Array(ref v) => self.type_size(&sym.t, &sym.strt) * v.iter().fold(1, |acc, item| acc * item),
+                    Structure::Array(ref v) => self.type_size(&sym.t, &sym.strt) * v.iter().product::<usize>(),
                     _ => self.type_size(&sym.t, &sym.strt)
                 };
                 reg.pos = 1;
@@ -120,7 +120,8 @@ impl SymbolTable {
                 match pre_sym.strt {
                     Structure::Array(ref v) => {
                         // 要素数分、オフセットなどを計算
-                        let count = v.iter().fold(1, |acc, item| acc * item);
+                        //let count = v.iter().fold(1, |acc, item| acc * item);
+                        let count: usize = v.iter().product();
                         reg.pos = pre_sym.pos + count;
                         reg.size = self.type_size(&sym.t, &sym.strt) * count;
                         reg.offset = pre_sym.offset + self.type_size(&pre_sym.t, &pre_sym.strt) * count;
@@ -148,7 +149,7 @@ impl SymbolTable {
 
     // シンボルサーチ
     #[allow(dead_code)]
-    pub fn search(&self, scope: &Scope, var: &String) -> Option<Symbol> {
+    pub fn search(&self, scope: &Scope, var: &str) -> Option<Symbol> {
         self.table
             .iter()
             .find(|s| s.scope == *scope && s.var == *var)
@@ -165,8 +166,7 @@ impl SymbolTable {
         self.table
             .iter()
             .filter(|s| s.scope == *scope)
-            .collect::<Vec<_>>()
-            .len()
+            .count()
     }
 
     // 型に応じたサイズ取得
