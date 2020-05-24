@@ -396,6 +396,12 @@ mod test {
             TestData { inst: "char a = 4; int main() { a %= 2; return a; }", ex_ret: 0 },
             TestData { inst: "char a = 5; int main() { a %= 2; return a; }", ex_ret: 1 },
             TestData { inst: "char a = 31; int main() { a %= 4; return a; }", ex_ret: 3 },
+            TestData { inst: "int main() { struct A { int a; }; return sizeof(struct A); }", ex_ret: 4 },
+            TestData { inst: "int main() { struct A { char a; }; return sizeof(struct A); }", ex_ret: 1 },
+            TestData { inst: "int main() { struct A { char a; char b; }; return sizeof(struct A); }", ex_ret: 2 },
+            TestData { inst: "int main() { struct A { char a; int b; }; return sizeof(struct A); }", ex_ret: 8 },
+            TestData { inst: "int main() { struct A { char a; int b; int c; }; return sizeof(struct A); }", ex_ret: 12 },
+            TestData { inst: "int main() { struct A { char a; char b; char c; char d; char e; }; return sizeof(struct A); }", ex_ret: 5 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト

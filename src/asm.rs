@@ -187,7 +187,8 @@ impl<'a> Asm<'a> {
                 self.generate_string_literal(&AstType::StringLiteral(s.to_string(), *i));
                 self.generate_string(s, *i);
             }
-            _ => panic!("{} {}: not support expression", file!(), line!()),
+            AstType::Struct(ref _a, ref _b) => {}, // 構造体定義のみなので、現状は何もしない
+            _ => panic!("{} {}: not support expression {:?}", file!(), line!(), ast),
         }
     }
 

@@ -56,6 +56,7 @@ pub enum Token {
     MultipleAssign,   // *=演算子
     DivisionAssign,   // /=演算子
     RemainderAssign,  // %=演算子
+    Struct,           // struct宣言
     End,              // 終了.
 }
 

@@ -1,15 +1,23 @@
+#all:
+#	docker build . -t rcc-test
+#	docker run --rm -it rcc-test cargo build && cargo build --release
+#
+#test:
+#	docker build . -t rcc-test
+#	docker run -v $(PWD):/usr/src/rcc/ --rm -it rcc-test cargo t
+#
+#clean:
+#	docker build . -t rcc-test
+#	docker run --rm -it rcc-test cargo clean
 all:
-	docker build . -t rcc-test
-	docker run --rm -it rcc-test cargo build && cargo build --release
+	@cargo b && cargo b --release
 
-test:
-	docker build . -t rcc-test
-	docker run -v $(PWD):/usr/src/rcc/ -t rcc-test cargo clippy && cargo t
+test: clippy
+	@cargo t
 
 clippy:
-	docker build . -t rcc-test
-	docker run --rm -t rcc-test cargo clippy
+	@cargo clean -p rcc
+	@cargo clippy
 
 clean:
-	docker build . -t rcc-test
-	docker run --rm -t rcc-test cargo clean
+	@cargo clean
