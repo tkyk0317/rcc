@@ -221,6 +221,7 @@ impl<'a> Asm<'a> {
                     self.inst = format!("{}{}:\n", self.inst, name);
                     self.inst = format!("{}  .zero 8\n", self.inst);
                 }
+                AstType::Struct(_, _) => {}, // 構造体定義のみなのでSKIP
                 _ => panic!("{}{}: cannot support AstType {:?}", file!(), line!(), d)
             }
         });

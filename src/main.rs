@@ -402,6 +402,7 @@ mod test {
             TestData { inst: "int main() { struct A { char a; int b; }; return sizeof(struct A); }", ex_ret: 8 },
             TestData { inst: "int main() { struct A { char a; int b; int c; }; return sizeof(struct A); }", ex_ret: 12 },
             TestData { inst: "int main() { struct A { char a; char b; char c; char d; char e; }; return sizeof(struct A); }", ex_ret: 5 },
+            TestData { inst: "struct A { char a; char b; char c; char d; char e; }; int main() { return sizeof(struct A); }", ex_ret: 5 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト
