@@ -403,6 +403,10 @@ mod test {
             TestData { inst: "int main() { struct A { char a; int b; int c; }; return sizeof(struct A); }", ex_ret: 12 },
             TestData { inst: "int main() { struct A { char a; char b; char c; char d; char e; }; return sizeof(struct A); }", ex_ret: 5 },
             TestData { inst: "struct A { char a; char b; char c; char d; char e; }; int main() { return sizeof(struct A); }", ex_ret: 5 },
+            TestData { inst: "int main() { struct A { int a; }; struct A b; return sizeof(b); }", ex_ret: 4 },
+            TestData { inst: "int main() { struct A { char a; char b; }; struct A c; return sizeof(c); }", ex_ret: 2 },
+            TestData { inst: "int main() { struct A { char a; int b; int c; }; struct A d; return sizeof(d); }", ex_ret: 12 },
+            TestData { inst: "struct A { char a; char b; char c; char d; char e; }; int main() { struct A x; return sizeof(x); }", ex_ret: 5 },
         ];
 
         // Macの場合、位置独立形式でバイナリを生成できないので、Linux環境下でのみテスト

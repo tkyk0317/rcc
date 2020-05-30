@@ -18,7 +18,7 @@ pub enum Type {
     Char,
     Short,
     Long,
-    Struct,
+    Struct(String), // struct Test → Struct(Test)
     Unknown(String),
 }
 
@@ -28,7 +28,8 @@ pub enum Structure {
     Identifier,
     Pointer,
     Array(Vec<usize>),
-    Type,
+    // ToDo(Arrayみたいに、ここにメンバーをもたせたほうがいい？？)
+    Struct,
     Unknown,
 }
 
@@ -194,7 +195,7 @@ impl SymbolTable {
                 match sym.t {
                     Type::Int => 4,
                     Type::Char => 1,
-                    Type::Struct => {
+                    Type::Struct(_) => {
                         // メンバーのサイズを加算し、返す
                         if let Some(max_mem) = sym.members.iter().max_by(|a, b| a.size.cmp(&b.size)) {
                             // 各メンバーサイズを加算
@@ -533,8 +534,8 @@ mod test {
                     &Symbol {
                         scope: Scope::Local("test".to_string()),
                         var: "a".to_string(),
-                        t: Type::Struct,
-                        strt: Structure::Type,
+                        t: Type::Struct("".to_string()),
+                        strt: Structure::Struct,
                         pos: 0,
                         offset: 0,
                         size: 0,
@@ -561,8 +562,8 @@ mod test {
                     &Symbol {
                         scope: Scope::Local("test".to_string()),
                         var: "a".to_string(),
-                        t: Type::Struct,
-                        strt: Structure::Type,
+                        t: Type::Struct("".to_string()),
+                        strt: Structure::Struct,
                         pos: 0,
                         offset: 0,
                         size: 0,
@@ -599,8 +600,8 @@ mod test {
                     &Symbol {
                         scope: Scope::Local("test".to_string()),
                         var: "a".to_string(),
-                        t: Type::Struct,
-                        strt: Structure::Type,
+                        t: Type::Struct("".to_string()),
+                        strt: Structure::Struct,
                         pos: 0,
                         offset: 0,
                         size: 0,

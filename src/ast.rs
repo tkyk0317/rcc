@@ -154,7 +154,7 @@ impl<'a> AstGen<'a> {
         self.switch_scope(Scope::Global);
 
         // タイプを判断する為、先読み
-        let (t, _s) = self.generate_type();
+        let (_t, s) = self.generate_type();
         let token = self.next_consume();
         let paren = self.next();
 
@@ -162,7 +162,7 @@ impl<'a> AstGen<'a> {
         self.back(2);
         match token.get_token_type() {
             // 変数定義
-            Token::Variable if t != Type::Struct && Token::LeftParen != paren.get_token_type() => {
+            Token::Variable if s != Structure::Struct && Token::LeftParen != paren.get_token_type() => {
                 // グローバル変数
                 let var = self.assign();
                 self.must_next(
@@ -175,7 +175,7 @@ impl<'a> AstGen<'a> {
                 self.global_var(vars)
             },
             // 構造体定義
-            Token::Variable if t == Type::Struct  => {
+            Token::Variable if s == Structure::Struct  => {
                 // Token::Structまでもどっているので一つSKIP
                 self.consume();
 
@@ -237,7 +237,7 @@ impl<'a> AstGen<'a> {
         }
     }
 
-    // type.
+    // type/struct judge
     fn generate_type(&mut self) -> (Type, Structure) {
         let token = self.next_consume();
         match token.get_token_type() {
@@ -245,8 +245,12 @@ impl<'a> AstGen<'a> {
             Token::IntPointer => (Type::Int, Structure::Pointer),
             Token::Char => (Type::Char, Structure::Identifier),
             Token::CharPointer => (Type::Char, Structure::Pointer),
-            Token::Struct => (Type::Struct, Structure::Type),
-            _ => (Type::Unknown(token.get_token_value()), Structure::Unknown),
+            Token::Struct => {
+                // 構造体の定義名を取得
+                let name = self.next();
+                (Type::Struct(name.get_token_value()), Structure::Struct)
+            }
+            _ => (Type::Unknown("unknown type".to_string()), Structure::Unknown),
         }
     }
 
@@ -831,7 +835,7 @@ impl<'a> AstGen<'a> {
 
     // 構造体定義、宣言作成
     fn struct_sym_or_var(&mut self) -> AstType {
-        let name = self.next_consume();
+        let def_name = self.next_consume();
 
         // 次のトークンが波括弧であれば、定義。違うならば、Variable
         let token = self.next_consume();
@@ -870,13 +874,14 @@ impl<'a> AstGen<'a> {
                     };
                     right_brace = self.next();
                 }
-                // シンボルテーブルへ保存（未登録の場合）.
-                if self.search_symbol(&self.cur_scope, &name.get_token_value()).is_none() {
+
+                // シンボルテーブルへ構造体定義を保存（未登録の場合）.
+                if self.search_symbol(&self.cur_scope, &def_name.get_token_value()).is_none() {
                     let mut sym = Symbol::new(
                         self.cur_scope.clone(),
-                        name.get_token_value(),
-                        Type::Struct,
-                        Structure::Type,
+                        def_name.get_token_value(), // 構造体定義名で作成
+                        Type::Struct(def_name.get_token_value()),
+                        Structure::Struct,
                     );
                     // 構造体メンバーを登録し、シンボル保存
                     sym.regist_mem(syms);
@@ -884,11 +889,35 @@ impl<'a> AstGen<'a> {
                 }
 
                 AstType::Struct(
-                    Box::new(AstType::Variable(Type::Struct, Structure::Type, name.get_token_value())),
+                    Box::new( AstType::Variable(
+                        Type::Struct(def_name.get_token_value()),
+                        Structure::Struct,
+                        def_name.get_token_value()
+                    )),
                     members
                 )
             }
-            _ => panic!("{} {}: failed in struct_sym_or_var {:?} {:?}", file!(), line!(), name, token),
+            // 構造体宣言
+            Token::Variable => {
+                // 定義がシンボルテーブルに保存されているので、それを元にシンボル保存
+                if let Some(s) = self.search_symbol(&self.cur_scope, &def_name.get_token_value()) {
+                    let mut sym = Symbol::new(
+                        self.cur_scope.clone(),
+                        token.get_token_value(), // 構造体変数名で作成
+                        Type::Struct(def_name.get_token_value()),
+                        Structure::Struct,
+                    );
+
+                    // 構造体定義よりメンバーを設定し、シンボル登録
+                    sym.regist_mem(s.members);
+                    self.sym_table.register_sym(sym);
+                }
+
+                AstType::Variable(
+                    Type::Struct(def_name.get_token_value()), Structure::Struct, token.get_token_value()
+                )
+            }
+            _ => panic!("{} {}: failed in struct_sym_or_var {:?} {:?}", file!(), line!(), def_name, token),
         }
     }
 
@@ -7178,7 +7207,7 @@ mod tests {
                     Box::new(
                         AstType::Statement(vec![
                             AstType::Struct(
-                                Box::new(AstType::Variable(Type::Struct, Structure::Type, "Test".to_string())),
+                                Box::new(AstType::Variable(Type::Struct("Test".to_string()), Structure::Struct, "Test".to_string())),
                                 vec![]
                             )
                         ])
@@ -7218,7 +7247,7 @@ mod tests {
                     Box::new(
                         AstType::Statement(vec![
                             AstType::Struct(
-                                Box::new(AstType::Variable(Type::Struct, Structure::Type, "Test".to_string())),
+                                Box::new(AstType::Variable(Type::Struct("Test".to_string()), Structure::Struct, "Test".to_string())),
                                 vec![
                                     AstType::Variable(
                                         Type::Int,
@@ -7267,7 +7296,7 @@ mod tests {
                     Box::new(
                         AstType::Statement(vec![
                             AstType::Struct(
-                                Box::new(AstType::Variable(Type::Struct, Structure::Type, "Test".to_string())),
+                                Box::new(AstType::Variable(Type::Struct("Test".to_string()), Structure::Struct, "Test".to_string())),
                                 vec![
                                     AstType::Variable(
                                         Type::Int,
@@ -7321,7 +7350,7 @@ mod tests {
                     Box::new(
                         AstType::Statement(vec![
                             AstType::Struct(
-                                Box::new(AstType::Variable(Type::Struct, Structure::Type, "Test".to_string())),
+                                Box::new(AstType::Variable(Type::Struct("Test".to_string()), Structure::Struct, "Test".to_string())),
                                 vec![
                                     AstType::Variable(
                                         Type::Int,
@@ -7377,7 +7406,7 @@ mod tests {
                         "a".to_string()
                     ),
                     AstType::Struct(
-                        Box::new(AstType::Variable(Type::Struct, Structure::Type, "Test".to_string())),
+                        Box::new(AstType::Variable(Type::Struct("Test".to_string()), Structure::Struct, "Test".to_string())),
                         vec![
                             AstType::Variable(
                                 Type::Int,
@@ -7402,6 +7431,54 @@ mod tests {
                     Box::new(AstType::Argment(vec![])),
                     Box::new(
                         AstType::Statement(vec![])
+                    ),
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn test_struct_val() {
+        {
+            let data = vec![
+                create_token(Token::Int, "int".to_string()),
+                create_token(Token::Variable, "main".to_string()),
+                create_token(Token::LeftParen, "(".to_string()),
+                create_token(Token::RightParen, ")".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::Struct, "struct".to_string()),
+                create_token(Token::Variable, "Test".to_string()),
+                create_token(Token::LeftBrace, "{".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::Struct, "struct".to_string()),
+                create_token(Token::Variable, "Test".to_string()),
+                create_token(Token::Variable, "test".to_string()),
+                create_token(Token::SemiColon, ";".to_string()),
+                create_token(Token::RightBrace, "}".to_string()),
+                create_token(Token::End, "End".to_string()),
+            ];
+            let mut ast = AstGen::new(&data);
+            let result = ast.parse();
+
+            // 期待値確認.
+            assert_eq!(
+                result.get_tree()[0],
+                AstType::FuncDef(
+                    Type::Int,
+                    Structure::Identifier,
+                    "main".to_string(),
+                    Box::new(AstType::Argment(vec![])),
+                    Box::new(
+                        AstType::Statement(vec![
+                            AstType::Struct(
+                                Box::new(AstType::Variable(Type::Struct("Test".to_string()), Structure::Struct, "Test".to_string())),
+                                vec![]
+                            ),
+                            AstType::Variable(
+                                Type::Struct("Test".to_string()), Structure::Struct, "test".to_string()
+                            ),
+                        ])
                     ),
                 )
             )

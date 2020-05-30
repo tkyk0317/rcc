@@ -684,6 +684,9 @@ impl<'a> Asm<'a> {
                     _ => panic!("{}{}: cannot support type: {:?}", file!(), line!(), sym.t)
                 }
             }
+            Structure::Struct => {
+                // 変数自体の割当は未実装
+            },
             _ => panic!("{}{}: cannot support structure: {:?}", file!(), line!(), sym.strt)
         }
     }
