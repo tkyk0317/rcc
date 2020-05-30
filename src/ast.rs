@@ -181,7 +181,7 @@ impl<'a> AstGen<'a> {
 
                 // 構造体定義作成
                 let mut vars = acc;
-                vars.push(self.struct_sym_or_var());
+                vars.push(self.struct_def_or_var());
                 self.global_var(vars)
             },
             _ => acc,
@@ -818,7 +818,7 @@ impl<'a> AstGen<'a> {
             Token::Int => self.factor_int(),
             Token::Char => self.factor_char(),
             Token::StringLiteral => self.string_literal(token),
-            Token::Struct => self.struct_sym_or_var(),
+            Token::Struct => self.struct_def_or_var(),
             Token::Variable => {
                 // variable位置へ
                 self.back(1);
@@ -834,91 +834,97 @@ impl<'a> AstGen<'a> {
     }
 
     // 構造体定義、宣言作成
-    fn struct_sym_or_var(&mut self) -> AstType {
+    fn struct_def_or_var(&mut self) -> AstType {
         let def_name = self.next_consume();
-
-        // 次のトークンが波括弧であれば、定義。違うならば、Variable
         let token = self.next_consume();
         match token.get_token_type() {
-            // 構造体定義
-            Token::LeftBrace => {
-                // 右波括弧が出てくるまで、メンバー定義
-                let mut right_brace = self.next();
-                let mut members = vec![];
-                let mut syms = vec![];
-                loop {
-                    match right_brace.get_token_type() {
-                        Token::RightBrace => {
-                            self.consume();
-                            self.must_next(
-                                Token::SemiColon, "ast.rs(struct_sym_or_var): Not exists SemiColon"
-                            );
-                            break;
-                        }
-                        _ => {
-                            // 構造体に所属しているメンバーをシンボルに登録
-                            let member = self.assign();
-                            let mem_sym = match member {
-                                AstType::Variable(ref t, ref st, ref mem_name) => {
-                                    Symbol::new(self.cur_scope.clone(), mem_name.clone(), t.clone(), st.clone())
-                                }
-                                _ => panic!("not find variable")
-                            };
-                            members.push(member);
-                            syms.push(mem_sym);
-
-                            self.must_next(
-                                Token::SemiColon, "ast.rs(struct_sym_or_var): Not exists SemiColon"
-                            );
-                        }
-                    };
-                    right_brace = self.next();
-                }
-
-                // シンボルテーブルへ構造体定義を保存（未登録の場合）.
-                if self.search_symbol(&self.cur_scope, &def_name.get_token_value()).is_none() {
-                    let mut sym = Symbol::new(
-                        self.cur_scope.clone(),
-                        def_name.get_token_value(), // 構造体定義名で作成
-                        Type::Struct(def_name.get_token_value()),
-                        Structure::Struct,
-                    );
-                    // 構造体メンバーを登録し、シンボル保存
-                    sym.regist_mem(syms);
-                    self.sym_table.register_sym(sym);
-                }
-
-                AstType::Struct(
-                    Box::new( AstType::Variable(
-                        Type::Struct(def_name.get_token_value()),
-                        Structure::Struct,
-                        def_name.get_token_value()
-                    )),
-                    members
-                )
-            }
-            // 構造体宣言
-            Token::Variable => {
-                // 定義がシンボルテーブルに保存されているので、それを元にシンボル保存
-                if let Some(s) = self.search_symbol(&self.cur_scope, &def_name.get_token_value()) {
-                    let mut sym = Symbol::new(
-                        self.cur_scope.clone(),
-                        token.get_token_value(), // 構造体変数名で作成
-                        Type::Struct(def_name.get_token_value()),
-                        Structure::Struct,
-                    );
-
-                    // 構造体定義よりメンバーを設定し、シンボル登録
-                    sym.regist_mem(s.members);
-                    self.sym_table.register_sym(sym);
-                }
-
-                AstType::Variable(
-                    Type::Struct(def_name.get_token_value()), Structure::Struct, token.get_token_value()
-                )
-            }
-            _ => panic!("{} {}: failed in struct_sym_or_var {:?} {:?}", file!(), line!(), def_name, token),
+            Token::LeftBrace => self.struct_def(def_name),
+            Token::Variable => self.struct_variable(def_name, token),
+            _ => panic!("{} {}: failed in struct_def_or_var {:?} {:?}", file!(), line!(), def_name, token),
         }
+    }
+
+    /// 構造体定義作成
+    ///
+    /// 構造体定義でシンボル登録し、ASTを返却
+    fn struct_def(&mut self, def_name: &TokenInfo) -> AstType {
+        // 右波括弧が出てくるまで、メンバー定義
+        let mut right_brace = self.next();
+        let mut members = vec![];
+        let mut syms = vec![];
+        loop {
+            match right_brace.get_token_type() {
+                Token::RightBrace => {
+                    self.consume();
+                    self.must_next(
+                        Token::SemiColon, "ast.rs(struct_def_or_var): Not exists SemiColon"
+                    );
+                    break;
+                }
+                _ => {
+                    // 構造体に所属しているメンバーをシンボルに登録
+                    let member = self.assign();
+                    let mem_sym = match member {
+                        AstType::Variable(ref t, ref st, ref mem_name) => {
+                            Symbol::new(self.cur_scope.clone(), mem_name.clone(), t.clone(), st.clone())
+                        }
+                        _ => panic!("not find variable")
+                    };
+                    members.push(member);
+                    syms.push(mem_sym);
+
+                    self.must_next(
+                        Token::SemiColon, "ast.rs(struct_def_or_var): Not exists SemiColon"
+                    );
+                }
+            };
+            right_brace = self.next();
+        }
+
+        // シンボルテーブルへ構造体定義を保存（未登録の場合）.
+        if self.search_symbol(&self.cur_scope, &def_name.get_token_value()).is_none() {
+            let mut sym = Symbol::new(
+                self.cur_scope.clone(),
+                def_name.get_token_value(), // 構造体定義名で作成
+                Type::Struct(def_name.get_token_value()),
+                Structure::Struct,
+            );
+            // 構造体メンバーを登録し、シンボル保存
+            sym.regist_mem(syms);
+            self.sym_table.register_sym(sym);
+        }
+
+        AstType::Struct(
+            Box::new( AstType::Variable(
+                    Type::Struct(def_name.get_token_value()),
+                    Structure::Struct,
+                    def_name.get_token_value()
+            )),
+            members
+        )
+    }
+
+    /// 構造体変数作成
+    ///
+    /// 構造体変数名でシンボルに登録し、ASTを返却
+    fn struct_variable(&mut self, def_name: &TokenInfo, name: &TokenInfo) -> AstType {
+        // 定義がシンボルテーブルに保存されているので、それを元にシンボル保存
+        if let Some(s) = self.search_symbol(&self.cur_scope, &def_name.get_token_value()) {
+            let mut sym = Symbol::new(
+                self.cur_scope.clone(),
+                name.get_token_value(), // 構造体変数名で作成
+                Type::Struct(def_name.get_token_value()),
+                Structure::Struct,
+            );
+
+            // 構造体定義よりメンバーを設定し、シンボル登録
+            sym.regist_mem(s.members);
+            self.sym_table.register_sym(sym);
+        }
+
+        AstType::Variable(
+            Type::Struct(def_name.get_token_value()), Structure::Struct, name.get_token_value()
+        )
     }
 
     // 文字列作成
