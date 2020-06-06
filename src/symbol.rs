@@ -69,15 +69,41 @@ impl Symbol {
     /// メンバー登録
     pub fn regist_mem(&mut self, mem: Vec<Symbol>) {
         // サイズを設定したメンバーを保存
-        for mut m in mem {
-            m.size = match m.t {
-                Type::Int => 4,
-                Type::Char => 1,
-                _ => 0,
-            };
-            self.members.push(m);
+        self.members = mem.into_iter().map(|mut m| {
+            m.size = m.type_size();
+            m
+        }).collect();
+    }
+
+    /// 型に応じたサイズ取得
+    pub fn type_size(&self) -> usize {
+        match self.strt {
+            Structure::Pointer => 8,
+            Structure::Array(_) => 8,
+            _ => {
+                match self.t {
+                    Type::Int => 4,
+                    Type::Char => 1,
+                    Type::Struct(_) => {
+                        // メンバーのサイズを加算し、返す
+                        if let Some(max_mem) = self.members.iter().max_by(|a, b| a.size.cmp(&b.size)) {
+                            // 各メンバーサイズを加算
+                            let size = self.members.iter().fold(0, |acc, s| acc + s.type_size());
+
+                            // アライメントを考慮したサイズを返す
+                            if size % max_mem.size == 0 { size }
+                            else { (size / max_mem.size) * max_mem.size + max_mem.size }
+                        }
+                        else {
+                            0
+                        }
+                    }
+                    _ => 0,
+                }
+            }
         }
     }
+
 }
 
 impl SymbolTable {
@@ -125,8 +151,8 @@ impl SymbolTable {
             None => {
                 // 配列の場合、要素数を考慮し、サイズ算出
                 let size = match sym.strt {
-                    Structure::Array(ref v) => self.type_size(&sym) * v.iter().product::<usize>(),
-                    _ => self.type_size(&sym)
+                    Structure::Array(ref v) => sym.type_size() * v.iter().product::<usize>(),
+                    _ => sym.type_size()
                 };
                 reg.pos = 1;
                 reg.offset = 0;
@@ -140,22 +166,22 @@ impl SymbolTable {
                         // 要素数分、オフセットなどを計算
                         let count: usize = v.iter().product();
                         reg.pos = pre_sym.pos + count;
-                        reg.size = self.type_size(&sym) * count;
-                        reg.offset = pre_sym.offset + self.type_size(&pre_sym) * count;
+                        reg.size = sym.type_size() * count;
+                        reg.offset = pre_sym.offset + pre_sym.type_size() * count;
                         reg.offset = (reg.offset / 8) * 8;
                         self.table.push(reg);
                     }
                     Structure::Pointer => {
                         reg.pos = pre_sym.pos + 1;
-                        reg.size = self.type_size(&sym);
-                        reg.offset = pre_sym.offset + self.type_size(&pre_sym);
+                        reg.size = sym.type_size();
+                        reg.offset = pre_sym.offset + pre_sym.type_size();
                         reg.offset = (reg.offset / 8) * 8;
                         self.table.push(reg);
                     }
                     _ => {
                         reg.pos = pre_sym.pos + 1;
-                        reg.size = self.type_size(&sym);
-                        reg.offset = pre_sym.offset + self.type_size(&pre_sym);
+                        reg.size = sym.type_size();
+                        reg.offset = pre_sym.offset + pre_sym.type_size();
                         reg.offset = (reg.offset / 8) * 8 + 8;
                         self.table.push(reg);
                     }
@@ -186,35 +212,6 @@ impl SymbolTable {
             .count()
     }
 
-    // 型に応じたサイズ取得
-    fn type_size(&self, sym: &Symbol) -> usize {
-        match sym.strt {
-            Structure::Pointer => 8,
-            Structure::Array(_) => 8,
-            _ => {
-                match sym.t {
-                    Type::Int => 4,
-                    Type::Char => 1,
-                    Type::Struct(_) => {
-                        // メンバーのサイズを加算し、返す
-                        if let Some(max_mem) = sym.members.iter().max_by(|a, b| a.size.cmp(&b.size)) {
-                            // 各メンバーサイズを加算
-                            let size = sym.members.iter().fold(0, |acc, s| acc + self.type_size(s));
-
-                            // アライメントを考慮したサイズを返す
-                            if size % max_mem.size == 0 { size }
-                            else { (size / max_mem.size) * max_mem.size + max_mem.size }
-                        }
-                        else {
-                            0
-                        }
-                    }
-                    _ => 0,
-                }
-            }
-        }
-    }
-
     // 変数トータルサイズ
     #[allow(dead_code)]
     pub fn size(&self, scope: &Scope) -> usize {
@@ -224,10 +221,10 @@ impl SymbolTable {
             .filter(|s| s.scope == *scope)
             .fold(0, |acc, sym| match sym.strt {
                 Structure::Pointer => acc + 8,
-                Structure::Identifier => acc + self.type_size(&sym),
+                Structure::Identifier => acc + sym.type_size(),
                 // 配列の場合、要素数を考慮
                 Structure::Array(ref items) => {
-                    acc + items.iter().fold(0, |acc2, i| acc2 + (i * self.type_size(&sym)))
+                    acc + items.iter().fold(0, |acc2, i| acc2 + (i * sym.type_size()))
                 }
                 _ => acc,
             })
@@ -492,12 +489,43 @@ mod test {
 
     #[test]
     fn test_type_size() {
-        let table = SymbolTable::new();
         {
-            assert_eq!(
-                1,
-                table.type_size(
-                    &Symbol {
+            let sym = Symbol {
+                scope: Scope::Local("test".to_string()),
+                var: "a".to_string(),
+                t: Type::Char,
+                strt: Structure::Identifier,
+                pos: 0,
+                offset: 0,
+                size: 1,
+                members: vec![],
+            };
+            assert_eq!( 1, sym.type_size());
+        }
+        {
+            let sym = &Symbol {
+                scope: Scope::Local("test".to_string()),
+                var: "a".to_string(),
+                t: Type::Int,
+                strt: Structure::Identifier,
+                pos: 0,
+                offset: 0,
+                size: 4,
+                members: vec![],
+            };
+            assert_eq!(4, sym.type_size());
+        }
+        {
+            let sym = Symbol {
+                scope: Scope::Local("test".to_string()),
+                var: "a".to_string(),
+                t: Type::Struct("".to_string()),
+                strt: Structure::Struct,
+                pos: 0,
+                offset: 0,
+                size: 0,
+                members: vec![
+                    Symbol {
                         scope: Scope::Local("test".to_string()),
                         var: "a".to_string(),
                         t: Type::Char,
@@ -507,14 +535,65 @@ mod test {
                         size: 1,
                         members: vec![],
                     }
-                )
-            )
+                ],
+            };
+            assert_eq!(1, sym.type_size());
         }
         {
-            assert_eq!(
-                4,
-                table.type_size(
-                    &Symbol {
+            let sym = &Symbol {
+                scope: Scope::Local("test".to_string()),
+                var: "a".to_string(),
+                t: Type::Struct("".to_string()),
+                strt: Structure::Struct,
+                pos: 0,
+                offset: 0,
+                size: 0,
+                members: vec![
+                    Symbol {
+                        scope: Scope::Local("test".to_string()),
+                        var: "a".to_string(),
+                        t: Type::Char,
+                        strt: Structure::Identifier,
+                        pos: 0,
+                        offset: 0,
+                        size: 1,
+                        members: vec![],
+                    },
+                    Symbol {
+                        scope: Scope::Local("test".to_string()),
+                        var: "a".to_string(),
+                        t: Type::Char,
+                        strt: Structure::Identifier,
+                        pos: 0,
+                        offset: 0,
+                        size: 1,
+                        members: vec![],
+                    }
+                ],
+            };
+            assert_eq!(2, sym.type_size());
+        }
+        {
+            let sym = Symbol {
+                scope: Scope::Local("test".to_string()),
+                var: "a".to_string(),
+                t: Type::Struct("".to_string()),
+                strt: Structure::Struct,
+                pos: 0,
+                offset: 0,
+                size: 0,
+                members: vec![
+                    Symbol {
+                        scope: Scope::Local("test".to_string()),
+                        var: "a".to_string(),
+                        t: Type::Char,
+                        strt: Structure::Identifier,
+                        pos: 0,
+                        offset: 0,
+                        size: 1,
+                        members: vec![],
+                    },
+                    Symbol {
                         scope: Scope::Local("test".to_string()),
                         var: "a".to_string(),
                         t: Type::Int,
@@ -524,112 +603,9 @@ mod test {
                         size: 4,
                         members: vec![],
                     }
-                )
-            )
-        }
-        {
-            assert_eq!(
-                1,
-                table.type_size(
-                    &Symbol {
-                        scope: Scope::Local("test".to_string()),
-                        var: "a".to_string(),
-                        t: Type::Struct("".to_string()),
-                        strt: Structure::Struct,
-                        pos: 0,
-                        offset: 0,
-                        size: 0,
-                        members: vec![
-                            Symbol {
-                                scope: Scope::Local("test".to_string()),
-                                var: "a".to_string(),
-                                t: Type::Char,
-                                strt: Structure::Identifier,
-                                pos: 0,
-                                offset: 0,
-                                size: 1,
-                                members: vec![],
-                            }
-                        ],
-                    }
-                )
-            )
-        }
-        {
-            assert_eq!(
-                2,
-                table.type_size(
-                    &Symbol {
-                        scope: Scope::Local("test".to_string()),
-                        var: "a".to_string(),
-                        t: Type::Struct("".to_string()),
-                        strt: Structure::Struct,
-                        pos: 0,
-                        offset: 0,
-                        size: 0,
-                        members: vec![
-                            Symbol {
-                                scope: Scope::Local("test".to_string()),
-                                var: "a".to_string(),
-                                t: Type::Char,
-                                strt: Structure::Identifier,
-                                pos: 0,
-                                offset: 0,
-                                size: 1,
-                                members: vec![],
-                            },
-                            Symbol {
-                                scope: Scope::Local("test".to_string()),
-                                var: "a".to_string(),
-                                t: Type::Char,
-                                strt: Structure::Identifier,
-                                pos: 0,
-                                offset: 0,
-                                size: 1,
-                                members: vec![],
-                            }
-                        ],
-                    }
-                )
-            )
-        }
-        {
-            assert_eq!(
-                8,
-                table.type_size(
-                    &Symbol {
-                        scope: Scope::Local("test".to_string()),
-                        var: "a".to_string(),
-                        t: Type::Struct("".to_string()),
-                        strt: Structure::Struct,
-                        pos: 0,
-                        offset: 0,
-                        size: 0,
-                        members: vec![
-                            Symbol {
-                                scope: Scope::Local("test".to_string()),
-                                var: "a".to_string(),
-                                t: Type::Char,
-                                strt: Structure::Identifier,
-                                pos: 0,
-                                offset: 0,
-                                size: 1,
-                                members: vec![],
-                            },
-                            Symbol {
-                                scope: Scope::Local("test".to_string()),
-                                var: "a".to_string(),
-                                t: Type::Int,
-                                strt: Structure::Identifier,
-                                pos: 0,
-                                offset: 0,
-                                size: 4,
-                                members: vec![],
-                            }
-                        ],
-                    }
-                )
-            )
+                ],
+            };
+            assert_eq!(8, sym.type_size());
         }
     }
 }
