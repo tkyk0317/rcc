@@ -13,7 +13,8 @@ all:
 	@cargo b && cargo b --release
 
 test: clippy
-	@cargo t
+	- @cargo t
+	@rm -rf test.s
 
 clippy:
 	@cargo clean -p rcc
